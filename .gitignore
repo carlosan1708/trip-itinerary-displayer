@@ -1,0 +1,21 @@
+# Itinerarios fuente y fotos (privados — no subir contenido del viaje)
+*.md
+src/data/*.json
+public/trips/
+
+# Dependencias
+node_modules/
+
+# Build
+dist/
+
+# Variables de entorno (contienen credenciales)
+.env
+.env.local
+*.local
+
+# Claude Code
+.claude/settings.local.json
+
+# Firebase CLI cache
+.firebase/

@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "canada-trip-e7056"
+  },
+  "targets": {
+    "canada-trip-e7056": {
+      "hosting": {
+        "main": [
+          "mi-itinerario"
+        ]
+      }
+    }
+  }
+}

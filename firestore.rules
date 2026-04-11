@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+             request.auth.token.email == "carlosan.1708@gmail.com";
+    }
+
+    function isAllowed(tripId) {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/trips/$(tripId)/allowed_users/$(request.auth.token.email));
+    }
+
+    // Estructura por viaje: trips/{tripId}/...
+    match /trips/{tripId} {
+      // Datos del itinerario
+      match /data/{docId} {
+        allow read, write: if isAdmin() || isAllowed(tripId);
+      }
+
+      // Lista de invitados por viaje
+      match /allowed_users/{email} {
+        allow read, write: if isAdmin() || isAllowed(tripId);
+      }
+    }
+  }
+}
