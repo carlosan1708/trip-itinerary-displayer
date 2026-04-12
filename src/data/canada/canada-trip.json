@@ -1,0 +1,507 @@
+{
+  "version": 4,
+  "title": "Itinerario Canadá",
+  "subtitle": "Sep 12 – Sep 30, 2026",
+  "stats": ["19 días", "3 provincias", "5 ciudades", "SJO → YYZ"],
+  "parts": [
+    {
+      "id": 1,
+      "emoji": "🏔️",
+      "title": "Las Rocosas y Aguas Termales",
+      "color": "#2E7D32",
+      "daysRange": "Días 1 – 7",
+      "days": [
+        {
+          "dayNumber": 1,
+          "date": "Sáb 12 Sep",
+          "location": "Calgary",
+          "subtitle": "Llegada Nocturna",
+          "logistics": [
+            { "type": "flight", "label": "Vuelo",        "value": "SJO → YYC (Aeropuerto Internacional de Calgary)" },
+            { "type": "drive",  "label": "Drive",         "value": "YYC → centro Calgary: ~20 min" },
+            { "type": "stay",   "label": "Alojamiento",   "value": "Airbnb / Hotel céntrico en Calgary" }
+          ],
+          "activities": [
+            "Aterrizaje en YYC y recogida del auto de alquiler",
+            "Check-in y descanso del vuelo"
+          ],
+          "tips": [],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/8/8e/Calgary-Dawn-Szmurlo.jpg", "caption": "Calgary al amanecer" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Calgary_Downtown_night.jpg", "caption": "Downtown Calgary de noche" }
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "date": "Dom 13 Sep",
+          "location": "Canmore / Banff",
+          "subtitle": "Exploración Inicial",
+          "logistics": [
+            { "type": "drive", "label": "Drive",       "value": "Calgary → Canmore: 104 km, ~1h 10 min" },
+            { "type": "drive", "label": "Drive",       "value": "Canmore → Banff: 26 km, ~20 min" },
+            { "type": "stay",  "label": "Alojamiento", "value": "Canmore o Banff — 3 noches" }
+          ],
+          "activities": [
+            "Parada en **Canmore Main Street** al llegar — primera impresión de pueblo montañero, café y vistas a las Three Sisters",
+            "Check-in",
+            "**Bow Falls** — caída de agua icónica dentro del pueblo de Banff; estacionamiento a 2 min a pie plano del mirador",
+            "Paseo por **Banff Avenue** y grounds del **Fairmont Banff Springs Hotel** — el castillo más fotografiado de Canadá, se puede caminar por los jardines sin entrar al hotel",
+            "**Vermilion Lakes** al atardecer — 3 lagos a 5 min del centro de Banff, sendero completamente plano, reflejo perfecto del Monte Rundle en el agua"
+          ],
+          "tips": [
+            "Comprar el **Parks Canada Discovery Pass** (~75 CAD) en la entrada del parque. Cubre todas las atracciones del viaje.",
+            "El recorrido Bow Falls → Banff Springs → Vermilion Lakes fluye de sur a norte sin volver sobre el camino.",
+            "Vermilion Lakes es el mejor punto fotográfico al atardecer de todo el área de Banff."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/5/5f/The-Three-Sisters-Szmurlo.jpg", "caption": "Las Three Sisters, Canmore" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/9/9a/Vermillion_Lakes%2C_Banff.jpg", "caption": "Vermilion Lakes al atardecer" }
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "date": "Lun 14 Sep",
+          "location": "Banff",
+          "subtitle": "Los Lagos Icónicos",
+          "logistics": [
+            { "type": "drive", "label": "Drive", "value": "Banff → Lake Louise: 58 km, ~45 min" },
+            { "type": "drive", "label": "Drive", "value": "Lake Louise → Moraine Lake: 14 km, ~20 min (solo en shuttle)" }
+          ],
+          "activities": [
+            "**Lake Louise** — Caminata suave por el Lakefront Trail (sin pendiente); vista al glaciar Victoria desde el lago",
+            "Paseo por los jardines y la terraza del **Château Lake Louise** — icónico hotel castillo frente al lago, sin costo de entrada a los exteriores",
+            "**Moraine Lake** (en shuttle) — el lago turquesa más famoso de las Rocosas; plataforma de roca accesible para la foto clásica"
+          ],
+          "tips": [],
+          "warnings": [
+            "Moraine Lake: Es obligatorio reservar el shuttle de Parks Canada o ROAM Transit. Ya no se permite acceso en auto particular."
+          ],
+          "links": [
+            { "label": "Reservas Parks Canada (Moraine Lake)", "url": "https://reservation.pc.gc.ca" }
+          ],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/f/f1/Lake_Louise_17092005.jpg", "caption": "Lake Louise" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Moraine_Lake_17092005.jpg/1920px-Moraine_Lake_17092005.jpg", "caption": "Moraine Lake" }
+          ]
+        },
+        {
+          "dayNumber": 4,
+          "date": "Mar 15 Sep",
+          "location": "Banff",
+          "subtitle": "Cascadas y Vistas",
+          "logistics": [
+            { "type": "drive", "label": "Drive", "value": "Banff → Johnston Canyon: 26 km, ~25 min" },
+            { "type": "drive", "label": "Drive", "value": "Johnston Canyon → Banff Gondola: 26 km, ~25 min" }
+          ],
+          "activities": [
+            "**Johnston Canyon (Lower Falls)** — Pasarelas metálicas con barandales, muy seguras y totalmente accesibles",
+            "**Surprise Corner Viewpoint** — mirador a 5 min del centro de Banff, vista panorámica del Fairmont Banff Springs y el valle del río Bow; completamente plano",
+            "**Banff Gondola** — Teleférico al Sulphur Mountain para una vista 360° sin necesidad de escalar"
+          ],
+          "tips": [
+            "Llegar a Johnston Canyon antes de las 9:00 AM para asegurar estacionamiento y evitar multitudes."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/d/d5/Johnston_Canyon-Lower_Falls.jpg", "caption": "Johnston Canyon Lower Falls" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/4/4c/Banff_Sulphur_Mountain_Gondola_IMG_4259.JPG", "caption": "Banff Gondola — Sulphur Mountain" }
+          ]
+        },
+        {
+          "dayNumber": 5,
+          "date": "Mié 16 Sep",
+          "location": "Icefields Parkway",
+          "subtitle": "Ruta Escénica a Jasper",
+          "logistics": [
+            { "type": "drive", "label": "Drive",       "value": "Banff → Jasper: 288 km, ~3h 30 min netos (todo el día con paradas)" },
+            { "type": "stay",  "label": "Alojamiento", "value": "Jasper — 3 noches" }
+          ],
+          "activities": [
+            "Check-out y recorrido por la carretera de los glaciares",
+            "Parada: **Bow Lake** — lago de color esmeralda con glaciar de fondo",
+            "Parada: **Peyto Lake Viewpoint** — considerado el lago más fotogénico de Canadá; camino pavimentado corto desde el parqueo",
+            "Parada: **Mirador del Glaciar Athabasca** — se ve el glaciar directamente desde la carretera",
+            "Parada: **Sunwapta Falls** — a metros del parqueo",
+            "Parada: **Athabasca Falls** — la más poderosa de las Rocosas; pasarelas accesibles a metros del parqueo"
+          ],
+          "tips": [
+            "Gasolina SOLO en Saskatchewan Crossing — llenar el tanque antes de salir.",
+            "Ropa en capas: temperaturas varían de 0°C a 15°C rápidamente.",
+            "Salir de Banff temprano (8:00 AM) para aprovechar todas las paradas con luz."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/9/91/Peyto_Lake-Banff_NP-Canada.jpg", "caption": "Peyto Lake — Icefields Parkway" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/a/a8/Athabasca_Falls%2C_Jasper_National_Park_01.jpg", "caption": "Athabasca Falls, Jasper National Park" }
+          ]
+        },
+        {
+          "dayNumber": 6,
+          "date": "Jue 17 Sep",
+          "location": "Jasper",
+          "subtitle": "Naturaleza y Relajación",
+          "logistics": [
+            { "type": "drive", "label": "Drive", "value": "Jasper → Patricia/Pyramid Lakes: 7 km, ~10 min" },
+            { "type": "drive", "label": "Drive", "value": "Jasper → Miette Hot Springs: 61 km, ~1h" }
+          ],
+          "activities": [
+            "Mañana: paseo por **Patricia Lake y Pyramid Lake** — sendero plano a la orilla del lago con vistas directas a las montañas",
+            "**Old Fort Point** — loop corto con vista panorámica del valle de Jasper y el río Athabasca, bajo esfuerzo",
+            "Tarde de descanso en **Miette Hot Springs** — las aguas termales más calientes de las Rocosas canadienses",
+            "Noche de observación de estrellas — Jasper es Reserva Internacional de Cielo Oscuro, una de las mejores del mundo"
+          ],
+          "tips": [
+            "Llevar sandalias y botella de agua para las termas. Hay casilleros y vestidores bien equipados.",
+            "Para el cielo nocturno, alejarse del centro del pueblo bastará; no se necesita equipo especial."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/9/90/Pyramid_lake_in_Jasper_National_Park.jpg", "caption": "Pyramid Lake, Jasper National Park" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/e/ec/Miette_Hot_Springs_From_Above.jpg", "caption": "Miette Hot Springs, Jasper" }
+          ]
+        },
+        {
+          "dayNumber": 7,
+          "date": "Vie 18 Sep",
+          "location": "Jasper",
+          "subtitle": "El Lago Maligne",
+          "logistics": [
+            { "type": "drive", "label": "Drive", "value": "Jasper → Maligne Canyon: 11 km, ~15 min" },
+            { "type": "drive", "label": "Drive", "value": "Maligne Canyon → Maligne Lake: 37 km, ~30 min" }
+          ],
+          "activities": [
+            "**Maligne Canyon** — pasarelas muy accesibles sobre el cañón más profundo de las Rocosas",
+            "**Crucero en bote por Maligne Lake** hasta Spirit Island — paisaje considerado uno de los más fotografiados de Canadá"
+          ],
+          "tips": [
+            "Reservar el crucero con mucha anticipación. El tour de la tarde tiene la mejor luz para fotografías."
+          ],
+          "warnings": [],
+          "links": [
+            { "label": "Reservas crucero Maligne Lake", "url": "https://malignelake.com" }
+          ],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/4/49/Spirit_Island%2C_Maligne_Lake%2C_Jasper_NP.jpg", "caption": "Spirit Island, Maligne Lake" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/f/f8/A_crack_on_earth.jpg", "caption": "Maligne Canyon, Jasper" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "emoji": "🍁",
+      "title": "El Salto al Este y las Ciudades",
+      "color": "#AD1457",
+      "daysRange": "Días 8 – 13",
+      "days": [
+        {
+          "dayNumber": 8,
+          "date": "Sáb 19 Sep",
+          "location": "Edmonton / Vuelo",
+          "subtitle": "Transición",
+          "logistics": [
+            { "type": "drive",  "label": "Drive",       "value": "Jasper → Edmonton YEG (AB-16): 365 km, ~3h 45 min" },
+            { "type": "flight", "label": "Vuelo",        "value": "YEG → YUL (Montreal)" },
+            { "type": "stay",   "label": "Alojamiento",  "value": "Montreal — 3 noches" }
+          ],
+          "activities": [
+            "Drive Jasper → Edmonton por la AB-16 (carretera plana y recta, cero estrés)",
+            "Devolver auto de alquiler en YEG",
+            "Vuelo interno y check-in en Montreal"
+          ],
+          "tips": [
+            "Descargar mapas offline; la señal es intermitente en partes de la carretera."
+          ],
+          "warnings": [],
+          "links": []
+        },
+        {
+          "dayNumber": 9,
+          "date": "Dom 20 Sep",
+          "location": "Montreal",
+          "subtitle": "El Viejo Mundo",
+          "logistics": [],
+          "activities": [
+            "Día peatonal en **Vieux-Montréal**",
+            "Visita a la **Basílica de Notre-Dame** (interior iluminado impresionante)",
+            "Paseo por el **Vieux-Port** (Viejo Puerto) con vista al río San Lorenzo",
+            "Cena en la **Rue Saint-Paul** — la calle más antigua de Montreal, llena de restaurantes"
+          ],
+          "tips": [
+            "La zona tiene calles de adoquines — llevar zapatos cómodos de suela gruesa."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/6/65/Notre-Dame_Basilica_Interior%2C_Montreal%2C_Canada_-_Diliff.jpg", "caption": "Basílica de Notre-Dame — interior" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/8/8c/Vieux_Montreal_-_Old_Montreal.jpg", "caption": "Vieux-Montréal" }
+          ]
+        },
+        {
+          "dayNumber": 10,
+          "date": "Lun 21 Sep",
+          "location": "Montreal",
+          "subtitle": "Naturaleza Urbana",
+          "logistics": [],
+          "activities": [
+            "**Jardín Botánico de Montreal** — en septiembre celebran el festival de linternas; totalmente plano y accesible, con carritos disponibles",
+            "**Marché Jean-Talon** — el mercado público más grande de Norteamérica, a 10 min del Jardín Botánico; frutas, quesos, productos locales, completamente al aire libre y plano",
+            "Tarde gastronómica en el **Plateau-Mont-Royal** y **Mile End** — los dos barrios más auténticos de Montreal"
+          ],
+          "tips": [
+            "Usar Uber o el metro (limpio y accesible) — no se necesita auto en la ciudad."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/7/79/Jardin_botanique_de_Montr%C3%A9al_008.jpg", "caption": "Jardín Botánico de Montreal" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/7/7f/Marche_Jean-Talon_01.jpg", "caption": "Marché Jean-Talon" }
+          ]
+        },
+        {
+          "dayNumber": 11,
+          "date": "Mar 22 Sep",
+          "location": "Montreal → Quebec City",
+          "subtitle": "Traslado en Auto",
+          "logistics": [
+            { "type": "drive", "label": "Drive",       "value": "Montreal → Quebec City: 250 km, ~2h 30 min (Hwy 20)" },
+            { "type": "stay",  "label": "Alojamiento", "value": "Vieux-Québec (casco histórico) — 3 noches" }
+          ],
+          "activities": [
+            "Drive Montreal → Quebec City por la **Hwy 20** (autopista directa, sin peajes)",
+            "Check-in en el casco histórico",
+            "Tarde: primer paseo por la **Rue Saint-Jean** — calle más animada de Québec",
+            "Caminar sobre **Les Fortifications** — única ciudad amurallada al norte de México; completamente plana y con vistas espectaculares",
+            "Cena en la zona de la **Place d'Armes**"
+          ],
+          "tips": [
+            "Estacionar fuera de las murallas — hay parkings públicos más baratos (~$15 CAD/día) en los bordes del casco histórico. Dentro es caro y las calles son angostas.",
+            "Tener el auto estos días cubre también el Día 13 (Montmorency + Sainte-Anne + Île d'Orléans) sin necesidad de tour organizado.",
+            "El auto continúa hasta Ottawa y Toronto — se devuelve en **Toronto el Día 18**."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/8/82/Rue_Saint-Jean%2C_Qu%C3%A9bec.jpg", "caption": "Rue Saint-Jean, Quebec City" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Fortifications_of_Quebec_City.jpg", "caption": "Las Fortifications de Québec" }
+          ]
+        },
+        {
+          "dayNumber": 12,
+          "date": "Mié 23 Sep",
+          "location": "Quebec City",
+          "subtitle": "Arquitectura y Castillos",
+          "logistics": [],
+          "activities": [
+            "Paseo por la **Terrasse Dufferin** junto al **Château Frontenac**",
+            "Bajar al **Quartier Petit Champlain** (zona comercial histórica)",
+            "**La Citadelle de Québec** — fortaleza activa del ejército canadiense; tour guiado, accesible en taxi hasta la entrada",
+            "**Parc des Champs-de-Bataille (Plains of Abraham)** — parque histórico completamente plano, hermoso en septiembre con los colores del otoño"
+          ],
+          "tips": [
+            "Existe un funicular (elevador) para bajar y subir del Petit Champlain — evita el esfuerzo físico en las colinas.",
+            "El Parc des Champs-de-Bataille es perfecto para un picnic con vista al Río San Lorenzo."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/c/c2/Ch%C3%A2teau_Frontenac_at_night%2C_Quebec_Ville%2C_Canada.jpg", "caption": "Château Frontenac de noche, Quebec City" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/4/40/Lookout_on_the_Plains_of_Abraham%2C_Quebec_%2827375259935%29.jpg", "caption": "Parc des Champs-de-Bataille (Plains of Abraham)" }
+          ]
+        },
+        {
+          "dayNumber": 13,
+          "date": "Jue 24 Sep",
+          "location": "Quebec City",
+          "subtitle": "Cataratas y Entorno",
+          "logistics": [
+            { "type": "drive", "label": "Drive", "value": "Quebec City → Chute-Montmorency: 12 km, ~15 min" },
+            { "type": "drive", "label": "Drive", "value": "Montmorency → Sainte-Anne-de-Beaupré: 8 km, ~10 min" },
+            { "type": "drive", "label": "Drive", "value": "Sainte-Anne → Île d'Orléans (entrada): 5 km, ~5 min" }
+          ],
+          "activities": [
+            "**Parque Chute-Montmorency** — cataratas 30 metros más altas que las del Niágara; teleférico hasta la cima + puente colgante accesible",
+            "**Basílica de Sainte-Anne-de-Beaupré** — imponente basílica de peregrinación a 5 min de Montmorency",
+            "**Île d'Orléans** — isla con granjas, artesanos, quesos, vinos y mermeladas locales; recorrido por las aldeas de la isla"
+          ],
+          "tips": [
+            "En Île d'Orléans, la Chocolaterie de l'Île es parada obligatoria.",
+            "Se puede combinar Montmorency + Sainte-Anne + Île d'Orléans en un solo recorrido circular."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/1/17/Chute_Montmorency2_cephas.jpg", "caption": "Chute Montmorency — más alta que el Niágara" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/6/6e/%C3%8Ele_d%27Orl%C3%A9ans_002.jpg", "caption": "Île d'Orléans en el río San Lorenzo" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "emoji": "🌊",
+      "title": "El Gran Cierre",
+      "color": "#0277BD",
+      "daysRange": "Días 14 – 19",
+      "days": [
+        {
+          "dayNumber": 14,
+          "date": "Vie 25 Sep",
+          "location": "Quebec City → Ottawa",
+          "subtitle": "La Capital Federal",
+          "logistics": [
+            { "type": "drive", "label": "Drive",       "value": "Quebec City → Ottawa: ~500 km, ~5h (Hwy 20 / Hwy 417)" },
+            { "type": "stay",  "label": "Alojamiento", "value": "Ottawa — 2 noches" }
+          ],
+          "activities": [
+            "Drive Quebec City → Ottawa con el auto alquilado (sin vuelo, sin estrés)",
+            "Check-in en Ottawa",
+            "Tarde: **ByWard Market** — mercado público más antiguo de Canadá, corazón gastronómico de la ciudad",
+            "Paseo nocturno por **Parliament Hill** — las luces del parlamento reflejadas en el río Ottawa al atardecer"
+          ],
+          "tips": [
+            "Ottawa marca un cambio total de ambiente: ciudad bilingüe, ordenada y verde.",
+            "El auto se devuelve en Toronto el Día 18."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/3/32/Parliament_Hill%2C_Ottawa.jpg", "caption": "Parliament Hill, Ottawa" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/8/86/Rideau_Canal_and_Ch%C3%A2teau_Laurier.jpg", "caption": "Rideau Canal y Château Laurier, Ottawa" }
+          ]
+        },
+        {
+          "dayNumber": 15,
+          "date": "Sáb 26 Sep",
+          "location": "Ottawa",
+          "subtitle": "Monumentos y Canales",
+          "logistics": [],
+          "activities": [
+            "**Parliament Hill** — tour gratuito a los jardines y exteriores; vistas al río Ottawa con los primeros colores del otoño",
+            "**Rideau Canal** — paseo a pie o en bici por las orillas del canal Patrimonio de la UNESCO",
+            "**Museo Canadiense de Historia** (Gatineau, al otro lado del río) — la colección más importante sobre historia indígena y canadiense",
+            "Vista del skyline de Ottawa desde el **Puente Alexandra** en Gatineau"
+          ],
+          "tips": [
+            "Cruzar el puente Alexandra a pie da la mejor foto del Parlamento desde el otro lado del río.",
+            "En septiembre los árboles del canal ya empiezan a cambiar de color."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/2/2e/Parliament_Hill_from_the_Ottawa_River.JPG", "caption": "Parliament Hill reflejado en el río Ottawa" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/2/21/Rideau_Canal_Lock_2009.jpg", "caption": "Esclusas del Rideau Canal — Patrimonio UNESCO" }
+          ]
+        },
+        {
+          "dayNumber": 16,
+          "date": "Dom 27 Sep",
+          "location": "Ottawa → Niágara",
+          "subtitle": "Llegada a las Cataratas",
+          "logistics": [
+            { "type": "drive", "label": "Drive",       "value": "Ottawa → Niagara Falls: ~550 km, ~5h 30 min (Hwy 401)" },
+            { "type": "stay",  "label": "Alojamiento", "value": "Niagara Falls — 1 noche" }
+          ],
+          "activities": [
+            "Drive Ottawa → Niagara Falls por la **Hwy 401**",
+            "Check-in",
+            "**Table Rock** al llegar — plataforma a metros del borde de las Horseshoe Falls, completamente accesible, sin costo",
+            "Ver las cataratas iluminadas de noche desde el paseo peatonal frente al río"
+          ],
+          "tips": [],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/6/66/Canadian_Horseshoe_Falls_%28en_2017%29_%281%29.JPG", "caption": "Cataratas del Niágara — Horseshoe Falls" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/8/89/Niagara_Falls_%28Horseshoe_Falls%29.jpg", "caption": "Horseshoe Falls, la catarata más poderosa de Norteamérica" }
+          ]
+        },
+        {
+          "dayNumber": 17,
+          "date": "Lun 28 Sep",
+          "location": "Niágara",
+          "subtitle": "Cataratas y Viñedos",
+          "logistics": [
+            { "type": "drive", "label": "Drive", "value": "Niagara Falls → Niagara-on-the-Lake: 20 km, ~25 min" }
+          ],
+          "activities": [
+            "**Tour en barco Hornblower** — acercarse a la caída del agua (ponchos provistos)",
+            "**Journey Behind the Falls** — túneles que llevan detrás de la cortina de agua; completamente accesible",
+            "Tarde en **Niagara-on-the-Lake** — pueblo histórico pintoresco con viñedos y calles planas; cata de vinos"
+          ],
+          "tips": [
+            "Tarde de ritmo lento; ideal para sentarse a almorzar frente al lago en el centro del pueblo."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Queen_St_and_Clock_Tower%2C_Niagara-on-the-Lake_20170418_1.jpg", "caption": "Niagara-on-the-Lake — Queen Street" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/8/86/Evening_view_from_Niagara_on_the_Lake.jpg", "caption": "Atardecer desde Niagara-on-the-Lake" }
+          ]
+        },
+        {
+          "dayNumber": 18,
+          "date": "Mar 29 Sep",
+          "location": "Toronto",
+          "subtitle": "Regreso a la Ciudad",
+          "logistics": [
+            { "type": "drive", "label": "Drive",       "value": "Niagara Falls → Toronto (downtown): 130 km, ~1h 20 min" },
+            { "type": "stay",  "label": "Alojamiento", "value": "Toronto — 1 noche" }
+          ],
+          "activities": [
+            "Drive Niágara → Toronto y check-in",
+            "**Kensington Market** — barrio bohemio y multicultural, completamente peatonal, ideal para almorzar",
+            "Tarde en el **Distillery District** (zona peatonal con restaurantes, galerías y arquitectura victoriana preservada)",
+            "Paseo por el **Harbourfront Centre** a orillas del Lago Ontario",
+            "Última cena canadiense para cerrar el viaje 🍁"
+          ],
+          "tips": [
+            "Devolver el auto al llegar y usar tranvías o Uber para moverse."
+          ],
+          "warnings": [],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/d/d1/Gooderham_%26_Worts%2C_Toronto_Distillery_District_-a.jpg", "caption": "Distillery District, Toronto" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/a/a4/Distillery_District%2C_looking_northeast_2026.jpg", "caption": "Distillery District — arquitectura victoriana" }
+          ]
+        },
+        {
+          "dayNumber": 19,
+          "date": "Mié 30 Sep",
+          "location": "Toronto",
+          "subtitle": "Íconos y Regreso a SJO ✈️",
+          "logistics": [
+            { "type": "train",  "label": "UP Express", "value": "Union Station → YYZ: 25 min" },
+            { "type": "flight", "label": "Vuelo",      "value": "YYZ → SJO (vuelo internacional)" }
+          ],
+          "activities": [
+            "**St. Lawrence Market** — miel de maple, artesanías y productos locales (abre desde las 8 AM)",
+            "**CN Tower** — vista panorámica de la ciudad; el ascensor llega directo al mirador",
+            "**Toronto Islands** — ferry desde Jack Layton Ferry Terminal (~15 min en barco); playas y vistas del skyline",
+            "Check-out y traslado al aeropuerto YYZ",
+            "UP Express desde Union Station: directo a YYZ, 25 min",
+            "Vuelo internacional **YYZ → SJO**"
+          ],
+          "tips": [
+            "Hacer St. Lawrence Market y CN Tower en la mañana temprano antes del check-out al mediodía."
+          ],
+          "warnings": [
+            "Llegar al aeropuerto 3 horas antes del vuelo internacional."
+          ],
+          "links": [],
+          "images": [
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/2/2d/Toronto_-_ON_-_CN_Tower_bei_Nacht2.jpg", "caption": "CN Tower de noche, Toronto" },
+            { "url": "https://upload.wikimedia.org/wikipedia/commons/b/b7/CN_Tower_from_Puente_de_Luz%2C_Toronto%2C_Ontario%2C_2025-08-25_01.jpg", "caption": "CN Tower desde el Puente de Luz, Toronto" }
+          ]
+        }
+      ]
+    }
+  ]
+}

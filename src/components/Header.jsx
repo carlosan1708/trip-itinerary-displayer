@@ -1,23 +1,88 @@
 import { useState } from 'react'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
-import { Box, Typography, Chip, Button, Tooltip } from '@mui/material'
-import FlightIcon from '@mui/icons-material/Flight'
+import { useRef } from 'react'
+import { Box, Typography, Chip, Button, Tooltip, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material'
+import ArrowBackIcon    from '@mui/icons-material/ArrowBack'
+import EditIcon         from '@mui/icons-material/Edit'
+import EditOffIcon      from '@mui/icons-material/EditOff'
+import UploadFileIcon   from '@mui/icons-material/UploadFile'
+import DataObjectIcon   from '@mui/icons-material/DataObject'
+import FlightIcon       from '@mui/icons-material/Flight'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
-import LocationOnIcon from '@mui/icons-material/LocationOn'
-import PeopleIcon from '@mui/icons-material/People'
-import LogoutIcon from '@mui/icons-material/Logout'
-import AdminPanel from './AdminPanel'
+import LocationOnIcon   from '@mui/icons-material/LocationOn'
+import PeopleIcon       from '@mui/icons-material/People'
+import HistoryIcon      from '@mui/icons-material/History'
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
+import LogoutIcon       from '@mui/icons-material/Logout'
+import MenuIcon         from '@mui/icons-material/Menu'
+import AdminPanel       from './AdminPanel'
 
-export default function Header({ title, subtitle, stats, user, isAdmin }) {
-  const [adminOpen, setAdminOpen] = useState(false)
+export default function Header({ title, subtitle, stats, user, isAdmin, editMode, onToggleEdit, onUploadJson, onOpenJsonEditor, onOpenVersionHistory, onDownloadPdf, pdfLoading, onBack }) {
+  const [adminOpen, setAdminOpen]   = useState(false)
+  const [menuAnchor, setMenuAnchor] = useState(null)
+  const fileInputRef = useRef()
 
   const statIcons = [
     <CalendarMonthIcon key="cal" sx={{ fontSize: 16 }} />,
-    <LocationOnIcon   key="loc" sx={{ fontSize: 16 }} />,
-    <LocationOnIcon   key="loc2" sx={{ fontSize: 16 }} />,
-    <FlightIcon       key="fly" sx={{ fontSize: 16 }} />,
+    <LocationOnIcon    key="loc" sx={{ fontSize: 16 }} />,
+    <LocationOnIcon    key="loc2" sx={{ fontSize: 16 }} />,
+    <FlightIcon        key="fly" sx={{ fontSize: 16 }} />,
   ]
+
+  function handleUpload(file) {
+    onUploadJson(file)
+    setMenuAnchor(null)
+  }
+
+  // Actions list — used for both desktop buttons and mobile menu
+  const actions = [
+    editMode && onUploadJson && {
+      key: 'upload',
+      icon: <UploadFileIcon fontSize="small" />,
+      label: 'Subir JSON',
+      onClick: () => { fileInputRef.current.click(); setMenuAnchor(null) },
+    },
+    editMode && onOpenJsonEditor && {
+      key: 'json',
+      icon: <DataObjectIcon fontSize="small" />,
+      label: 'Editar JSON',
+      onClick: () => { onOpenJsonEditor(); setMenuAnchor(null) },
+    },
+    onToggleEdit && {
+      key: 'edit',
+      icon: editMode ? <EditOffIcon fontSize="small" /> : <EditIcon fontSize="small" />,
+      label: editMode ? 'Salir de edición' : 'Editar',
+      onClick: () => { onToggleEdit(); setMenuAnchor(null) },
+      highlight: editMode,
+    },
+    onDownloadPdf && {
+      key: 'pdf',
+      icon: <PictureAsPdfIcon fontSize="small" />,
+      label: pdfLoading ? 'Generando…' : 'PDF',
+      onClick: () => { onDownloadPdf(); setMenuAnchor(null) },
+      disabled: pdfLoading,
+    },
+    isAdmin && onOpenVersionHistory && {
+      key: 'versions',
+      icon: <HistoryIcon fontSize="small" />,
+      label: 'Versiones',
+      onClick: () => { onOpenVersionHistory(); setMenuAnchor(null) },
+    },
+    isAdmin && {
+      key: 'admin',
+      icon: <PeopleIcon fontSize="small" />,
+      label: 'Accesos',
+      onClick: () => { setAdminOpen(true); setMenuAnchor(null) },
+    },
+    {
+      key: 'logout',
+      icon: <LogoutIcon fontSize="small" />,
+      label: 'Salir',
+      onClick: () => signOut(auth),
+      dividerBefore: true,
+    },
+  ].filter(Boolean)
 
   return (
     <>
@@ -38,45 +103,90 @@ export default function Header({ title, subtitle, stats, user, isAdmin }) {
           background: 'linear-gradient(90deg, #2E7D32, #AD1457, #0277BD)',
         }} />
 
+        {/* Back button — top left */}
+        {onBack && (
+          <Box sx={{ position: 'absolute', top: 12, left: 12 }}>
+            <Button
+              size="small"
+              startIcon={<ArrowBackIcon sx={{ fontSize: 16 }} />}
+              onClick={onBack}
+              sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', textTransform: 'none', '&:hover': { color: '#fff' } }}
+            >
+              Mis Viajes
+            </Button>
+          </Box>
+        )}
+
         {/* User controls — top right */}
         {user && (
-          <Box sx={{
-            position: 'absolute', top: 12, right: 16,
-            display: 'flex', alignItems: 'center', gap: 1,
-          }}>
-            {isAdmin && (
-              <Tooltip title="Gestionar accesos">
+          <Box sx={{ position: 'absolute', top: 12, right: 14, display: 'flex', alignItems: 'center', gap: 1 }}>
+
+            {/* Hidden file input */}
+            {onUploadJson && (
+              <input ref={fileInputRef} type="file" accept=".json,application/json" hidden
+                onChange={e => { handleUpload(e.target.files[0]); e.target.value = '' }} />
+            )}
+
+            {/* ── Desktop: individual buttons (hidden on xs) ── */}
+            <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.75 }}>
+              {actions.map(a => (
                 <Button
+                  key={a.key}
                   size="small"
-                  startIcon={<PeopleIcon sx={{ fontSize: 16 }} />}
-                  onClick={() => setAdminOpen(true)}
+                  variant="outlined"
+                  startIcon={a.icon}
+                  onClick={a.onClick}
+                  disabled={a.disabled}
                   sx={{
-                    color: 'rgba(255,255,255,0.55)',
-                    fontSize: '0.75rem',
+                    borderColor: a.highlight ? '#81c784' : 'rgba(255,255,255,0.45)',
+                    color: a.highlight ? '#81c784' : '#fff',
+                    fontSize: '0.8rem',
                     textTransform: 'none',
-                    '&:hover': { color: '#fff' },
+                    px: 1.5,
+                    py: 0.5,
+                    '&:hover': {
+                      borderColor: '#fff',
+                      bgcolor: 'rgba(255,255,255,0.12)',
+                    },
+                    '&.Mui-disabled': { borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.3)' },
                   }}
                 >
-                  Accesos
+                  {a.label}
                 </Button>
-              </Tooltip>
-            )}
-            <Tooltip title={`Cerrar sesión (${user.email})`}>
-              <Button
-                size="small"
-                startIcon={<LogoutIcon sx={{ fontSize: 16 }} />}
-                onClick={() => signOut(auth)}
-                sx={{
-                  color: 'rgba(255,255,255,0.4)',
-                  fontSize: '0.75rem',
-                  textTransform: 'none',
-                  minWidth: 0,
-                  '&:hover': { color: '#fff' },
-                }}
+              ))}
+            </Box>
+
+            {/* ── Mobile: hamburger button (hidden on sm+) ── */}
+            <Box sx={{ display: { xs: 'flex', sm: 'none' } }}>
+              <IconButton
+                onClick={e => setMenuAnchor(e.currentTarget)}
+                sx={{ color: 'rgba(255,255,255,0.85)', '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' } }}
               >
-                Salir
-              </Button>
-            </Tooltip>
+                <MenuIcon />
+              </IconButton>
+              <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={() => setMenuAnchor(null)}
+                PaperProps={{ sx: { minWidth: 200, mt: 1 } }}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              >
+                {actions.map(a => [
+                  a.dividerBefore && <Divider key={`div-${a.key}`} />,
+                  <MenuItem
+                    key={a.key}
+                    onClick={a.onClick}
+                    disabled={a.disabled}
+                    sx={a.highlight ? { color: 'success.main' } : {}}
+                  >
+                    <ListItemIcon sx={a.highlight ? { color: 'success.main' } : {}}>{a.icon}</ListItemIcon>
+                    <ListItemText>{a.label}</ListItemText>
+                  </MenuItem>,
+                ])}
+              </Menu>
+            </Box>
+
           </Box>
         )}
 

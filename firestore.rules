@@ -23,6 +23,23 @@ service cloud.firestore {
       match /allowed_users/{email} {
         allow read, write: if isAdmin() || isAllowed(tripId);
       }
+
+      // Historial de versiones — lectura para usuarios con acceso, escritura solo admin
+      match /versions/{versionId} {
+        allow read: if isAdmin() || isAllowed(tripId);
+        allow write: if isAdmin();
+      }
+
+      // Notas del grupo — cada usuario escribe y edita solo las suyas; admin puede borrar cualquiera
+      match /notes/{noteId} {
+        allow read: if isAdmin() || isAllowed(tripId);
+        allow create: if (isAdmin() || isAllowed(tripId))
+                      && request.resource.data.authorEmail == request.auth.token.email;
+        allow update: if (isAdmin() || isAllowed(tripId))
+                      && resource.data.authorEmail == request.auth.token.email;
+        allow delete: if isAdmin()
+                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email);
+      }
     }
   }
 }
