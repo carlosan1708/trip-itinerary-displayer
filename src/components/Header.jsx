@@ -16,9 +16,12 @@ import HistoryIcon      from '@mui/icons-material/History'
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import LogoutIcon       from '@mui/icons-material/Logout'
 import MenuIcon         from '@mui/icons-material/Menu'
+import PersonIcon       from '@mui/icons-material/Person'
 import AdminPanel       from './AdminPanel'
+import { useT } from '../i18n'
 
-export default function Header({ title, subtitle, stats, user, isAdmin, editMode, onToggleEdit, onUploadJson, onOpenJsonEditor, onOpenVersionHistory, onDownloadPdf, pdfLoading, onBack }) {
+export default function Header({ title, subtitle, stats, user, isAdmin, author, editMode, onToggleEdit, onUploadJson, onOpenJsonEditor, onOpenVersionHistory, onDownloadPdf, pdfLoading, onBack }) {
+  const t = useT()
   const [adminOpen, setAdminOpen]   = useState(false)
   const [menuAnchor, setMenuAnchor] = useState(null)
   const fileInputRef = useRef()
@@ -35,50 +38,49 @@ export default function Header({ title, subtitle, stats, user, isAdmin, editMode
     setMenuAnchor(null)
   }
 
-  // Actions list — used for both desktop buttons and mobile menu
   const actions = [
     editMode && onUploadJson && {
       key: 'upload',
       icon: <UploadFileIcon fontSize="small" />,
-      label: 'Subir JSON',
+      label: t('uploadJson'),
       onClick: () => { fileInputRef.current.click(); setMenuAnchor(null) },
     },
     editMode && onOpenJsonEditor && {
       key: 'json',
       icon: <DataObjectIcon fontSize="small" />,
-      label: 'Editar JSON',
+      label: t('editJson'),
       onClick: () => { onOpenJsonEditor(); setMenuAnchor(null) },
     },
     onToggleEdit && {
       key: 'edit',
       icon: editMode ? <EditOffIcon fontSize="small" /> : <EditIcon fontSize="small" />,
-      label: editMode ? 'Salir de edición' : 'Editar',
+      label: editMode ? t('exitEdit') : t('edit'),
       onClick: () => { onToggleEdit(); setMenuAnchor(null) },
       highlight: editMode,
     },
     onDownloadPdf && {
       key: 'pdf',
       icon: <PictureAsPdfIcon fontSize="small" />,
-      label: pdfLoading ? 'Generando…' : 'PDF',
+      label: pdfLoading ? t('generatingPdf') : t('pdf'),
       onClick: () => { onDownloadPdf(); setMenuAnchor(null) },
       disabled: pdfLoading,
     },
-    isAdmin && onOpenVersionHistory && {
+    onOpenVersionHistory && {
       key: 'versions',
       icon: <HistoryIcon fontSize="small" />,
-      label: 'Versiones',
+      label: t('versions'),
       onClick: () => { onOpenVersionHistory(); setMenuAnchor(null) },
     },
     isAdmin && {
       key: 'admin',
       icon: <PeopleIcon fontSize="small" />,
-      label: 'Accesos',
+      label: t('access'),
       onClick: () => { setAdminOpen(true); setMenuAnchor(null) },
     },
     {
       key: 'logout',
       icon: <LogoutIcon fontSize="small" />,
-      label: 'Salir',
+      label: t('logout'),
       onClick: () => signOut(auth),
       dividerBefore: true,
     },
@@ -105,14 +107,22 @@ export default function Header({ title, subtitle, stats, user, isAdmin, editMode
 
         {/* Back button — top left */}
         {onBack && (
-          <Box sx={{ position: 'absolute', top: 12, left: 12 }}>
+          <Box sx={{ position: 'absolute', top: 10, left: 12 }}>
             <Button
-              size="small"
-              startIcon={<ArrowBackIcon sx={{ fontSize: 16 }} />}
+              startIcon={<ArrowBackIcon />}
               onClick={onBack}
-              sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', textTransform: 'none', '&:hover': { color: '#fff' } }}
+              sx={{
+                color: 'rgba(255,255,255,0.85)',
+                fontSize: { xs: '0.95rem', sm: '1rem' },
+                fontWeight: 500,
+                textTransform: 'none',
+                px: 1.5,
+                py: 0.75,
+                borderRadius: 2,
+                '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.12)' },
+              }}
             >
-              Mis Viajes
+              {t('myTrips')}
             </Button>
           </Box>
         )}
@@ -228,6 +238,23 @@ export default function Header({ title, subtitle, stats, user, isAdmin, editMode
             />
           ))}
         </Box>
+
+        {author && (
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+            <Chip
+              icon={<PersonIcon sx={{ fontSize: '14px !important' }} />}
+              label={author}
+              size="small"
+              sx={{
+                bgcolor: 'rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.55)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                fontSize: '0.72rem',
+                '& .MuiChip-icon': { color: 'rgba(255,255,255,0.4)' },
+              }}
+            />
+          </Box>
+        )}
       </Box>
 
       {isAdmin && (

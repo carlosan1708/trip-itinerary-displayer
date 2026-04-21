@@ -8,11 +8,14 @@ import {
 } from '@mui/material'
 import HistoryIcon  from '@mui/icons-material/History'
 import RestoreIcon  from '@mui/icons-material/Restore'
+import { useT, useLang } from '../i18n'
 
 export default function VersionHistoryModal({ open, onClose, tripId, currentVersion, onRestore }) {
+  const t    = useT()
+  const lang = useLang()
   const [versions,   setVersions]   = useState([])
   const [loading,    setLoading]    = useState(false)
-  const [confirming, setConfirming] = useState(null)   // snapshot id pending confirmation
+  const [confirming, setConfirming] = useState(null)
   const [restoring,  setRestoring]  = useState(false)
 
   useEffect(() => {
@@ -46,16 +49,22 @@ export default function VersionHistoryModal({ open, onClose, tripId, currentVers
   function formatDate(ts) {
     if (!ts) return '—'
     const d = ts.toDate ? ts.toDate() : new Date(ts)
-    return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
+    const locale = lang === 'es' ? 'es-CR' : 'en-US'
+    return d.toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' })
   }
 
-  const sourceLabel = s => s === 'restore' ? 'Restauración' : 'Subida local'
-  const sourceColor = s => s === 'restore' ? 'warning'      : 'info'
+  const sourceLabel = s => ({
+    restore:     t('sourceRestore'),
+    author_edit: t('sourceEdit'),
+    local_push:  t('sourceLocalPush'),
+  })[s] ?? t('sourceSaved')
+
+  const sourceColor = s => ({ restore: 'warning', author_edit: 'success', local_push: 'info' })[s] ?? 'default'
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
-        <HistoryIcon fontSize="small" /> Historial de versiones
+        <HistoryIcon fontSize="small" /> {t('versionHistoryTitle')}
       </DialogTitle>
 
       <DialogContent dividers sx={{ p: 0 }}>
@@ -66,7 +75,7 @@ export default function VersionHistoryModal({ open, onClose, tripId, currentVers
         ) : versions.length === 0 ? (
           <Box sx={{ py: 5, textAlign: 'center' }}>
             <Typography color="text.secondary" variant="body2">
-              No hay versiones guardadas aún.
+              {t('noVersionsMsg')}
             </Typography>
           </Box>
         ) : (
@@ -82,7 +91,6 @@ export default function VersionHistoryModal({ open, onClose, tripId, currentVers
                     flexDirection: 'column', alignItems: 'flex-start', gap: 1,
                     bgcolor: isCurrent ? 'action.selected' : 'transparent',
                   }}>
-                    {/* badges row */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', flexWrap: 'wrap' }}>
                       <Chip
                         label={`v${v.version}`}
@@ -98,11 +106,10 @@ export default function VersionHistoryModal({ open, onClose, tripId, currentVers
                         variant="outlined"
                       />
                       {isCurrent && (
-                        <Chip label="Activa" size="small" color="success" sx={{ ml: 'auto' }} />
+                        <Chip label={t('activeChip')} size="small" color="success" sx={{ ml: 'auto' }} />
                       )}
                     </Box>
 
-                    {/* metadata */}
                     <Box>
                       <Typography variant="body2" color="text.secondary">
                         {formatDate(v.savedAt)} · {v.savedBy}
@@ -112,22 +119,21 @@ export default function VersionHistoryModal({ open, onClose, tripId, currentVers
                       </Typography>
                     </Box>
 
-                    {/* restore controls */}
                     {!isCurrent && (
                       isConfirming ? (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                           <Typography variant="body2" color="warning.main">
-                            ¿Restaurar esta versión?
+                            {t('confirmRestoreMsg')}
                           </Typography>
                           <Button
                             size="small" variant="contained" color="warning"
                             disabled={restoring}
                             onClick={() => handleRestore(v)}
                           >
-                            {restoring ? 'Restaurando…' : 'Confirmar'}
+                            {restoring ? t('restoringBtn') : t('confirmBtn')}
                           </Button>
                           <Button size="small" onClick={() => setConfirming(null)} disabled={restoring}>
-                            Cancelar
+                            {t('cancel')}
                           </Button>
                         </Box>
                       ) : (
@@ -136,7 +142,7 @@ export default function VersionHistoryModal({ open, onClose, tripId, currentVers
                           startIcon={<RestoreIcon fontSize="small" />}
                           onClick={() => setConfirming(v.id)}
                         >
-                          Restaurar
+                          {t('restoreBtn')}
                         </Button>
                       )
                     )}
@@ -149,7 +155,7 @@ export default function VersionHistoryModal({ open, onClose, tripId, currentVers
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose}>Cerrar</Button>
+        <Button onClick={onClose}>{t('close')}</Button>
       </DialogActions>
     </Dialog>
   )

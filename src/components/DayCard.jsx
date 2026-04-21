@@ -15,7 +15,10 @@ import OpenInNewIcon         from '@mui/icons-material/OpenInNew'
 import DeleteIcon            from '@mui/icons-material/Delete'
 import AddIcon               from '@mui/icons-material/Add'
 import { parseText } from '../utils/parseText'
+import DayFiles from './DayFiles'
 import DayNotes from './DayNotes'
+import { useT } from '../i18n'
+
 
 const logisticIcons = {
   drive:  <DirectionsCarIcon fontSize="small" />,
@@ -25,6 +28,8 @@ const logisticIcons = {
 }
 
 export default function DayCard({ day, partColor, editMode, onDayChange, tripId, gatewayTripId, user, isAdmin }) {
+  const t = useT()
+
   function update(field, value) {
     onDayChange({ ...day, [field]: value })
   }
@@ -67,6 +72,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
       disableGutters
       elevation={1}
       defaultExpanded={editMode}
+      TransitionProps={{ unmountOnExit: true }}
       sx={{
         mb: 1.5,
         borderLeft: `4px solid ${partColor}`,
@@ -90,13 +96,13 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
           {editMode ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1, minWidth: 0 }} onClick={e => e.stopPropagation()}>
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <TextField size="small" variant="standard" label="Fecha" value={day.date ?? ''}
+                <TextField size="small" variant="standard" label={t('dateField')} value={day.date ?? ''}
                   onChange={e => update('date', e.target.value)} sx={{ width: 140, ...inputSx }} />
-                <TextField size="small" variant="standard" label="Lugar" value={day.location ?? ''}
+                <TextField size="small" variant="standard" label={t('locationField')} value={day.location ?? ''}
                   onChange={e => update('location', e.target.value)} sx={{ flex: 1, ...inputSx }}
                   inputProps={{ style: { fontWeight: 700 } }} />
               </Box>
-              <TextField size="small" variant="standard" label="Subtítulo" value={day.subtitle ?? ''}
+              <TextField size="small" variant="standard" label={t('subtitleField')} value={day.subtitle ?? ''}
                 onChange={e => update('subtitle', e.target.value)} sx={inputSx} />
             </Box>
           ) : (
@@ -116,15 +122,15 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
         {editMode ? (
           (day.images?.length > 0 || true) && (
             <Box sx={{ mb: 2 }}>
-              <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.75 }}>Imágenes</Typography>
+              <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.75 }}>{t('imagesSection')}</Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {(day.images ?? []).map((img, i) => (
                   <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      <TextField size="small" variant="outlined" fullWidth label="URL" value={img.url ?? ''}
+                      <TextField size="small" variant="outlined" fullWidth label={t('urlField')} value={img.url ?? ''}
                         onChange={e => { const arr = [...(day.images ?? [])]; arr[i] = { ...arr[i], url: e.target.value }; update('images', arr) }}
                         sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem', fontFamily: 'monospace' } }} />
-                      <TextField size="small" variant="outlined" fullWidth label="Caption" value={img.caption ?? ''}
+                      <TextField size="small" variant="outlined" fullWidth label={t('captionField')} value={img.caption ?? ''}
                         onChange={e => { const arr = [...(day.images ?? [])]; arr[i] = { ...arr[i], caption: e.target.value }; update('images', arr) }} />
                     </Box>
                     {img.url && (
@@ -140,7 +146,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
                 <Button size="small" startIcon={<AddIcon />}
                   onClick={() => addArrayItem('images', { url: '', caption: '' })}
                   sx={{ alignSelf: 'flex-start' }}>
-                  Añadir imagen
+                  {t('addImage')}
                 </Button>
               </Box>
             </Box>
@@ -150,7 +156,11 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
             <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', mb: 2, mx: -2.5, px: 2.5, pb: 0.5, scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
               {day.images.map((img, i) => (
                 <Box key={i} sx={{ position: 'relative', flexShrink: 0, width: day.images.length === 1 ? '100%' : 260, height: 190, borderRadius: 2, overflow: 'hidden', '&:hover .caption': { opacity: 1 } }}>
-                  <Box component="img" src={img.url} alt={img.caption || day.location} sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <Box component="img"
+                    src={img.url}
+                    alt={img.caption || day.location}
+                    loading="lazy"
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   {img.caption && (
                     <Box className="caption" sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: '0.75rem', px: 1.5, py: 0.75, opacity: 0, transition: 'opacity 0.2s' }}>
                       {img.caption}
@@ -172,16 +182,16 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
                     <Select size="small" variant="standard" value={l.type ?? 'drive'}
                       onChange={e => updateLogistic(i, 'type', e.target.value)}
                       sx={{ minWidth: 80, color: partColor }}>
-                      {Object.keys(logisticIcons).map(t => (
-                        <MenuItem key={t} value={t}>{t}</MenuItem>
+                      {Object.keys(logisticIcons).map(t2 => (
+                        <MenuItem key={t2} value={t2}>{t2}</MenuItem>
                       ))}
                     </Select>
                     <TextField size="small" variant="standard" value={l.label ?? ''}
                       onChange={e => updateLogistic(i, 'label', e.target.value)}
-                      placeholder="Etiqueta" sx={{ width: 90 }} />
+                      placeholder={t('labelField')} sx={{ width: 90 }} />
                     <TextField size="small" variant="standard" value={l.value ?? ''}
                       onChange={e => updateLogistic(i, 'value', e.target.value)}
-                      placeholder="Valor" sx={{ flex: 1 }} />
+                      placeholder={t('valueField')} sx={{ flex: 1 }} />
                     <IconButton size="small" onClick={() => removeArrayItem('logistics', i)}>
                       <DeleteIcon sx={{ fontSize: 15 }} />
                     </IconButton>
@@ -200,7 +210,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
               <Button size="small" startIcon={<AddIcon />}
                 onClick={() => addArrayItem('logistics', { type: 'drive', label: '', value: '' })}
                 sx={{ alignSelf: 'flex-start', mt: 0.5 }}>
-                Añadir logística
+                {t('addLogistics')}
               </Button>
             )}
           </Box>
@@ -209,7 +219,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
         {/* Activities */}
         {(editMode || day.activities?.length > 0) && (
           <Box sx={{ mb: 1 }}>
-            {editMode && <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>Actividades</Typography>}
+            {editMode && <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>{t('activitiesSection')}</Typography>}
             <List dense disablePadding>
               {(day.activities ?? []).map((activity, i) => (
                 <ListItem key={i} sx={{ px: 0, py: 0.5, alignItems: 'flex-start' }}>
@@ -231,7 +241,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
             </List>
             {editMode && (
               <Button size="small" startIcon={<AddIcon />} onClick={() => addArrayItem('activities', '')} sx={{ ml: 2.5 }}>
-                Añadir actividad
+                {t('addActivity')}
               </Button>
             )}
           </Box>
@@ -242,7 +252,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
           <Box sx={{ mb: 2 }}>
             {editMode
               ? <>
-                  <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>Alternativa del día</Typography>
+                  <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>{t('dayAlternative')}</Typography>
                   <TextField size="small" variant="outlined" fullWidth multiline
                     value={day.optional_alternative ?? ''}
                     onChange={e => update('optional_alternative', e.target.value)}
@@ -252,7 +262,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
                   <TipsAndUpdatesIcon sx={{ fontSize: 18, color: '#7B1FA2', mt: '2px', flexShrink: 0 }} />
                   <Box>
                     <Typography variant="caption" fontWeight={700} sx={{ color: '#7B1FA2', textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 0.25 }}>
-                      Alternativa del día
+                      {t('dayAlternative')}
                     </Typography>
                     <Typography variant="body2" lineHeight={1.55} sx={{ color: '#4A148C' }}>
                       {parseText(day.optional_alternative)}
@@ -266,7 +276,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
         {/* Optional High Intensity */}
         {(editMode || day.optional_high_intensity != null) && (
           <Box sx={{ mb: 1 }}>
-            {editMode && <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>Opcional / Alta Intensidad</Typography>}
+            {editMode && <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>{t('optionalHighIntensity')}</Typography>}
             <List dense disablePadding>
               {(Array.isArray(day.optional_high_intensity)
                 ? day.optional_high_intensity
@@ -293,7 +303,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
             </List>
             {editMode && (
               <Button size="small" startIcon={<AddIcon />} onClick={() => addArrayItem('optional_high_intensity', '')} sx={{ ml: 2.5 }}>
-                Añadir opcional / alta intensidad
+                {t('addOptionalHigh')}
               </Button>
             )}
           </Box>
@@ -302,7 +312,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
         {/* Warnings */}
         {(editMode || day.warnings?.length > 0) && (
           <Box sx={{ mb: 1 }}>
-            {editMode && <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>Advertencias</Typography>}
+            {editMode && <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>{t('warningsSection')}</Typography>}
             {(day.warnings ?? []).map((w, i) => (
               <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mb: 0.5 }}>
                 {editMode ? (
@@ -321,7 +331,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
             ))}
             {editMode && (
               <Button size="small" startIcon={<AddIcon />} onClick={() => addArrayItem('warnings', '')}>
-                Añadir advertencia
+                {t('addWarning')}
               </Button>
             )}
           </Box>
@@ -330,12 +340,12 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
         {/* Tips */}
         {(editMode || day.tips?.length > 0) && (
           <Box sx={{ mb: 1 }}>
-            {editMode && <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>Tips</Typography>}
-            {(day.tips ?? []).map((t, i) => (
+            {editMode && <Typography variant="overline" color="text.secondary" display="block" sx={{ mb: 0.5 }}>{t('tipsSection')}</Typography>}
+            {(day.tips ?? []).map((tip, i) => (
               <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mb: 0.75 }}>
                 {editMode ? (
                   <>
-                    <TextField size="small" variant="outlined" fullWidth value={t}
+                    <TextField size="small" variant="outlined" fullWidth value={tip}
                       onChange={e => updateArrayItem('tips', i, e.target.value)}
                       multiline sx={{ bgcolor: '#EEF4FB' }} />
                     <IconButton size="small" onClick={() => removeArrayItem('tips', i)}>
@@ -344,14 +354,14 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
                   </>
                 ) : (
                   <Alert severity="info" icon={false} sx={{ flex: 1, fontSize: '0.83rem', py: 0.5, bgcolor: '#EEF4FB', color: '#1a3a5c', borderLeft: '3px solid #90CAF9', borderRadius: 1 }}>
-                    {parseText(t)}
+                    {parseText(tip)}
                   </Alert>
                 )}
               </Box>
             ))}
             {editMode && (
               <Button size="small" startIcon={<AddIcon />} onClick={() => addArrayItem('tips', '')}>
-                Añadir tip
+                {t('addTip')}
               </Button>
             )}
           </Box>
@@ -362,12 +372,12 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
           <Box sx={{ mt: 1.5 }}>
             {editMode ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                <Typography variant="overline" color="text.secondary">Links</Typography>
+                <Typography variant="overline" color="text.secondary">{t('linksSection')}</Typography>
                 {(day.links ?? []).map((link, i) => (
                   <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <TextField size="small" variant="standard" label="Etiqueta" value={link.label ?? ''}
+                    <TextField size="small" variant="standard" label={t('labelField')} value={link.label ?? ''}
                       onChange={e => updateLink(i, 'label', e.target.value)} sx={{ width: 140 }} />
-                    <TextField size="small" variant="standard" label="URL" value={link.url ?? ''}
+                    <TextField size="small" variant="standard" label={t('urlField')} value={link.url ?? ''}
                       onChange={e => updateLink(i, 'url', e.target.value)} sx={{ flex: 1 }} />
                     <IconButton size="small" onClick={() => removeArrayItem('links', i)}>
                       <DeleteIcon sx={{ fontSize: 15 }} />
@@ -375,7 +385,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
                   </Box>
                 ))}
                 <Button size="small" startIcon={<AddIcon />} onClick={() => addArrayItem('links', { label: '', url: '' })}>
-                  Añadir link
+                  {t('addLink')}
                 </Button>
               </Box>
             ) : (
@@ -391,6 +401,18 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
             )}
           </Box>
         )}
+
+        {/* Files */}
+        {tripId && user && (
+          <DayFiles
+            tripId={tripId}
+            gatewayTripId={gatewayTripId ?? tripId}
+            dayNumber={day.dayNumber}
+            user={user}
+            isAdmin={isAdmin}
+          />
+        )}
+
         {/* Notes */}
         {tripId && user && (
           <DayNotes

@@ -6,8 +6,10 @@ import {
 } from '@mui/material'
 import GoogleIcon from '@mui/icons-material/Google'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
+import { useT } from '../i18n'
 
 export default function LoginScreen() {
+  const t = useT()
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
 
@@ -16,8 +18,8 @@ export default function LoginScreen() {
     setError(null)
     try {
       await signInWithPopup(auth, googleProvider)
-    } catch (err) {
-      setError('No se pudo iniciar sesión. Intenta de nuevo.')
+    } catch {
+      setError(t('loginError'))
       setLoading(false)
     }
   }
@@ -41,13 +43,13 @@ export default function LoginScreen() {
       }} />
 
       <Typography variant="h3" sx={{ color: '#fff', fontWeight: 700, mb: 1, textAlign: 'center' }}>
-        🍁 Itinerario Canadá
+        {t('loginTitle')}
       </Typography>
       <Typography sx={{
         color: 'rgba(255,255,255,0.5)', mb: 5,
         letterSpacing: 2, textTransform: 'uppercase', fontSize: '0.85rem',
       }}>
-        Sep 12 – Sep 30, 2026
+        {t('loginSubtitle')}
       </Typography>
 
       <Paper elevation={8} sx={{ p: 4, borderRadius: 3, textAlign: 'center', maxWidth: 360, width: '100%' }}>
@@ -60,10 +62,10 @@ export default function LoginScreen() {
         </Box>
 
         <Typography variant="h6" fontWeight={700} mb={0.5}>
-          Acceso Privado
+          {t('privateAccess')}
         </Typography>
         <Typography variant="body2" color="text.secondary" mb={3}>
-          Solo usuarios autorizados pueden ver este itinerario.
+          {t('authorizedOnly')}
         </Typography>
 
         <Button
@@ -83,7 +85,7 @@ export default function LoginScreen() {
             fontSize: '1rem',
           }}
         >
-          {loading ? 'Entrando...' : 'Continuar con Google'}
+          {loading ? t('signingIn') : t('continueGoogle')}
         </Button>
 
         {error && (

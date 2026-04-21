@@ -4,7 +4,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return request.auth != null &&
-             request.auth.token.email == "carlosan.1708@gmail.com";
+             request.auth.token.admin == true;
     }
 
     function isAllowed(tripId) {
@@ -12,11 +12,27 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/trips/$(tripId)/allowed_users/$(request.auth.token.email));
     }
 
+    // Cualquier usuario autorizado en el viaje principal tiene acceso a todos los viajes
+    function isGatewayUser() {
+      return isAllowed('canada-trip');
+    }
+
+    // App-wide settings (language, etc.) — any auth'd user can read, only admin can write
+    match /app-settings/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
     // Estructura por viaje: trips/{tripId}/...
     match /trips/{tripId} {
-      // Datos del itinerario
+      // Datos del itinerario — accesible por usuarios del gateway o del propio viaje
       match /data/{docId} {
-        allow read, write: if isAdmin() || isAllowed(tripId);
+        allow read, write: if isAdmin() || isAllowed(tripId) || isGatewayUser();
+      }
+
+      // Registry del panel de viajes
+      match /registry/{docId} {
+        allow read, write: if isAdmin() || isAllowed(tripId) || isGatewayUser();
       }
 
       // Lista de invitados por viaje
@@ -24,10 +40,10 @@ service cloud.firestore {
         allow read, write: if isAdmin() || isAllowed(tripId);
       }
 
-      // Historial de versiones — lectura para usuarios con acceso, escritura solo admin
+      // Historial de versiones — lectura y escritura para usuarios con acceso al viaje
       match /versions/{versionId} {
-        allow read: if isAdmin() || isAllowed(tripId);
-        allow write: if isAdmin();
+        allow read: if isAdmin() || isAllowed(tripId) || isGatewayUser();
+        allow write: if isAdmin() || isAllowed(tripId) || isGatewayUser();
       }
 
       // Notas del grupo — cada usuario escribe y edita solo las suyas; admin puede borrar cualquiera
@@ -37,6 +53,16 @@ service cloud.firestore {
                       && request.resource.data.authorEmail == request.auth.token.email;
         allow update: if (isAdmin() || isAllowed(tripId))
                       && resource.data.authorEmail == request.auth.token.email;
+        allow delete: if isAdmin()
+                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email);
+      }
+
+      // Archivos del día — cada usuario puede subir los suyos; admin puede borrar cualquiera
+      match /files/{fileId} {
+        allow read: if isAdmin() || isAllowed(tripId);
+        allow create: if (isAdmin() || isAllowed(tripId))
+                      && request.resource.data.authorEmail == request.auth.token.email;
+        allow update: if false;
         allow delete: if isAdmin()
                       || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email);
       }

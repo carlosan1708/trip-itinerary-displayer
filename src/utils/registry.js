@@ -1,6 +1,6 @@
 import { tripsRegistry as defaultRegistry } from '../data/trips-registry'
 
-const tripModules = import.meta.glob('../data/**/*.json', { eager: true })
+const tripModules = import.meta.glob('../data/**/*.json')
 
 const REGISTRY_KEY  = 'trips-registry'
 const FAVORITES_KEY = 'trip-favorites'
@@ -58,11 +58,13 @@ export function deleteTripData(tripId) {
   localStorage.removeItem(DATA_PREFIX + tripId)
 }
 
-export function findTripData(tripId) {
+export async function findTripData(tripId) {
   const cached = getTripData(tripId)
   if (cached) return cached
   const key = Object.keys(tripModules).find(k => k.endsWith(`/${tripId}.json`))
-  return key ? tripModules[key].default ?? null : null
+  if (!key) return null
+  const mod = await tripModules[key]()
+  return mod.default ?? null
 }
 
 export function slugify(str) {

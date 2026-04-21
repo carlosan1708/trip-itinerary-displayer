@@ -1,6 +1,9 @@
 import { Box, Typography, Divider, TextField } from '@mui/material'
+import { useT } from '../i18n'
 
 export default function PartSection({ part, editMode, onPartChange }) {
+  const t = useT()
+
   function update(field, value) {
     onPartChange({ ...part, [field]: value })
   }
@@ -9,7 +12,7 @@ export default function PartSection({ part, editMode, onPartChange }) {
     <Box sx={{ mt: 5, mb: 2.5 }}>
       <Divider sx={{ mb: 2, '&::before, &::after': { borderColor: part.color, opacity: 0.3 } }}>
         <Box sx={{ px: 2, py: 0.5, borderRadius: 2, bgcolor: part.color, color: '#fff', fontSize: '0.75rem', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
-          Parte {part.id}
+          {t('partLabel', { id: part.id })}
         </Box>
       </Divider>
 

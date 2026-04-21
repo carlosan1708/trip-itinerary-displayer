@@ -6,9 +6,10 @@ import {
 import DownloadIcon from '@mui/icons-material/Download'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
 import CloseIcon from '@mui/icons-material/Close'
-import { findTripData } from '../utils/registry'
+import { useT } from '../i18n'
 
-export default function TripEditorModal({ open, trip, folderId, onSave, onClose }) {
+export default function TripEditorModal({ open, trip, folderId, onSave, onClose, initialJson }) {
+  const t = useT()
   const [meta, setMeta] = useState({
     label:    trip?.label    ?? '',
     subtitle: trip?.subtitle ?? '',
@@ -20,9 +21,8 @@ export default function TripEditorModal({ open, trip, folderId, onSave, onClose 
   const [loaded, setLoaded]       = useState(false)
   const fileRef = useRef()
 
-  // Load current JSON when modal opens
   if (open && trip && !loaded) {
-    const data = findTripData(trip.id)
+    const data = initialJson ?? null
     setJsonText(data ? JSON.stringify(data, null, 2) : '{}')
     setMeta({
       label:    trip.label    ?? '',
@@ -45,7 +45,7 @@ export default function TripEditorModal({ open, trip, folderId, onSave, onClose 
       try {
         parsed = JSON.parse(jsonText)
       } catch {
-        setJsonError('JSON inválido — revisa la sintaxis antes de guardar.')
+        setJsonError(t('jsonSyntaxError'))
         return
       }
     }
@@ -75,7 +75,6 @@ export default function TripEditorModal({ open, trip, folderId, onSave, onClose 
       try {
         const parsed = JSON.parse(ev.target.result)
         setJsonText(JSON.stringify(parsed, null, 2))
-        // Auto-fill metadata from JSON if fields are empty
         setMeta(m => ({
           label:    m.label    || parsed.title    || '',
           subtitle: m.subtitle || parsed.subtitle || '',
@@ -84,7 +83,7 @@ export default function TripEditorModal({ open, trip, folderId, onSave, onClose 
         }))
         setJsonError('')
       } catch {
-        setJsonError('El archivo no es un JSON válido.')
+        setJsonError(t('jsonFileError'))
       }
     }
     reader.readAsText(file)
@@ -97,14 +96,14 @@ export default function TripEditorModal({ open, trip, folderId, onSave, onClose 
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
         <Typography variant="h6" sx={{ flex: 1 }}>
-          Editar: {trip?.label}
+          {t('editTripTitle', { label: trip?.label })}
         </Typography>
-        <Tooltip title="Descargar JSON">
+        <Tooltip title={t('downloadJsonTooltip')}>
           <IconButton size="small" onClick={handleDownload}>
             <DownloadIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Subir JSON">
+        <Tooltip title={t('uploadJsonTooltip')}>
           <IconButton size="small" onClick={() => fileRef.current.click()}>
             <UploadFileIcon fontSize="small" />
           </IconButton>
@@ -116,28 +115,26 @@ export default function TripEditorModal({ open, trip, folderId, onSave, onClose 
       </DialogTitle>
 
       <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {/* Metadata */}
-        <Typography variant="overline" color="text.secondary">Metadatos</Typography>
+        <Typography variant="overline" color="text.secondary">{t('metadataSection')}</Typography>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <TextField label="Nombre" size="small" fullWidth value={meta.label}
+          <TextField label={t('nameField')} size="small" fullWidth value={meta.label}
             onChange={e => setMeta(m => ({ ...m, label: e.target.value }))} />
-          <TextField label="Subtítulo / ruta" size="small" fullWidth value={meta.subtitle}
+          <TextField label={t('subtitleRouteField')} size="small" fullWidth value={meta.subtitle}
             onChange={e => setMeta(m => ({ ...m, subtitle: e.target.value }))} />
         </Stack>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <TextField label="Fechas" size="small" fullWidth value={meta.dates}
+          <TextField label={t('datesField')} size="small" fullWidth value={meta.dates}
             onChange={e => setMeta(m => ({ ...m, dates: e.target.value }))} />
-          <TextField label="Duración" size="small" fullWidth value={meta.duration}
+          <TextField label={t('durationField')} size="small" fullWidth value={meta.duration}
             onChange={e => setMeta(m => ({ ...m, duration: e.target.value }))} />
         </Stack>
 
         <Divider />
 
-        {/* JSON editor */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="overline" color="text.secondary">Itinerario JSON</Typography>
+          <Typography variant="overline" color="text.secondary">{t('itineraryJsonSection')}</Typography>
           <Typography variant="caption" color="text.secondary">
-            Edita directamente, o descarga → edita → sube
+            {t('editOrDownloadHint')}
           </Typography>
         </Box>
 
@@ -155,8 +152,8 @@ export default function TripEditorModal({ open, trip, folderId, onSave, onClose 
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleClose}>Cancelar</Button>
-        <Button variant="contained" onClick={handleSave}>Guardar</Button>
+        <Button onClick={handleClose}>{t('cancel')}</Button>
+        <Button variant="contained" onClick={handleSave}>{t('save')}</Button>
       </DialogActions>
     </Dialog>
   )

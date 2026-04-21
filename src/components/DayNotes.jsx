@@ -14,11 +14,12 @@ import {
   doc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { useT } from '../i18n'
 
-function timeAgo(ts) {
+function timeAgo(ts, now) {
   if (!ts?.toMillis) return ''
   const s = Math.floor((Date.now() - ts.toMillis()) / 1000)
-  if (s < 60)    return 'ahora'
+  if (s < 60)    return now
   if (s < 3600)  return `${Math.floor(s / 60)} min`
   if (s < 86400) return `${Math.floor(s / 3600)} h`
   return `${Math.floor(s / 86400)} d`
@@ -37,6 +38,7 @@ function authorColor(str = '') {
 }
 
 export default function DayNotes({ tripId, gatewayTripId, dayNumber, user, isAdmin }) {
+  const t = useT()
   const [notes, setNotes]       = useState([])
   const [text, setText]         = useState('')
   const [editingId, setEditing] = useState(null)
@@ -60,12 +62,12 @@ export default function DayNotes({ tripId, gatewayTripId, dayNumber, user, isAdm
   }, [gatewayTripId, tripId, dayNumber])
 
   async function addNote() {
-    const t = text.trim()
-    if (!t) return
+    const txt = text.trim()
+    if (!txt) return
     await addDoc(collection(db, 'trips', gatewayTripId, 'notes'), {
       tripId,
       dayNumber,
-      text:        t,
+      text:        txt,
       authorEmail: user.email,
       authorName:  user.displayName ?? user.email,
       createdAt:   serverTimestamp(),
@@ -79,31 +81,33 @@ export default function DayNotes({ tripId, gatewayTripId, dayNumber, user, isAdm
   }
 
   async function saveEdit(id) {
-    const t = editText.trim()
-    if (t) await updateDoc(doc(db, 'trips', gatewayTripId, 'notes', id), {
-      text: t, updatedAt: serverTimestamp(),
+    const txt = editText.trim()
+    if (txt) await updateDoc(doc(db, 'trips', gatewayTripId, 'notes', id), {
+      text: txt, updatedAt: serverTimestamp(),
     })
     setEditing(null)
   }
+
+  const nowLabel = t('timeNow')
 
   return (
     <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px dashed #e8e8e8' }}>
       <Typography variant="overline" color="text.secondary"
         sx={{ fontSize: '0.68rem', letterSpacing: 1 }}>
-        Notas del grupo
+        {t('groupNotesSection')}
       </Typography>
 
       {notes.length === 0 && (
         <Typography variant="body2" color="text.disabled"
           sx={{ mt: 0.5, mb: 1.5, fontStyle: 'italic', fontSize: '0.82rem' }}>
-          Sin notas aún — sé el primero.
+          {t('noNotesMsg')}
         </Typography>
       )}
 
       <Stack spacing={1.25} sx={{ mt: notes.length ? 1 : 0, mb: 1.5 }}>
         {notes.map(note => {
-          const isOwn    = note.authorEmail === user.email
-          const canEdit  = isOwn
+          const isOwn     = note.authorEmail === user.email
+          const canEdit   = isOwn
           const canDelete = isOwn || isAdmin
 
           return (
@@ -129,15 +133,15 @@ export default function DayNotes({ tripId, gatewayTripId, dayNumber, user, isAdm
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.2, flexWrap: 'wrap' }}>
                   <Typography variant="caption" fontWeight={700} noWrap sx={{ maxWidth: 160 }}>
-                    {isOwn ? 'Tú' : (note.authorName ?? note.authorEmail)}
+                    {isOwn ? t('youNote') : (note.authorName ?? note.authorEmail)}
                   </Typography>
                   <Typography variant="caption" color="text.disabled">·</Typography>
                   <Typography variant="caption" color="text.disabled">
-                    {timeAgo(note.createdAt)}
+                    {timeAgo(note.createdAt, nowLabel)}
                   </Typography>
                   {note.updatedAt && (
                     <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>
-                      (editado)
+                      {t('editedNote')}
                     </Typography>
                   )}
                 </Box>
@@ -154,12 +158,12 @@ export default function DayNotes({ tripId, gatewayTripId, dayNumber, user, isAdm
                       }}
                       autoFocus
                     />
-                    <Tooltip title="Guardar">
+                    <Tooltip title={t('saveNote')}>
                       <IconButton size="small" color="primary" onClick={() => saveEdit(note.id)}>
                         <CheckIcon sx={{ fontSize: 15 }} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Cancelar">
+                    <Tooltip title={t('cancelNote')}>
                       <IconButton size="small" onClick={() => setEditing(null)}>
                         <CloseIcon sx={{ fontSize: 15 }} />
                       </IconButton>
@@ -172,14 +176,14 @@ export default function DayNotes({ tripId, gatewayTripId, dayNumber, user, isAdm
                     </Typography>
                     <Box className="note-actions" sx={{ display: 'flex', flexShrink: 0 }}>
                       {canEdit && (
-                        <Tooltip title="Editar">
+                        <Tooltip title={t('editNoteTooltip')}>
                           <IconButton size="small" onClick={() => { setEditing(note.id); setEditText(note.text) }}>
                             <EditIcon sx={{ fontSize: 14 }} />
                           </IconButton>
                         </Tooltip>
                       )}
                       {canDelete && (
-                        <Tooltip title="Eliminar">
+                        <Tooltip title={t('deleteNoteTooltip')}>
                           <IconButton size="small" color="error" onClick={() => removeNote(note.id)}>
                             <DeleteIcon sx={{ fontSize: 14 }} />
                           </IconButton>
@@ -198,7 +202,7 @@ export default function DayNotes({ tripId, gatewayTripId, dayNumber, user, isAdm
         <TextField
           inputRef={inputRef}
           size="small" variant="outlined" fullWidth multiline maxRows={4}
-          placeholder="Escribe una nota..."
+          placeholder={t('writeNotePlaceholder')}
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => {
@@ -206,7 +210,7 @@ export default function DayNotes({ tripId, gatewayTripId, dayNumber, user, isAdm
           }}
           sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: '0.875rem' } }}
         />
-        <Tooltip title="Enviar (Enter)">
+        <Tooltip title={t('sendNoteTooltip')}>
           <span>
             <IconButton
               onClick={addNote}

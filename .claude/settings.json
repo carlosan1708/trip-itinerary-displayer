@@ -1,0 +1,64 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /tmp/test_jpeg.jpg -H 'User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36' -H 'Referer: https://en.wikipedia.org/' -w '%{http_code} %{size_download}b' https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Gastown_Steam_Clock.jpg/520px-Gastown_Steam_Clock.jpg)",
+      "Bash(curl -s -o /tmp/test_webp.webp -H 'User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36' -H 'Referer: https://en.wikipedia.org/' -w '\\\\n%{http_code} %{size_download}b' https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Gastown_Steam_Clock.jpg/520px-Gastown_Steam_Clock.webp)",
+      "Bash(curl -s https://en.wikipedia.org/api/rest_v1/page/summary/Gastown -H 'User-Agent: TripItineraryChecker/1.0 \\(research\\)')",
+      "Bash(python3 -c ':*)",
+      "Bash(curl -s -I -H 'Accept: image/webp,image/apng,image/*,*/*;q=0.8' -H 'User-Agent: Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/120.0.0.0 Safari/537.36' https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Gastown_Steam_Clock.jpg/520px-Gastown_Steam_Clock.jpg)",
+      "Edit(/.claude/skills/plan-trip/**)",
+      "Bash(pip install:*)",
+      "Bash(pip index:*)",
+      "Bash(python3 -c \"from google.genai import types; t = types.Tool\\(google_search=types.GoogleSearch\\(\\)\\); print\\('GoogleSearch OK'\\)\")",
+      "Bash(python3 -c \"from google.genai import types; print\\(dir\\(types.GenerateContentConfig\\(\\)\\)\\)\")",
+      "Read(//Users/k/Documents/**)",
+      "Bash(uvicorn main:app --reload --port 8000)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(gcloud --version)",
+      "Bash(gcloud config:*)",
+      "Bash(firebase functions:secrets:set:*)",
+      "Bash(node -e ':*)",
+      "Bash(ls backend/.env*)",
+      "Bash(gcloud functions:*)",
+      "Bash(gcloud run:*)",
+      "Bash(brew install:*)",
+      "Bash(curl -s -X POST http://localhost:8000/agent/chat -H 'Content-Type: application/json' -H 'Authorization: Bearer test_invalid_token' -d '{\"messages\":[{\"role\":\"user\",\"content\":\"hola\"}],\"mode\":\"explore\"}')",
+      "Bash(firebase functions:list)",
+      "Edit(/.claude/skills/deploy/**)",
+      "Bash(firebase functions:log --only agent)",
+      "Read(//Users/k/.claude/**)",
+      "Bash(E2E_REUSE_SERVER=1 npm run test:e2e)",
+      "Bash(grep -rn \"wikimedia\\\\|from tools\" /Users/k/Documents/GitHub/trip-itinerary-displayer/backend/*.py)",
+      "Bash(gcloud logging:*)",
+      "Bash(python3 -c \"import pytest\")",
+      "Bash(venv/bin/python -c \"import pytest, httpx; print\\('ok'\\)\")",
+      "Bash(venv/bin/pip install:*)",
+      "Bash(venv/bin/python -m pytest tests/ -v)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5174)",
+      "Bash(curl -s http://localhost:5174/)",
+      "Bash(curl -v http://localhost:5174/)",
+      "Bash(curl -s -H \"Accept: text/html\" http://localhost:5174/)",
+      "Bash(kill 12362)",
+      "Bash(venv/bin/python -c \"import httpx; t = httpx.ASGITransport; print\\('ok'\\)\")",
+      "Bash(curl -s https://mi-itinerario.web.app/health)",
+      "Bash(curl -s https://agent-636941955972.us-central1.run.app/health)"
+    ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if git status --porcelain src/ 2>/dev/null | grep -q .; then if ! git status --porcelain e2e/ 2>/dev/null | grep -q .; then printf '{\"continue\":false,\"stopReason\":\"src/ fue modificado pero no hay cambios en e2e/. Agrega tests para la nueva funcionalidad antes de terminar.\"}'; exit 1; fi; lsof -ti:5174 | xargs kill -9 2>/dev/null; sleep 1; rm -rf test-results/; npm run dev:test > /tmp/vite-e2e.log 2>&1 & VPID=$!; trap \"kill $VPID 2>/dev/null\" EXIT; for i in $(seq 1 30); do curl -sf http://localhost:5174 > /dev/null 2>&1 && break; sleep 2; done; sleep 2; E2E_REUSE_SERVER=1 npm run test:e2e 2>&1; fi",
+            "timeout": 240,
+            "statusMessage": "Verificando tests E2E..."
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "engineering-skills@claude-code-skills": true
+  }
+}

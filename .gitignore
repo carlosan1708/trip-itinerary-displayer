@@ -1,10 +1,12 @@
 # Itinerarios fuente y fotos (privados — no subir contenido del viaje)
-*.md
-src/data/*.json
+src/data/**/*.json
 public/trips/
 
 # Dependencias
 node_modules/
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
 
 # Build
 dist/
@@ -12,10 +14,28 @@ dist/
 # Variables de entorno (contienen credenciales)
 .env
 .env.local
+.env.test
 *.local
+backend/.env
 
 # Claude Code
 .claude/settings.local.json
+.claude/projects/
 
 # Firebase CLI cache
 .firebase/
+firebase-debug.log
+firestore-debug.log
+
+# Test artifacts
+playwright-report/
+test-results/
+coverage/
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo

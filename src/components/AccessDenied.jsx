@@ -2,8 +2,10 @@ import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import { Box, Button, Typography } from '@mui/material'
 import BlockIcon from '@mui/icons-material/Block'
+import { useT } from '../i18n'
 
 export default function AccessDenied({ email }) {
+  const t = useT()
   return (
     <Box sx={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -18,11 +20,11 @@ export default function AccessDenied({ email }) {
       <BlockIcon sx={{ color: 'rgba(255,255,255,0.2)', fontSize: 72 }} />
 
       <Typography variant="h5" sx={{ color: '#fff', fontWeight: 700 }}>
-        Acceso no autorizado
+        {t('accessDenied')}
       </Typography>
       <Typography sx={{ color: 'rgba(255,255,255,0.5)', maxWidth: 340 }}>
-        <strong style={{ color: 'rgba(255,255,255,0.75)' }}>{email}</strong> no está en la lista de invitados.
-        Solicita acceso al administrador del itinerario.
+        <strong style={{ color: 'rgba(255,255,255,0.75)' }}>{email}</strong>{' '}
+        {t('notInvited')}
       </Typography>
 
       <Button
@@ -31,7 +33,7 @@ export default function AccessDenied({ email }) {
         sx={{ mt: 2, color: 'rgba(255,255,255,0.6)', borderColor: 'rgba(255,255,255,0.2)',
           '&:hover': { borderColor: 'rgba(255,255,255,0.5)' } }}
       >
-        Cerrar sesión
+        {t('signOut')}
       </Button>
     </Box>
   )
