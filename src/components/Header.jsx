@@ -4,6 +4,7 @@ import { auth } from '../firebase'
 import { useRef } from 'react'
 import { Box, Typography, Chip, Button, Tooltip, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material'
 import ArrowBackIcon    from '@mui/icons-material/ArrowBack'
+import AttachFileIcon   from '@mui/icons-material/AttachFile'
 import EditIcon         from '@mui/icons-material/Edit'
 import EditOffIcon      from '@mui/icons-material/EditOff'
 import UploadFileIcon   from '@mui/icons-material/UploadFile'
@@ -18,10 +19,12 @@ import LogoutIcon       from '@mui/icons-material/Logout'
 import MenuIcon         from '@mui/icons-material/Menu'
 import PersonIcon       from '@mui/icons-material/Person'
 import AdminPanel       from './AdminPanel'
-import { useT } from '../i18n'
+import { useT, useLang, useChangeLang } from '../i18n'
 
-export default function Header({ title, subtitle, stats, user, isAdmin, author, editMode, onToggleEdit, onUploadJson, onOpenJsonEditor, onOpenVersionHistory, onDownloadPdf, pdfLoading, onBack }) {
-  const t = useT()
+export default function Header({ title, subtitle, stats, user, isAdmin, author, editMode, onToggleEdit, onUploadJson, onOpenJsonEditor, onOpenVersionHistory, onDownloadPdf, pdfLoading, onOpenFiles, onBack }) {
+  const t          = useT()
+  const lang       = useLang()
+  const changeLang = useChangeLang()
   const [adminOpen, setAdminOpen]   = useState(false)
   const [menuAnchor, setMenuAnchor] = useState(null)
   const fileInputRef = useRef()
@@ -57,6 +60,12 @@ export default function Header({ title, subtitle, stats, user, isAdmin, author, 
       label: editMode ? t('exitEdit') : t('edit'),
       onClick: () => { onToggleEdit(); setMenuAnchor(null) },
       highlight: editMode,
+    },
+    onOpenFiles && {
+      key: 'files',
+      icon: <AttachFileIcon fontSize="small" />,
+      label: t('allFilesBtn'),
+      onClick: () => { onOpenFiles(); setMenuAnchor(null) },
     },
     onDownloadPdf && {
       key: 'pdf',
@@ -136,6 +145,19 @@ export default function Header({ title, subtitle, stats, user, isAdmin, author, 
               <input ref={fileInputRef} type="file" accept=".json,application/json" hidden
                 onChange={e => { handleUpload(e.target.files[0]); e.target.value = '' }} />
             )}
+
+            {/* Language toggle */}
+            <Box sx={{ display: 'flex', alignItems: 'center', borderRadius: 1, border: '1px solid rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+              {['en', 'es'].map(l => (
+                <Button key={l} size="small" onClick={() => changeLang(l)} aria-pressed={lang === l} sx={{
+                  minWidth: 0, px: 1.2, py: 0.3, borderRadius: 0,
+                  fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase',
+                  color: lang === l ? '#fff' : 'rgba(255,255,255,0.35)',
+                  bgcolor: lang === l ? 'rgba(255,255,255,0.12)' : 'transparent',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.18)', color: '#fff' },
+                }}>{l}</Button>
+              ))}
+            </Box>
 
             {/* ── Desktop: individual buttons (hidden on xs) ── */}
             <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.75 }}>

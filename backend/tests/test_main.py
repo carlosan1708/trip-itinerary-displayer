@@ -14,8 +14,10 @@ from fastapi.testclient import TestClient
 
 # ── Import app (conftest already patched heavy deps) ─────────────────────────
 
-from main import app                 # noqa: E402
-from auth import verify_token        # noqa: E402  (used for dependency_overrides)
+from main import app, _ALLOWED_ORIGIN   # noqa: E402
+from auth import verify_token           # noqa: E402  (used for dependency_overrides)
+
+_ORIGIN_HEADERS = {"origin": _ALLOWED_ORIGIN}
 
 
 # ── WSGI bridge structural test ───────────────────────────────────────────────
@@ -49,11 +51,35 @@ class TestHealthEndpoint:
         assert resp.json() == {"ok": True}
 
 
+class TestOriginEnforcement:
+    def test_rejects_missing_origin(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/auth/set-admin-claim")
+        assert resp.status_code == 403
+
+    def test_rejects_wrong_origin(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/auth/set-admin-claim", headers={"origin": "https://evil.com"})
+        assert resp.status_code == 403
+
+    def test_allows_correct_origin(self):
+        app.dependency_overrides[verify_token] = lambda: {"uid": "x", "email": "x@x.com"}
+        with patch("main.set_admin_claim", new_callable=AsyncMock):
+            client = TestClient(app)
+            resp = client.post("/auth/set-admin-claim", headers=_ORIGIN_HEADERS)
+        app.dependency_overrides.clear()
+        assert resp.status_code == 200
+
+    def test_health_exempt_from_origin_check(self):
+        client = TestClient(app)
+        resp = client.get("/health")
+        assert resp.status_code == 200
+
+
 class TestSetAdminClaimEndpoint:
     _fake_user = {"uid": "uid-123", "email": "admin@test.com", "admin": False}
 
     def setup_method(self):
-        # Override the FastAPI dependency so routes receive _fake_user
         app.dependency_overrides[verify_token] = lambda: self._fake_user
 
     def teardown_method(self):
@@ -62,21 +88,21 @@ class TestSetAdminClaimEndpoint:
     def test_returns_ok_for_valid_token(self):
         with patch("main.set_admin_claim", new_callable=AsyncMock):
             client = TestClient(app)
-            resp = client.post("/auth/set-admin-claim")
+            resp = client.post("/auth/set-admin-claim", headers=_ORIGIN_HEADERS)
         assert resp.status_code == 200
         assert resp.json() == {"ok": True}
 
     def test_rejects_missing_token(self):
-        app.dependency_overrides.clear()   # remove override for this test
+        app.dependency_overrides.clear()
         client = TestClient(app, raise_server_exceptions=False)
-        resp = client.post("/auth/set-admin-claim")
+        resp = client.post("/auth/set-admin-claim", headers=_ORIGIN_HEADERS)
         assert resp.status_code in (401, 403, 422)
 
     def test_set_admin_claim_called_with_correct_args(self):
         mock_claim = AsyncMock()
         with patch("main.set_admin_claim", mock_claim):
             client = TestClient(app)
-            client.post("/auth/set-admin-claim")
+            client.post("/auth/set-admin-claim", headers=_ORIGIN_HEADERS)
         mock_claim.assert_awaited_once_with(
             self._fake_user["uid"],
             self._fake_user["email"],
@@ -88,10 +114,16 @@ class TestChatEndpoint:
     def teardown_method(self):
         app.dependency_overrides.clear()
 
-    def test_rejects_unauthenticated(self):
-        # No dependency override → real verify_token runs → 403 (no bearer token)
+    def test_rejects_missing_origin(self):
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.post("/agent/chat", json={
+            "messages": [{"role": "user", "content": "hello"}],
+        })
+        assert resp.status_code == 403
+
+    def test_rejects_unauthenticated(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/agent/chat", headers=_ORIGIN_HEADERS, json={
             "messages": [{"role": "user", "content": "hello"}],
         })
         assert resp.status_code in (401, 403, 422)
@@ -99,5 +131,5 @@ class TestChatEndpoint:
     def test_rejects_empty_messages(self):
         app.dependency_overrides[verify_token] = lambda: {"uid": "x", "email": "x@x.com"}
         client = TestClient(app, raise_server_exceptions=False)
-        resp = client.post("/agent/chat", json={"messages": []})
+        resp = client.post("/agent/chat", headers=_ORIGIN_HEADERS, json={"messages": []})
         assert resp.status_code == 422

@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if git status --porcelain src/ 2>/dev/null | grep -q .; then if ! git status --porcelain e2e/ 2>/dev/null | grep -q .; then printf '{\"continue\":false,\"stopReason\":\"src/ fue modificado pero no hay cambios en e2e/. Agrega tests para la nueva funcionalidad antes de terminar.\"}'; exit 1; fi; lsof -ti:5174 | xargs kill -9 2>/dev/null; sleep 1; rm -rf test-results/; npm run dev:test > /tmp/vite-e2e.log 2>&1 & VPID=$!; trap \"kill $VPID 2>/dev/null\" EXIT; for i in $(seq 1 30); do curl -sf http://localhost:5174 > /dev/null 2>&1 && break; sleep 2; done; sleep 2; E2E_REUSE_SERVER=1 npm run test:e2e 2>&1; fi",
+            "command": "if git status --porcelain src/ 2>/dev/null | grep -q .; then if ! git status --porcelain e2e/ 2>/dev/null | grep -q .; then printf '{\"continue\":false,\"stopReason\":\"src/ fue modificado pero no hay cambios en e2e/. Agrega tests para la nueva funcionalidad antes de terminar.\"}'; exit 1; fi; rm -rf test-results/; npm run test:e2e 2>&1; fi",
             "timeout": 240,
             "statusMessage": "Verificando tests E2E..."
           }

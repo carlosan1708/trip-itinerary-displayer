@@ -62,7 +62,8 @@ service cloud.firestore {
         allow read: if isAdmin() || isAllowed(tripId);
         allow create: if (isAdmin() || isAllowed(tripId))
                       && request.resource.data.authorEmail == request.auth.token.email;
-        allow update: if false;
+        allow update: if isAdmin()
+                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email);
         allow delete: if isAdmin()
                       || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email);
       }

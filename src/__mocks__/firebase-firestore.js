@@ -65,17 +65,28 @@ export function orderBy(_field, _dir) {
 }
 
 export function onSnapshot(_ref, callback) {
-  const docs =
-    (typeof window !== 'undefined' && window.__mockFirestore?.docs) || {}
-  const ref = _ref
-  const data = docs[ref.__mockPath]
-  setTimeout(() => {
-    callback({
-      exists: () => data !== undefined && data !== null,
-      data: () => data ?? {},
-      docs: [],
-      forEach: () => {},
-    })
-  }, 0)
+  const store = (typeof window !== 'undefined' && window.__mockFirestore) || {}
+  const data = (store.docs || {})[_ref.__mockPath]
+
+  if (_ref.__isCollection) {
+    const collDocs = (store.collections || {})[_ref.__mockPath] || []
+    setTimeout(() => {
+      callback({
+        exists: () => false,
+        data: () => ({}),
+        docs: collDocs.map((d, i) => ({ id: d.id ?? `mock-${i}`, data: () => d })),
+        forEach: () => {},
+      })
+    }, 0)
+  } else {
+    setTimeout(() => {
+      callback({
+        exists: () => data !== undefined && data !== null,
+        data: () => data ?? {},
+        docs: [],
+        forEach: () => {},
+      })
+    }, 0)
+  }
   return () => {} // unsubscribe noop
 }

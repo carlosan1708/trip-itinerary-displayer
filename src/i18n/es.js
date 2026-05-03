@@ -123,6 +123,8 @@ export default {
   languageSection: 'Idioma',
   languageEnglish: 'English',
   languageSpanish: 'Español',
+  appDefaultLanguage: 'Idioma predeterminado de la app',
+  userAssignedLang: 'Idioma asignado',
 
   // DayCard
   imagesSection: 'Imágenes',
@@ -152,12 +154,27 @@ export default {
   maxFileSizeHint: 'Máximo {size} por archivo',
   uploadingBtn: 'Subiendo...',
   uploadFileAction: 'Subir archivo',
+  confirmUpload: 'Subir',
   noFilesMsg: 'No hay archivos cargados para este día.',
+  noFilesMatchFilter: 'Ningún archivo coincide con el filtro seleccionado.',
   downloadTooltip: 'Descargar',
   deleteTooltip: 'Eliminar',
   fileTooLarge: 'El archivo pesa {size}. {helperText}.',
   uploadFileError: 'No se pudo subir el archivo.',
   readFileError: 'No se pudo leer el archivo seleccionado.',
+  fileTagsLabel: 'Etiquetas',
+  fileTagsPlaceholder: 'Agregar etiqueta, presiona Enter…',
+  fileTagsMax: 'Máximo {max} etiquetas',
+  fileTagFilterLabel: 'Filtrar:',
+  clearFilter: 'Limpiar',
+  editTagsTooltip: 'Editar etiquetas',
+  tagVisa: 'visa',
+  tagHotel: 'hotel',
+  tagFlight: 'vuelo',
+  tagBooking: 'reserva',
+  tagInsurance: 'seguro',
+  tagMap: 'mapa',
+  tagOther: 'otro',
 
   // DayNotes
   groupNotesSection: 'Notas del grupo',
@@ -187,4 +204,10 @@ export default {
 
   // Part Section
   partLabel: 'Parte {id}',
+
+  // All Files Panel
+  allFilesTitle: 'Todos los archivos',
+  allFilesBtn: 'Archivos',
+  allFilesEmpty: 'Sin archivos subidos para este viaje.',
+  dayLabel: 'Día {id}',
 }

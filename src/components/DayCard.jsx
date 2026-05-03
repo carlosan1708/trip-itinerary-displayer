@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import {
   Accordion, AccordionSummary, AccordionDetails,
   Box, Typography, List, ListItem, Alert, Chip,
@@ -14,6 +15,9 @@ import TipsAndUpdatesIcon    from '@mui/icons-material/TipsAndUpdates'
 import OpenInNewIcon         from '@mui/icons-material/OpenInNew'
 import DeleteIcon            from '@mui/icons-material/Delete'
 import AddIcon               from '@mui/icons-material/Add'
+import AttachFileIcon        from '@mui/icons-material/AttachFile'
+import { collection, onSnapshot, query, where } from 'firebase/firestore'
+import { db } from '../firebase'
 import { parseText } from '../utils/parseText'
 import DayFiles from './DayFiles'
 import DayNotes from './DayNotes'
@@ -29,6 +33,22 @@ const logisticIcons = {
 
 export default function DayCard({ day, partColor, editMode, onDayChange, tripId, gatewayTripId, user, isAdmin }) {
   const t = useT()
+  const [files, setFiles] = useState([])
+
+  useEffect(() => {
+    if (!tripId || !gatewayTripId) return
+    const q = query(
+      collection(db, 'trips', gatewayTripId, 'files'),
+      where('tripId', '==', tripId),
+    )
+    return onSnapshot(q, snap => {
+      const dayFiles = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(d => d.dayNumber === day.dayNumber)
+      dayFiles.sort((a, b) => (b.uploadedAt?.toMillis() ?? 0) - (a.uploadedAt?.toMillis() ?? 0))
+      setFiles(dayFiles)
+    })
+  }, [tripId, gatewayTripId, day.dayNumber])
 
   function update(field, value) {
     onDayChange({ ...day, [field]: value })
@@ -106,11 +126,23 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
                 onChange={e => update('subtitle', e.target.value)} sx={inputSx} />
             </Box>
           ) : (
-            <Box>
-              <Typography variant="caption" color="text.secondary" display="block" lineHeight={1.2}>{day.date}</Typography>
-              <Typography variant="subtitle1" fontWeight={700} lineHeight={1.2}>{day.location}</Typography>
-              <Typography variant="body2" color="text.secondary" lineHeight={1.3}>{day.subtitle}</Typography>
-            </Box>
+            <>
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block" lineHeight={1.2}>{day.date}</Typography>
+                <Typography variant="subtitle1" fontWeight={700} lineHeight={1.2}>{day.location}</Typography>
+                <Typography variant="body2" color="text.secondary" lineHeight={1.3}>{day.subtitle}</Typography>
+              </Box>
+              {tripId && user && files.length > 0 && (
+                <Chip
+                  data-testid="file-count-badge"
+                  icon={<AttachFileIcon sx={{ fontSize: '13px !important' }} />}
+                  label={files.length}
+                  size="small"
+                  variant="outlined"
+                  sx={{ ml: 'auto', height: 22, fontSize: '0.72rem', flexShrink: 0 }}
+                />
+              )}
+            </>
           )}
         </Box>
       </AccordionSummary>
@@ -410,6 +442,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
             dayNumber={day.dayNumber}
             user={user}
             isAdmin={isAdmin}
+            files={files}
           />
         )}
 

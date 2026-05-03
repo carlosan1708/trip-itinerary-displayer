@@ -42,12 +42,14 @@ import {
   getTripData, saveTripData, deleteTripData,
   slugify,
 } from '../utils/registry'
-import { useT } from '../i18n'
+import { useT, useLang, useChangeLang } from '../i18n'
 
 const TRIP_COLORS = ['#2E7D32', '#0277BD', '#AD1457', '#F57C00', '#7B1FA2', '#00838F']
 
 export default function Dashboard({ user, isAdmin, onSelectTrip }) {
-  const t = useT()
+  const t          = useT()
+  const lang       = useLang()
+  const changeLang = useChangeLang()
   const [registry, setRegistry]     = useState(() => getRegistry())
   const [favorites, setFavorites]   = useState(() => getFavorites())
   const [search, setSearch]         = useState('')
@@ -361,6 +363,18 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
           background: 'linear-gradient(90deg, #2E7D32, #AD1457, #0277BD)' }} />
 
         <Box sx={{ position: 'absolute', top: 12, right: 16, display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* Language toggle */}
+          <Box data-testid="lang-toggle" sx={{ display: 'flex', alignItems: 'center', borderRadius: 1, border: '1px solid rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+            {['en', 'es'].map(l => (
+              <Button key={l} size="small" onClick={() => changeLang(l)} aria-pressed={lang === l} sx={{
+                minWidth: 0, px: 1.2, py: 0.3, borderRadius: 0,
+                fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase',
+                color: lang === l ? '#fff' : 'rgba(255,255,255,0.35)',
+                bgcolor: lang === l ? 'rgba(255,255,255,0.12)' : 'transparent',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.18)', color: '#fff' },
+              }}>{l}</Button>
+            ))}
+          </Box>
           {isAdmin && (
             <Tooltip title={t('manageAccess')}>
               <Button size="small" startIcon={<PeopleIcon sx={{ fontSize: 16 }} />}

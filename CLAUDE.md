@@ -1,80 +1,96 @@
 # Trip Itinerary Displayer — Claude Guidelines
 
 ## Project Overview
-React + Vite SPA that displays a shared travel itinerary (Canada 2026) with Firebase Auth (Google Sign-in), Firestore for data sync, and role-based access control. Hosted on Firebase Hosting.
+React + Vite SPA for a shared travel itinerary (Canada 2026). Firebase Auth (Google), Firestore real-time sync, Firebase Storage for files, role-based access. Python FastAPI backend (`backend/`) handles admin custom claims and proxies the Anthropic Claude API for the in-app itinerary agent. Hosted on Firebase Hosting.
+
+## Where to Look First
+Before exploring the code, read these — they save context:
+- **[specs/as-built.md](specs/as-built.md)** — authoritative architecture reference: auth, dashboard, data model, day cards, edit mode, version history, files, notes, AI agent, admin panel, i18n, PDF, Firestore collections. Keep this in sync when behavior changes.
+- **[specs/](specs/)** — pending feature specs (e.g. `file-tags.md`). Treat as the source of truth for unfinished work.
+- **[.claude/skills/](.claude/skills/)** — project-specific slash commands.
 
 ## Tech Stack
-- **React 18** (JSX, no TypeScript)
-- **Vite 5** — dev server and build
-- **Material-UI v5** (`@mui/material`) + Emotion — all UI components and styling
-- **Firebase 12** — Auth, Firestore, Hosting
-- **npm** — package manager
+- **React 18** (JSX, no TypeScript) + **Vite 5**
+- **Material-UI v5** (`@mui/material`) + Emotion — all UI
+- **Firebase 12** — Auth, Firestore, Storage, Hosting
+- **Python FastAPI** backend (`backend/`) — admin claims + Claude API proxy
+- **Playwright** for E2E
+- **npm** package manager
 
 ## Commands
 ```bash
-npm run dev       # Start dev server (localhost:5173)
-npm run build     # Production build → dist/
-npm run preview   # Preview production build locally
-firebase deploy   # Deploy to Firebase Hosting (requires firebase-tools)
+npm run dev              # Dev server on :5173
+npm run dev:test         # Test-mode dev server on :5174 (mocks Firebase)
+npm run build            # Production build → dist/
+npm run test:e2e         # Playwright E2E
+npm run sync             # Bidirectional Firestore ↔ local sync (uses .env)
+firebase deploy          # Hosting + rules (requires firebase-tools)
 ```
 
-## Architecture
+## Architecture (high level — see `specs/as-built.md` for details)
 ```
 src/
   components/     # One file per component; no barrel index files
-  utils/          # parseText.jsx — parses itinerary text format
-  firebase.js     # Firebase app init + exports (db, auth, provider)
-  theme.js        # MUI theme (green/red palette)
-  App.jsx         # Root component — auth state, routing logic, data loading
-  main.jsx        # ReactDOM.createRoot entry point
+  utils/          # registry.js, agentClient.js, itineraryPatch.js, parseText.jsx, generatePdf.jsx
+  i18n/           # en.js / es.js + I18nProvider + useT()
+  __mocks__/      # firebase-firestore.js, firebase-storage.js — used in test mode
+  data/           # Bundled itinerary seed JSON
+  firebase.js     # Firebase init + db, auth, storage, provider exports
+  theme.js        # MUI theme
+  App.jsx         # Root: auth state, registry/trip routing, sync logic
+backend/          # FastAPI: auth.py (admin claims), chat.py (Claude proxy), create.py
+e2e/              # Playwright specs + helpers.js (mock control via window.__mockAuth/__mockFirestore)
+specs/            # As-built + pending feature specs
+scripts/sync-data.mjs  # CLI sync used by npm run sync:*
 ```
 
 ## Code Conventions
 - **JavaScript JSX only** — do not introduce TypeScript
-- **MUI components** for all UI — do not add Tailwind, inline styles, or other CSS frameworks
+- **MUI components** for all UI — no Tailwind, no inline styles, no other CSS frameworks
 - **sx prop** for one-off styles; `theme.js` for palette/typography changes
 - Component files use `.jsx` extension
-- No default barrel exports — import components by their file path
-- Firebase env vars are accessed via `import.meta.env.VITE_*`
+- No barrel exports — import components by their file path
+- Firebase env vars accessed via `import.meta.env.VITE_*`
+- All user-facing strings go through `useT()` — never hardcode English or Spanish in components
 
 ## Firebase / Security Rules
-- Firestore rules in `firestore.rules` restrict access to admin + per-trip whitelisted users
-- Admin email comes from `VITE_ADMIN_EMAIL` env var — never hardcode it in source
-- Do not expose Firebase config beyond what `.env.example` already documents
-- After editing `firestore.rules`, deploy rules separately: `firebase deploy --only firestore:rules`
+- **Firestore rules** in `firestore.rules` — admin + per-trip whitelisted users (via `trips/{GATEWAY_TRIP_ID}/allowed_users/{email}`)
+- **Storage rules** in `storage.rules` — `trips/{tripId}/files/**` requires auth
+- Admin email comes from `VITE_ADMIN_EMAIL` env var — never hardcode it
+- After editing `firestore.rules`: `firebase deploy --only firestore:rules` (or `/deploy-rules`)
+- After editing `storage.rules`: `firebase deploy --only storage`
 
 ## Environment Variables
-Copy `.env.example` → `.env.local` (git-ignored). Required vars:
+Project uses **`.env`** (not `.env.local`) for credentials. `.env.example` documents all required vars:
 - `VITE_FIREBASE_*` — Firebase project credentials
 - `VITE_ADMIN_EMAIL` — email that gets admin privileges
-- `VITE_TRIP_ID` — Firestore document key for the active trip
-
-## Data Flow
-1. Itinerary JSON is bundled locally in `src/`
-2. On load, `App.jsx` syncs with Firestore (`/trips/{TRIP_ID}/data/`)
-3. Admin can push updated itinerary data to Firestore via the Admin Panel
-4. Access control list lives in `/trips/{TRIP_ID}/allowed_users/`
+- `VITE_TRIP_ID` — Firestore key for the gateway/main trip
+- `GOOGLE_APPLICATION_CREDENTIALS` — service account path (used by `scripts/sync-data.mjs` and backend)
 
 ## Skills
 Built-in:
-- `/simplify` — review code changes for quality, reuse, and efficiency
-- `/update-config` — configure hooks, permissions, and settings.json
+- `/simplify` — review changes for quality, reuse, efficiency
+- `/update-config` — configure hooks, permissions, settings.json
 
 Project-specific (`.claude/skills/`):
-- `/deploy` — build + deploy to Firebase Hosting (user-invoked only)
+- `/deploy` — build + deploy hosting (user-invoked only)
 - `/deploy-rules` — deploy Firestore rules only (user-invoked only)
 - `/add-user` — guide through whitelisting a user via the Admin Panel
-- `/plan-trip` — guided trip planning: asks questions, generates itinerary JSON with correct Wikimedia image URLs, saves and syncs
+- `/plan-trip` — guided trip planning + JSON generation
+- `/sync` — full bidirectional Firestore ↔ local sync (registry pulled first, then newest-version-wins on data)
+- `/sync-download`, `/sync-upload` — one-way variants
 
 ## Testing
-- Playwright E2E tests live in `e2e/` — run with `npm run test:e2e`
-- **When adding or modifying a feature in `src/`, you MUST add or update E2E tests in `e2e/` as part of the same task. A feature is not done until it has tests.**
-- Tests passing = task done. If a change breaks a test (including changes to `e2e/` or config files), fix it before finishing — do not delete tests
-- Test mode swaps Firebase for mocks in `src/__mocks__/` — auth and Firestore state controlled via `window.__mockAuth` / `window.__mockFirestore` (see `e2e/helpers.js`)
+- Playwright E2E in `e2e/` — `npm run test:e2e`
+- **When adding/modifying a feature in `src/`, you MUST add or update E2E tests in `e2e/` as part of the same task. A feature is not done until it has tests.**
+- Tests passing = task done. If a change breaks a test (including `e2e/` or config files), fix it — do not delete tests.
+- Test mode swaps Firebase for mocks in `src/__mocks__/`; control auth/Firestore via `window.__mockAuth` and `window.__mockFirestore` (see `e2e/helpers.js`). The Storage mock is a stateless stub — uploads/downloads succeed but no real bytes flow.
 
 ## Do / Don't
 - **Do** keep components small and single-purpose
 - **Do** use MUI `Box`, `Stack`, `Typography` instead of raw `div`/`p`
-- **Don't** commit `.env` or `.env.local` files
-- **Don't** add new npm dependencies without a clear need — the bundle is already sizeable
-- **Don't** bypass Firestore security rules for convenience
+- **Do** update `specs/as-built.md` when you change observable behavior
+- **Don't** commit `.env` files
+- **Don't** add new npm dependencies without a clear need — bundle is already sizeable
+- **Don't** bypass Firestore or Storage security rules for convenience
+- **Don't** hardcode the admin email or any UI string

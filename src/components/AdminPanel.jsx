@@ -2,28 +2,28 @@ import { useState, useEffect } from 'react'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, List, ListItem, ListItemText,
-  ListItemSecondaryAction, IconButton, Typography,
-  Box, CircularProgress, Divider, Chip, ToggleButtonGroup, ToggleButton,
+  IconButton, Typography, Box, CircularProgress, Divider, Chip,
+  ToggleButtonGroup, ToggleButton,
 } from '@mui/material'
-import DeleteIcon from '@mui/icons-material/Delete'
+import DeleteIcon    from '@mui/icons-material/Delete'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import TranslateIcon from '@mui/icons-material/Translate'
-import { collection, getDocs, setDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, getDoc, setDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
-import { useT, useLang, useChangeLang } from '../i18n'
+import { useT, useChangeLang } from '../i18n'
 
 const TRIP_ID = import.meta.env.VITE_TRIP_ID
 
 export default function AdminPanel({ open, onClose, currentUserEmail }) {
   const t          = useT()
-  const lang       = useLang()
   const changeLang = useChangeLang()
 
-  const [users, setUsers]       = useState([])
-  const [newEmail, setNewEmail] = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [saving, setSaving]     = useState(false)
-  const [error, setError]       = useState('')
+  const [users, setUsers]           = useState([])
+  const [newEmail, setNewEmail]     = useState('')
+  const [loading, setLoading]       = useState(false)
+  const [saving, setSaving]         = useState(false)
+  const [error, setError]           = useState('')
+  const [defaultLang, setDefaultLang] = useState('en')
 
   const loadUsers = async () => {
     setLoading(true)
@@ -32,7 +32,16 @@ export default function AdminPanel({ open, onClose, currentUserEmail }) {
     setLoading(false)
   }
 
-  useEffect(() => { if (open) loadUsers() }, [open])
+  useEffect(() => {
+    if (!open) return
+    loadUsers()
+    getDoc(doc(db, 'app-settings', 'config')).then(snap => {
+      if (snap.exists()) {
+        const lang = snap.data().defaultLanguage
+        if (lang === 'en' || lang === 'es') setDefaultLang(lang)
+      }
+    })
+  }, [open])
 
   const handleAdd = async () => {
     const email = newEmail.trim().toLowerCase()
@@ -59,6 +68,19 @@ export default function AdminPanel({ open, onClose, currentUserEmail }) {
     await loadUsers()
   }
 
+  const handleSetDefault = async (_, lang) => {
+    if (!lang) return
+    setDefaultLang(lang)
+    changeLang(lang)
+    await setDoc(doc(db, 'app-settings', 'config'), { defaultLanguage: lang }, { merge: true })
+  }
+
+  const handleSetUserLang = async (email, lang) => {
+    await setDoc(doc(db, 'trips', TRIP_ID, 'allowed_users', email), { language: lang }, { merge: true })
+    setUsers(prev => prev.map(u => u.email === email ? { ...u, language: lang } : u))
+    if (email === currentUserEmail) changeLang(lang)
+  }
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ fontWeight: 700 }}>
@@ -69,20 +91,15 @@ export default function AdminPanel({ open, onClose, currentUserEmail }) {
       </DialogTitle>
 
       <DialogContent>
-        {/* Language switcher */}
+        {/* App default language */}
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <TranslateIcon fontSize="small" sx={{ color: 'text.secondary' }} />
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              {t('languageSection')}
+              {t('appDefaultLanguage')}
             </Typography>
           </Box>
-          <ToggleButtonGroup
-            value={lang}
-            exclusive
-            onChange={(_, newLang) => { if (newLang) changeLang(newLang) }}
-            size="small"
-          >
+          <ToggleButtonGroup value={defaultLang} exclusive onChange={handleSetDefault} size="small">
             <ToggleButton value="en">{t('languageEnglish')}</ToggleButton>
             <ToggleButton value="es">{t('languageSpanish')}</ToggleButton>
           </ToggleButtonGroup>
@@ -93,8 +110,7 @@ export default function AdminPanel({ open, onClose, currentUserEmail }) {
         {/* Add new user */}
         <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
           <TextField
-            fullWidth
-            size="small"
+            fullWidth size="small"
             label={t('emailToInvite')}
             value={newEmail}
             onChange={e => { setNewEmail(e.target.value); setError('') }}
@@ -128,24 +144,34 @@ export default function AdminPanel({ open, onClose, currentUserEmail }) {
         ) : (
           <List dense disablePadding>
             {users.map(u => (
-              <ListItem key={u.email} disablePadding sx={{ py: 0.5 }}>
+              <ListItem key={u.email} disablePadding sx={{ py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <ListItemText
                   primary={u.email}
                   secondary={u.addedBy ? t('addedBy', { email: u.addedBy }) : null}
+                  sx={{ flex: 1, mr: 0.5 }}
                 />
+                {/* Per-user language toggle */}
+                <Box sx={{ display: 'flex', border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden', flexShrink: 0 }}>
+                  {['en', 'es'].map(l => (
+                    <Button key={l} size="small" onClick={() => handleSetUserLang(u.email, l)}
+                      title={t('userAssignedLang')}
+                      sx={{
+                        minWidth: 0, px: 1, py: 0.25, borderRadius: 0,
+                        fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
+                        color: u.language === l ? 'primary.main' : 'text.disabled',
+                        bgcolor: u.language === l ? 'action.selected' : 'transparent',
+                        '&:hover': { bgcolor: 'action.hover' },
+                      }}>
+                      {l}
+                    </Button>
+                  ))}
+                </Box>
                 {u.email === currentUserEmail ? (
-                  <Chip label={t('youChip')} size="small" sx={{ mr: 1 }} />
+                  <Chip label={t('youChip')} size="small" />
                 ) : (
-                  <ListItemSecondaryAction>
-                    <IconButton
-                      edge="end"
-                      size="small"
-                      onClick={() => handleRemove(u.email)}
-                      title={t('revokeAccess')}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </ListItemSecondaryAction>
+                  <IconButton size="small" onClick={() => handleRemove(u.email)} title={t('revokeAccess')}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
                 )}
               </ListItem>
             ))}

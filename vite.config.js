@@ -37,6 +37,7 @@ export default defineConfig(({ mode }) => ({
         'firebase/app':       resolve(__dirname, 'src/__mocks__/firebase-app.js'),
         'firebase/auth':      resolve(__dirname, 'src/__mocks__/firebase-auth.js'),
         'firebase/firestore': resolve(__dirname, 'src/__mocks__/firebase-firestore.js'),
+        'firebase/storage':   resolve(__dirname, 'src/__mocks__/firebase-storage.js'),
       },
     },
   }),

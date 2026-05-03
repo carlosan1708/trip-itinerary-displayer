@@ -3,7 +3,7 @@ import {
   ThemeProvider, CssBaseline, Container, Box, Typography, CircularProgress,
 } from '@mui/material'
 import { onAuthStateChanged } from 'firebase/auth'
-import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { findTripData, saveTripData, getRegistry, saveRegistry } from './utils/registry'
 
@@ -13,6 +13,7 @@ import ItineraryAgent       from './components/ItineraryAgent'
 import TripEditorModal      from './components/TripEditorModal'
 import VersionHistoryModal  from './components/VersionHistoryModal'
 import Header from './components/Header'
+import AllFilesPanel from './components/AllFilesPanel'
 import PartSection from './components/PartSection'
 import DayCard from './components/DayCard'
 import LoginScreen from './components/LoginScreen'
@@ -48,22 +49,15 @@ export default function App() {
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false)
   const [pdfLoading, setPdfLoading]         = useState(false)
   const [agentOpen, setAgentOpen]           = useState(false)
-  const [language, setLanguage]             = useState('en')
+  const [language, setLanguage]             = useState(() => {
+    const stored = localStorage.getItem('lang')
+    return stored === 'en' || stored === 'es' ? stored : 'en'
+  })
 
-  // ── Language sync from Firestore ─────────────────────────────────
-  useEffect(() => {
-    const configRef = doc(db, 'app-settings', 'config')
-    const unsub = onSnapshot(configRef, snap => {
-      if (snap.exists()) {
-        const lang = snap.data().language
-        if (lang === 'en' || lang === 'es') setLanguage(lang)
-      }
-    }, () => { /* silently ignore if collection doesn't exist yet */ })
-    return unsub
-  }, [])
-
-  const handleLangChange = useCallback(async (newLang) => {
-    await setDoc(doc(db, 'app-settings', 'config'), { language: newLang }, { merge: true })
+  const handleLangChange = useCallback((newLang) => {
+    if (newLang !== 'en' && newLang !== 'es') return
+    localStorage.setItem('lang', newLang)
+    setLanguage(newLang)
   }, [])
 
   // ── Auth ─────────────────────────────────────────────────────────
@@ -94,6 +88,20 @@ export default function App() {
         await setDoc(userRef, { email, addedAt: serverTimestamp(), addedBy: 'self' })
       } else if (!snap.exists()) { setAllowed(false); return }
       setAllowed(true)
+
+      // Language resolution: localStorage > user-assigned > app default
+      if (!localStorage.getItem('lang')) {
+        const assignedLang = snap.exists() ? snap.data()?.language : null
+        if (assignedLang === 'en' || assignedLang === 'es') {
+          setLanguage(assignedLang)
+        } else {
+          try {
+            const configSnap = await getDoc(doc(db, 'app-settings', 'config'))
+            const defaultLang = configSnap.data()?.defaultLanguage
+            if (defaultLang === 'en' || defaultLang === 'es') setLanguage(defaultLang)
+          } catch { /* non-fatal */ }
+        }
+      }
     })
   }, [])
 
@@ -325,6 +333,7 @@ function AppContent({
   onPartChange, onDayChange, onAgentEdit, onAgentDuplicate, onBack,
 }) {
   const t = useT()
+  const [filesPanelOpen, setFilesPanelOpen] = useState(false)
 
   if (user === undefined || (user && allowed === null)) return <LoadingScreen />
   if (!user) return <LoginScreen />
@@ -367,7 +376,16 @@ function AppContent({
         onOpenVersionHistory={canEdit ? onOpenVersionHistory : null}
         onDownloadPdf={onDownloadPdf}
         pdfLoading={pdfLoading}
+        onOpenFiles={() => setFilesPanelOpen(true)}
         onBack={onBack}
+      />
+
+      <AllFilesPanel
+        open={filesPanelOpen}
+        onClose={() => setFilesPanelOpen(false)}
+        tripId={selectedTripId}
+        gatewayTripId={GATEWAY_TRIP_ID}
+        itinerary={itinerary}
       />
 
       {jsonEditorOpen && (
