@@ -18,15 +18,18 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf'
 import LogoutIcon       from '@mui/icons-material/Logout'
 import MenuIcon         from '@mui/icons-material/Menu'
 import PersonIcon       from '@mui/icons-material/Person'
+import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import AdminPanel       from './AdminPanel'
+import UserProfileDialog from './UserProfileDialog'
 import { useT, useLang, useChangeLang } from '../i18n'
 
 export default function Header({ title, subtitle, stats, user, isAdmin, author, editMode, onToggleEdit, onUploadJson, onOpenJsonEditor, onOpenVersionHistory, onDownloadPdf, pdfLoading, onOpenFiles, onBack }) {
   const t          = useT()
   const lang       = useLang()
   const changeLang = useChangeLang()
-  const [adminOpen, setAdminOpen]   = useState(false)
-  const [menuAnchor, setMenuAnchor] = useState(null)
+  const [adminOpen, setAdminOpen]     = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [menuAnchor, setMenuAnchor]   = useState(null)
   const fileInputRef = useRef()
 
   const statIcons = [
@@ -85,6 +88,13 @@ export default function Header({ title, subtitle, stats, user, isAdmin, author, 
       icon: <PeopleIcon fontSize="small" />,
       label: t('access'),
       onClick: () => { setAdminOpen(true); setMenuAnchor(null) },
+    },
+    user && {
+      key: 'profile',
+      icon: <AccountCircleIcon fontSize="small" />,
+      label: t('profile'),
+      onClick: () => { setProfileOpen(true); setMenuAnchor(null) },
+      testid: 'header-profile-btn',
     },
     {
       key: 'logout',
@@ -169,6 +179,7 @@ export default function Header({ title, subtitle, stats, user, isAdmin, author, 
                   startIcon={a.icon}
                   onClick={a.onClick}
                   disabled={a.disabled}
+                  data-testid={a.testid}
                   sx={{
                     borderColor: a.highlight ? '#81c784' : 'rgba(255,255,255,0.45)',
                     color: a.highlight ? '#81c784' : '#fff',
@@ -210,6 +221,7 @@ export default function Header({ title, subtitle, stats, user, isAdmin, author, 
                     key={a.key}
                     onClick={a.onClick}
                     disabled={a.disabled}
+                    data-testid={a.testid}
                     sx={a.highlight ? { color: 'success.main' } : {}}
                   >
                     <ListItemIcon sx={a.highlight ? { color: 'success.main' } : {}}>{a.icon}</ListItemIcon>
@@ -284,6 +296,14 @@ export default function Header({ title, subtitle, stats, user, isAdmin, author, 
           open={adminOpen}
           onClose={() => setAdminOpen(false)}
           currentUserEmail={user?.email}
+        />
+      )}
+
+      {user && (
+        <UserProfileDialog
+          open={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          userEmail={user.email}
         />
       )}
     </>

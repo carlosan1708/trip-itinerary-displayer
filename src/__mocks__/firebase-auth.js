@@ -18,6 +18,10 @@ export function signInWithPopup() {
   return Promise.resolve()
 }
 
+export function signInWithEmailAndPassword() {
+  return Promise.resolve()
+}
+
 export function signOut() {
   return Promise.resolve()
 }

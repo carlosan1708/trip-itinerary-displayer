@@ -79,6 +79,8 @@ Project-specific (`.claude/skills/`):
 - `/plan-trip` — guided trip planning + JSON generation
 - `/sync` — full bidirectional Firestore ↔ local sync (registry pulled first, then newest-version-wins on data)
 - `/sync-download`, `/sync-upload` — one-way variants
+- `/roadmap-update` — triage a feature request onto `specs/roadmap.md` (decides shipped vs duplicate vs new bullet vs new spec, then edits)
+- `/ship-feature` — sync docs after a spec is implemented (update `as-built.md`, flip Status to Shipped, move from Pending to Shipped in `roadmap.md`)
 
 ## Testing
 - Playwright E2E in `e2e/` — `npm run test:e2e`

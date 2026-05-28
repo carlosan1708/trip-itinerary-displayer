@@ -1,23 +1,41 @@
 import { useState } from 'react'
-import { signInWithPopup } from 'firebase/auth'
+import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth'
 import { auth, googleProvider } from '../firebase'
 import {
-  Box, Button, Typography, Paper, CircularProgress,
+  Box, Button, Typography, Paper, CircularProgress, TextField, Divider, Collapse, Link,
 } from '@mui/material'
 import GoogleIcon from '@mui/icons-material/Google'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import { useT } from '../i18n'
 
+const DEV_EMAIL    = import.meta.env.VITE_TEST_EMAIL    ?? ''
+const DEV_PASSWORD = import.meta.env.VITE_TEST_PASSWORD ?? ''
+
 export default function LoginScreen() {
   const t = useT()
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
+  const [loading, setLoading]       = useState(false)
+  const [error, setError]           = useState(null)
+  const [showEmail, setShowEmail]   = useState(false)
+  const [email, setEmail]           = useState(DEV_EMAIL)
+  const [password, setPassword]     = useState(DEV_PASSWORD)
 
-  const handleLogin = async () => {
+  const handleGoogleLogin = async () => {
     setLoading(true)
     setError(null)
     try {
       await signInWithPopup(auth, googleProvider)
+    } catch {
+      setError(t('loginError'))
+      setLoading(false)
+    }
+  }
+
+  const handleEmailLogin = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    try {
+      await signInWithEmailAndPassword(auth, email, password)
     } catch {
       setError(t('loginError'))
       setLoading(false)
@@ -72,8 +90,8 @@ export default function LoginScreen() {
           fullWidth
           variant="contained"
           size="large"
-          startIcon={loading ? <CircularProgress size={18} color="inherit" /> : <GoogleIcon />}
-          onClick={handleLogin}
+          startIcon={loading && !showEmail ? <CircularProgress size={18} color="inherit" /> : <GoogleIcon />}
+          onClick={handleGoogleLogin}
           disabled={loading}
           sx={{
             bgcolor: '#4285F4',
@@ -85,8 +103,57 @@ export default function LoginScreen() {
             fontSize: '1rem',
           }}
         >
-          {loading ? t('signingIn') : t('continueGoogle')}
+          {loading && !showEmail ? t('signingIn') : t('continueGoogle')}
         </Button>
+
+        <Divider sx={{ my: 2 }}>
+          <Typography variant="caption" color="text.secondary">{t('orSignInWith')}</Typography>
+        </Divider>
+
+        <Link
+          component="button"
+          variant="body2"
+          onClick={() => setShowEmail(s => !s)}
+          sx={{ mb: 1, display: 'block', textAlign: 'center' }}
+        >
+          {showEmail ? t('hideEmailForm') : t('signInWithEmail')}
+        </Link>
+
+        <Collapse in={showEmail}>
+          <Box component="form" onSubmit={handleEmailLogin} sx={{ mt: 1, textAlign: 'left' }}>
+            <TextField
+              label={t('emailLabel')}
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              fullWidth
+              size="small"
+              sx={{ mb: 1.5 }}
+              autoComplete="email"
+              inputProps={{ 'data-testid': 'email-input' }}
+            />
+            <TextField
+              label={t('passwordLabel')}
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              fullWidth
+              size="small"
+              sx={{ mb: 2 }}
+              autoComplete="current-password"
+              inputProps={{ 'data-testid': 'password-input' }}
+            />
+            <Button
+              type="submit"
+              fullWidth
+              variant="outlined"
+              disabled={loading || !email || !password}
+              data-testid="email-signin-btn"
+            >
+              {loading && showEmail ? t('signingIn') : t('signInBtn')}
+            </Button>
+          </Box>
+        </Collapse>
 
         {error && (
           <Typography variant="caption" color="error" sx={{ display: 'block', mt: 2 }}>

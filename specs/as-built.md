@@ -44,11 +44,56 @@ an inline itinerary editor, an AI agent for itinerary generation, and a multi-tr
 - Registry structure: `{ folders: [{ id, label, trips: [{ id, label, duration, dates }] }] }`.
 - Users can browse folders, favorite trips (persisted to `localStorage`), and open any trip.
 - Admins can create folders, add trips (JSON upload or editor), rename, delete, and reorder.
+- **First-run experience**: when the synced registry is empty, `EmptyDashboard.jsx` replaces the
+  trip list with a structured panel offering three onboarding CTAs (Build with AI / Pick a template /
+  Paste my own JSON). The first CTA used auto-creates a default "My Trips" folder.
 
 **Relevant files**
 
 - `src/components/Dashboard.jsx`
+- `src/components/EmptyDashboard.jsx`
 - `src/utils/registry.js`
+
+---
+
+## Add Trip Dialog
+
+**How it works**
+
+- `AddTripDialog.jsx` is a tabbed modal opened from any folder's "+" action or from `EmptyDashboard`.
+- Four tabs:
+  - **Templates** — `TemplateGrid` shows tiles backed by `src/data/templates/templates.js`. Each
+    template is a content-empty skeleton (parts + empty `days[]`); selecting one fills the name field.
+  - **Build with AI** — pitch + button that closes the dialog and opens the `ItineraryAgent` drawer
+    via `onBuildWithAi`. A collapsible section underneath exposes the legacy ChatGPT prompt as a
+    no-Claude-budget fallback.
+  - **Upload** — file picker for previously-exported JSON.
+  - **Paste** — JSON textarea with live validation.
+- The dialog accepts an `initialTab` prop so EmptyDashboard CTAs deep-link to the right tab.
+- On confirm, `onCreate(name, jsonData)` runs the same registry + Firestore write path used by all
+  trip-creation flows.
+
+**Trip starter templates**
+
+- Bundled in source at `src/data/templates/templates.js` — IDs: `city-break-3d`, `road-trip-7d`,
+  `beach-week`, `family-with-kids-7d`, `ski-week`.
+- Each template's `build(name)` function returns a fresh itinerary object matching the schema below;
+  content fields (`activities`, `tips`, `warnings`, `links`, `images`) are intentionally empty.
+- Names and descriptions are routed through `i18n` (`tplCityBreak3dName`, `tplCityBreak3dDesc`, …).
+
+**Build-with-AI wiring**
+
+- `App.jsx` exposes `onBuildWithAi(folderId)` which sets `agentTargetFolderId` and clicks the agent FAB.
+- `handleAgentDuplicate` honors `agentTargetFolderId` when set: the new trip lands in that folder
+  rather than the folder containing `selectedTripId`.
+- The conversational prompt-script that auto-emits final JSON without a confirmation step remains a
+  follow-up (see [onboarding.md](onboarding.md) — out-of-scope notes).
+
+**Relevant files**
+
+- `src/components/AddTripDialog.jsx`
+- `src/components/TemplateGrid.jsx`
+- `src/data/templates/templates.js`
 
 ---
 
@@ -223,6 +268,27 @@ Each note document:
 
 ---
 
+## Traveler Profile
+
+**Component**: `src/components/UserProfileDialog.jsx`
+**Firestore path**: `users/{email}`
+
+A per-user document that persists info reused across every trip — passport / insurance details, allergies, an emergency contact, and home currency / timezone preferences.
+
+```js
+{
+  passportNumber, passportExpiry, insurancePolicy,
+  bloodType, allergies: string[],
+  emergencyContact: { name, phone, relation },
+  homeCurrency, homeTimezone
+}
+```
+
+- Opened from a **Profile** action: in `Header.jsx` (when a trip is open) and as a button beside Sign Out in `Dashboard.jsx`.
+- Reads `users/{email}` on dialog open; missing doc → empty fields. Save uses `setDoc(..., { merge: true })`.
+- Privacy: Firestore rule `match /users/{email} { allow read, write: if request.auth.token.email == email; }` — the doc is readable and writable only by its owner. Co-travelers cannot see anything in here.
+- All labels routed through `useT()` (`profile*` keys in `src/i18n/`).
+
 ## Internationalisation
 
 - `src/i18n/` — `en.js` and `es.js` string maps.
@@ -243,6 +309,7 @@ Triggered from Header; renders the full itinerary to a printable PDF.
 
 ```
 app-settings/config                          # default language
+users/{email}                                # per-user traveler profile (self-only access)
 trips/{GATEWAY_TRIP_ID}/
   allowed_users/{email}                      # access whitelist + per-user lang
   registry/main                              # folder/trip list

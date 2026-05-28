@@ -49,6 +49,7 @@ export default function App() {
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false)
   const [pdfLoading, setPdfLoading]         = useState(false)
   const [agentOpen, setAgentOpen]           = useState(false)
+  const [agentTargetFolderId, setAgentTargetFolderId] = useState(null)
   const [language, setLanguage]             = useState(() => {
     const stored = localStorage.getItem('lang')
     return stored === 'en' || stored === 'es' ? stored : 'en'
@@ -256,23 +257,46 @@ export default function App() {
     }
     const { getRegistry, saveRegistry } = await import('./utils/registry')
     const reg = getRegistry()
-    const username = user.email.split('@')[0]
-    for (const folder of reg) {
-      const original = folder.trips?.find(t => t.id === selectedTripId)
-      if (original) {
-        folder.trips = folder.trips || []
-        folder.trips.push({
-          id: newTripId,
-          label: duplicateItinerary.label,
-          duration: duplicateItinerary.stats?.[0] || '',
-          dates: duplicateItinerary.subtitle || '',
-          subtitle: original.subtitle || '',
-          author: user.email,
-        })
-        break
+    const newTripEntry = {
+      id: newTripId,
+      label: duplicateItinerary.label,
+      duration: duplicateItinerary.stats?.[0] || '',
+      dates: duplicateItinerary.subtitle || '',
+      subtitle: '',
+      author: user.email,
+    }
+
+    let placed = false
+    if (agentTargetFolderId) {
+      const target = reg.find(f => f.id === agentTargetFolderId)
+      if (target) {
+        target.trips = target.trips || []
+        target.trips.push(newTripEntry)
+        placed = true
+      }
+      setAgentTargetFolderId(null)
+    }
+    if (!placed) {
+      for (const folder of reg) {
+        const original = folder.trips?.find(t => t.id === selectedTripId)
+        if (original) {
+          folder.trips = folder.trips || []
+          folder.trips.push({ ...newTripEntry, subtitle: original.subtitle || '' })
+          placed = true
+          break
+        }
       }
     }
     saveRegistry(reg)
+    setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { folders: reg })
+      .catch(err => console.warn('[sync] Could not save registry to Firestore:', err.message))
+  }
+
+  function handleBuildWithAi(folderId) {
+    setAgentTargetFolderId(folderId || null)
+    queueMicrotask(() => {
+      document.querySelector('[data-testid="agent-fab"]')?.click()
+    })
   }
 
   // ── Render ───────────────────────────────────────────────────────
@@ -312,6 +336,7 @@ export default function App() {
           onDayChange={handleDayChange}
           onAgentEdit={handleAgentEdit}
           onAgentDuplicate={handleAgentDuplicate}
+          onBuildWithAi={handleBuildWithAi}
           onBack={() => { setSelectedTripId(null); setItinerary(null); setEditMode(false) }}
           setEditMode={setEditMode}
         />
@@ -331,6 +356,7 @@ function AppContent({
   onToggleEdit, onUploadJson, onOpenJsonEditor, onOpenVersionHistory,
   onDownloadPdf, onRestoreVersion, onJsonEditorSave,
   onPartChange, onDayChange, onAgentEdit, onAgentDuplicate, onBack,
+  onBuildWithAi,
 }) {
   const t = useT()
   const [filesPanelOpen, setFilesPanelOpen] = useState(false)
@@ -346,6 +372,7 @@ function AppContent({
           user={user}
           isAdmin={isAdmin}
           onSelectTrip={id => { setEditMode(false); setSelectedTripId(id) }}
+          onBuildWithAi={onBuildWithAi}
         />
         <ItineraryAgent
           itinerary={null}
