@@ -75,6 +75,10 @@ async function run() {
       }
     }
 
+    // viewers: explicit owner-only by default. Empty array means "private to
+    // author"; canSeeTrip in the dashboard treats `undefined` as legacy open
+    // and shows it to everyone — that's exactly what we want to avoid here.
+    // Admin always sees everything via isAdmin check anyway.
     folders[fid].trips.push({
       id: tref.id,
       label,
@@ -82,6 +86,7 @@ async function run() {
       dates,
       duration,
       author,
+      viewers: author ? [author] : [],
       ...(ALWAYS_HIDDEN_IDS.has(tref.id) ? { hidden: true } : {}),
     })
   }
