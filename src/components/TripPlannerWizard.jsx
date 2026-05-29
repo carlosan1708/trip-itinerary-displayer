@@ -170,20 +170,25 @@ export default function TripPlannerWizard({ onComplete, onCancel }) {
     ].filter(Boolean)
 
     const travelersMatch = String(finalAnswers.travelers || '').match(/\d+/)
-    const travelersInt = travelersMatch
+    const rawTravelers = travelersMatch
       ? parseInt(travelersMatch[0], 10)
       : /couple|pareja/i.test(finalAnswers.travelers || '') ? 2
       : /solo|alone/i.test(finalAnswers.travelers || '')   ? 1
       : 2
 
+    // Clamp to backend Pydantic bounds (CreateRequest):
+    //   num_days: 1..60, travelers: 1..20
+    const numDays  = Math.min(60, Math.max(1, parseInt(finalAnswers.num_days, 10) || 7))
+    const travInt  = Math.min(20, Math.max(1, rawTravelers))
+
     const params = {
       destination: finalAnswers.destination,
       dates:       finalAnswers.dates,
-      num_days:    parseInt(finalAnswers.num_days, 10) || 7,
-      travelers:   travelersInt,
+      num_days:    numDays,
+      travelers:   travInt,
       budget:      finalAnswers.budget,
       pace:        finalAnswers.pace,
-      interests,
+      interests:   interests.slice(0, 20),
       language:    lang,
     }
 

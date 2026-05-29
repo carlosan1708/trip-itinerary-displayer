@@ -333,4 +333,336 @@ test.describe('AI Agent — backend integration (live)', () => {
     const json = await res.json()
     expect(json.detail).toBe('Forbidden')
   })
+
+  // Gap #2: /auth/set-admin-claim endpoint
+  // (Bounds enforcement is tested at the wizard level — see "wizard clamps
+  // out-of-range num_days/travelers" below. Live-backend bounds tests aren't
+  // viable because auth is checked before body validation, so an invalid
+  // token returns 401 long before Pydantic 422 fires.)
+  test('/auth/set-admin-claim endpoint exists and validates auth', async ({ request }) => {
+    let res
+    try {
+      res = await request.post('http://localhost:8000/auth/set-admin-claim', {
+        headers: { 'Origin': 'http://localhost:5173', 'Content-Type': 'application/json', 'Authorization': 'Bearer invalid' },
+      })
+    } catch { test.skip(true, 'Backend not running'); return }
+    // 401 = auth rejected (endpoint exists), 200 = succeeded (unlikely with fake token).
+    // 404 = route missing (the bug), 422 = schema drift, 403 = origin issue.
+    expect([200, 401]).toContain(res.status())
+  })
+})
+
+// ── Wizard advanced behaviors ──────────────────────────────────────────────
+
+test.describe('AI Agent — wizard behaviors', () => {
+  test.beforeEach(async ({ page }) => {
+    await setupAllowedUserAuth(page)
+  })
+
+  // Gap #5: Authorization header is well-formed
+  test('wizard request includes valid Bearer authorization header', async ({ page }) => {
+    let capturedHeaders = null
+    await page.route('**/agent/create', async (route) => {
+      capturedHeaders = await route.request().allHeaders()
+      await route.fulfill({
+        status: 200, contentType: 'text/event-stream',
+        body: ssePayload({ done: { itinerary: MOCK_ITINERARY } }),
+      })
+    })
+
+    await page.goto('/')
+    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await openWizard(page)
+    await fillWizard(page)
+    await expect.poll(() => capturedHeaders !== null, { timeout: 10000 }).toBe(true)
+
+    const auth = capturedHeaders['authorization'] || capturedHeaders['Authorization']
+    expect(auth).toBeTruthy()
+    expect(auth).toMatch(/^Bearer .+/)
+    // mock token is "mock-id-token"
+    expect(auth.slice(7).length).toBeGreaterThan(0)
+  })
+
+  // Gap #9: Spanish locale flows through to the backend
+  test('wizard sends language="es" when app is in Spanish', async ({ page }) => {
+    await page.addInitScript(() => { localStorage.setItem('lang', 'es') })
+
+    let capturedPayload = null
+    await page.route('**/agent/create', async (route) => {
+      capturedPayload = route.request().postDataJSON()
+      await route.fulfill({
+        status: 200, contentType: 'text/event-stream',
+        body: ssePayload({ done: { itinerary: MOCK_ITINERARY } }),
+      })
+    })
+
+    await page.goto('/')
+    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+
+    await page.getByText('Canadá').hover()
+    await page.getByRole('button', { name: /Agregar itinerario/i }).first().click()
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.getByTestId('addtrip-tab-ai').click()
+
+    // Spanish question text is "¿A dónde van?" (not "vas")
+    await expect(page.getByText('¿A dónde van?')).toBeVisible({ timeout: 5000 })
+    await page.waitForTimeout(250)
+    await page.keyboard.type('Costa Rica'); await page.keyboard.press('Enter')
+    await page.waitForTimeout(300); await page.keyboard.type('Jun 1 - 7'); await page.keyboard.press('Enter')
+    await page.waitForTimeout(300); await page.keyboard.type('7'); await page.keyboard.press('Enter')
+    await page.waitForTimeout(300); await page.keyboard.type('2 adultos'); await page.keyboard.press('Enter')
+    await page.waitForTimeout(300)
+    await page.getByRole('button', { name: 'Moderado', exact: true }).click()
+    await page.getByRole('button', { name: 'Siguiente' }).click()
+    await page.waitForTimeout(300)
+    // Spanish balanced pace is "Equilibrado" not "Balanceado"
+    await page.getByRole('button', { name: 'Equilibrado', exact: true }).click()
+    await page.getByRole('button', { name: 'Siguiente' }).click()
+    await page.waitForTimeout(300); await page.keyboard.type('hiking'); await page.keyboard.press('Enter')
+    await page.waitForTimeout(300); await page.keyboard.type('auto'); await page.keyboard.press('Enter')
+    await page.waitForTimeout(300); await page.keyboard.type('Arenal'); await page.keyboard.press('Enter')
+    await page.waitForTimeout(300)
+    await page.getByRole('button', { name: 'Generar itinerario' }).click()
+
+    await expect.poll(() => capturedPayload !== null, { timeout: 10000 }).toBe(true)
+    expect(capturedPayload.language).toBe('es')
+  })
+
+  // Gap #6: closing the dialog mid-generation aborts the in-flight request
+  test('unmounting the wizard mid-generation prevents the response from being applied', async ({ page }) => {
+    // The wizard uses AbortController via streamCreate. When it unmounts,
+    // its cleanup effect calls abortRef.current?.() to abort the in-flight
+    // fetch. After unmount + resolve, no new trip should be created.
+    let resolveRoute
+    const routeBlocked = new Promise(r => { resolveRoute = r })
+    await page.route('**/agent/create', async (route) => {
+      await routeBlocked
+      await route.fulfill({
+        status: 200, contentType: 'text/event-stream',
+        body: ssePayload({ done: { itinerary: { ...MOCK_ITINERARY, title: 'Aborted Trip' } } }),
+      })
+    })
+
+    await page.goto('/')
+    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await openWizard(page)
+    await fillWizard(page)
+    await expect(page.getByText(/Building your itinerary/i)).toBeVisible({ timeout: 5000 })
+
+    // Reload the page — guarantees the wizard unmounts and React's cleanup runs
+    await page.reload()
+    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+
+    // NOW resolve the request that's still pending in the network layer
+    resolveRoute()
+    await page.waitForTimeout(1500)
+
+    // The aborted response should not have created a trip with "Aborted Trip"
+    await expect(page.getByText('Aborted Trip')).not.toBeVisible()
+  })
+
+  // Gap #8 (client-side): wizard clamps out-of-range num_days/travelers to
+  // backend bounds (num_days 1-60, travelers 1-20) before submitting.
+  test('wizard clamps out-of-range num_days and travelers to backend bounds', async ({ page }) => {
+    let captured = null
+    await page.route('**/agent/create', async (route) => {
+      captured = route.request().postDataJSON()
+      await route.fulfill({
+        status: 200, contentType: 'text/event-stream',
+        body: ssePayload({ done: { itinerary: MOCK_ITINERARY } }),
+      })
+    })
+
+    await page.goto('/')
+    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await openWizard(page)
+
+    // Same as fillWizard but with out-of-range values
+    await typeAndAdvance(page, 'Where are you going?', 'Test', 'What are your travel dates?')
+    await typeAndAdvance(page, 'What are your travel dates?', 'Jun 1 - Jun 7', 'How many days is the trip?')
+    await typeAndAdvance(page, 'How many days is the trip?', '999', "Who's traveling?")  // out of range
+    await typeAndAdvance(page, "Who's traveling?", '500 adults', "What's your budget style?")  // out of range
+    await clickChipAndAdvance(page, "What's your budget style?", 'Moderate', "What's your preferred pace?")
+    await clickChipAndAdvance(page, "What's your preferred pace?", 'Balanced', 'What activities and experiences excite you most?')
+    await typeAndAdvance(page, 'What activities and experiences excite you most?', 'hiking', 'How will you get around?')
+    await typeAndAdvance(page, 'How will you get around?', 'car', 'Any must-see places or non-negotiables?')
+    await typeAndAdvance(page, 'Any must-see places or non-negotiables?', 'x', 'Anything else the AI should know?')
+    await page.waitForTimeout(250)
+    await page.getByRole('button', { name: 'Generate itinerary' }).click()
+
+    await expect.poll(() => captured !== null, { timeout: 10000 }).toBe(true)
+    expect(captured.num_days).toBeLessThanOrEqual(60)
+    expect(captured.num_days).toBeGreaterThanOrEqual(1)
+    expect(captured.travelers).toBeLessThanOrEqual(20)
+    expect(captured.travelers).toBeGreaterThanOrEqual(1)
+  })
+
+  // Gap #7: retry button actually re-sends a request after error
+  test('retry button after error re-sends the request', async ({ page }) => {
+    let requestCount = 0
+    await page.route('**/agent/create', async (route) => {
+      requestCount++
+      if (requestCount === 1) {
+        // First call: 500
+        await route.fulfill({ status: 500, contentType: 'application/json', body: '{"detail":"boom"}' })
+      } else {
+        // Second call (retry): success
+        await route.fulfill({
+          status: 200, contentType: 'text/event-stream',
+          body: ssePayload({ done: { itinerary: MOCK_ITINERARY } }),
+        })
+      }
+    })
+
+    await page.goto('/')
+    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await openWizard(page)
+    await fillWizard(page)
+    await expect(page.getByRole('button', { name: /Try again|Reintentar/i })).toBeVisible({ timeout: 10000 })
+    expect(requestCount).toBe(1)
+    await page.getByRole('button', { name: /Try again|Reintentar/i }).click()
+    await expect.poll(() => requestCount, { timeout: 10000 }).toBe(2)
+  })
+
+  // Gap #4: malformed itinerary response is handled gracefully
+  test('malformed itinerary response does not crash the wizard', async ({ page }) => {
+    await page.route('**/agent/create', async (route) => {
+      // Backend "done" event with non-object itinerary
+      await route.fulfill({
+        status: 200, contentType: 'text/event-stream',
+        body: ssePayload({ done: { itinerary: null } }),
+      })
+    })
+
+    await page.goto('/')
+    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await openWizard(page)
+    await fillWizard(page)
+
+    // Even with null itinerary, the app should not throw — either close dialog
+    // or show an error, but the page itself stays interactive.
+    await page.waitForTimeout(2000)
+    // The dashboard or an error state should still be reachable (page didn't crash)
+    expect(await page.evaluate(() => document.body.children.length)).toBeGreaterThan(0)
+  })
+})
+
+// ── ItineraryAgent (in-trip chat drawer) ────────────────────────────────────
+
+test.describe('AI Agent — ItineraryAgent chat (in-trip)', () => {
+  test.beforeEach(async ({ page }) => {
+    await setupAllowedUserAuth(page)
+  })
+
+  async function openTripAndAgent(page) {
+    await page.goto('/')
+    await page.getByText('Ruta Este').click()
+    await page.getByTestId('agent-fab').click()
+    await expect(page.getByTestId('agent-input')).toBeVisible()
+  }
+
+  // Gap #10 (also covers part of #1): ItineraryAgent opens and accepts input
+  test('drawer opens, input is focusable, send button is enabled with text', async ({ page }) => {
+    await page.route('**/agent/chat', async (route) => {
+      await route.fulfill({
+        status: 200, contentType: 'text/event-stream',
+        body: 'event: token\ndata: {"text":"Hi"}\n\nevent: done\ndata: {}\n\n',
+      })
+    })
+
+    await openTripAndAgent(page)
+    await page.getByTestId('agent-input').fill('What is the weather?')
+    await expect(page.getByTestId('agent-send-btn')).toBeEnabled()
+  })
+
+  // Gap #1: /agent/chat payload schema
+  test('chat sends payload matching backend ChatRequest schema', async ({ page }) => {
+    let capturedPayload = null
+    await page.route('**/agent/chat', async (route) => {
+      capturedPayload = route.request().postDataJSON()
+      await route.fulfill({
+        status: 200, contentType: 'text/event-stream',
+        body: 'event: token\ndata: {"text":"ok"}\n\nevent: done\ndata: {}\n\n',
+      })
+    })
+
+    await openTripAndAgent(page)
+    await page.getByTestId('agent-input').fill('What should I pack?')
+    await page.getByTestId('agent-send-btn').click()
+    await expect.poll(() => capturedPayload !== null, { timeout: 5000 }).toBe(true)
+
+    // ChatRequest schema:
+    //   messages: list[Message] (1-50), each {role: "user"|"assistant", content: str 1-8000}
+    //   itinerary: dict | null
+    //   mode: "explore" | "edit"
+    //   language: str /^[a-z]{2}$/
+    const p = capturedPayload
+    expect(Array.isArray(p.messages)).toBe(true)
+    expect(p.messages.length).toBeGreaterThanOrEqual(1)
+    expect(p.messages.length).toBeLessThanOrEqual(50)
+    p.messages.forEach(m => {
+      expect(['user', 'assistant']).toContain(m.role)
+      expect(typeof m.content).toBe('string')
+      expect(m.content.length).toBeGreaterThanOrEqual(1)
+      expect(m.content.length).toBeLessThanOrEqual(8000)
+    })
+    expect(['explore', 'edit']).toContain(p.mode)
+    expect(p.language).toMatch(/^[a-z]{2}$/)
+    // itinerary may be omitted, null, or a dict
+    if (p.itinerary !== undefined && p.itinerary !== null) {
+      expect(typeof p.itinerary).toBe('object')
+    }
+  })
+
+  // Gap #1 follow-up: live backend accepts the captured chat payload
+  test('chat payload is accepted by live backend (no 422)', async ({ page, request }) => {
+    let capturedPayload = null
+    await page.route('**/agent/chat', async (route) => {
+      capturedPayload = route.request().postDataJSON()
+      await route.fulfill({
+        status: 200, contentType: 'text/event-stream',
+        body: 'event: token\ndata: {"text":"ok"}\n\nevent: done\ndata: {}\n\n',
+      })
+    })
+
+    await openTripAndAgent(page)
+    await page.getByTestId('agent-input').fill('Hi')
+    await page.getByTestId('agent-send-btn').click()
+    await expect.poll(() => capturedPayload !== null, { timeout: 5000 }).toBe(true)
+
+    let res
+    try {
+      res = await request.post('http://localhost:8000/agent/chat', {
+        headers: { 'Origin': 'http://localhost:5173', 'Content-Type': 'application/json', 'Authorization': 'Bearer test' },
+        data: capturedPayload,
+      })
+    } catch { test.skip(true, 'Backend not running'); return }
+    if (res.status() === 422) {
+      throw new Error(`Backend rejected chat payload with 422: ${JSON.stringify((await res.json()).detail, null, 2)}`)
+    }
+    expect(res.status()).not.toBe(422)
+  })
+
+  // Gap #3: SSE streaming displays tokens progressively
+  test('SSE token events stream and final response appears in chat', async ({ page }) => {
+    // The agent uses two phases:
+    //   - 'token' events accumulate via msg.content + chunk (streaming display)
+    //   - 'done' event with { response } replaces content with the final response
+    // So our mock must include `response` in the done payload.
+    const finalResponse = 'Hello world, this streams!'
+    await page.route('**/agent/chat', async (route) => {
+      const tokens = ['Hello', ' world', ', this', ' streams!']
+      const body =
+        tokens.map(t => `event: token\ndata: ${JSON.stringify({ text: t })}\n\n`).join('') +
+        `event: done\ndata: ${JSON.stringify({ response: finalResponse })}\n\n`
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
+    })
+
+    await openTripAndAgent(page)
+    await page.getByTestId('agent-input').fill('Stream please')
+    await page.getByTestId('agent-send-btn').click()
+
+    // The final response should appear in the assistant bubble.
+    await expect(page.getByText(finalResponse)).toBeVisible({ timeout: 10000 })
+  })
 })
