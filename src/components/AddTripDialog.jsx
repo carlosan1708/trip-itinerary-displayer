@@ -1,28 +1,20 @@
 import { useState, useRef, useEffect } from 'react'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Tabs, Tab, Box, TextField, Button, Stack, Typography, Alert,
-  Collapse, IconButton, Tooltip, Chip,
+  Tabs, Tab, Box, TextField, Button, Stack, Typography, Alert, Chip,
 } from '@mui/material'
 import UploadFileIcon from '@mui/icons-material/UploadFile'
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
-import ContentCopyIcon from '@mui/icons-material/ContentCopy'
-import CheckIcon from '@mui/icons-material/Check'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
-import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 
-import TemplateGrid from './TemplateGrid'
 import TripPlannerWizard from './TripPlannerWizard'
 import { useT } from '../i18n'
 
-const TABS = ['templates', 'ai', 'upload', 'paste']
+const TABS = ['ai', 'upload', 'paste']
 
-export default function AddTripDialog({ open, onClose, onCreate, initialTab = 'templates' }) {
+export default function AddTripDialog({ open, onClose, onCreate, initialTab = 'ai' }) {
   const t = useT()
   const [tab, setTab] = useState(initialTab)
   const [name, setName] = useState('')
   const [error, setError] = useState('')
-  const [pickedTemplate, setPickedTemplate] = useState(null)
 
   const [pasteJson, setPasteJson] = useState('')
   const [pasteError, setPasteError] = useState('')
@@ -30,22 +22,16 @@ export default function AddTripDialog({ open, onClose, onCreate, initialTab = 't
   const uploadFileRef = useRef(null)
   const [uploadFilename, setUploadFilename] = useState('')
 
-  const [showLegacyPrompt, setShowLegacyPrompt] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const promptRef = useRef(null)
-
   useEffect(() => {
     if (open) {
-      setTab(initialTab)
+      setTab(TABS.includes(initialTab) ? initialTab : 'ai')
     } else {
       setName('')
       setError('')
-      setPickedTemplate(null)
       setPasteJson('')
       setPasteError('')
       setUploadFilename('')
       uploadedDataRef.current = null
-      setShowLegacyPrompt(false)
     }
   }, [open, initialTab])
 
@@ -82,18 +68,10 @@ export default function AddTripDialog({ open, onClose, onCreate, initialTab = 't
     }
   }
 
-  function pickTemplate(tpl) {
-    setPickedTemplate(tpl)
-    if (!name) setName(t(tpl.nameKey))
-  }
-
   function confirm() {
     if (!name.trim()) { setError(t('nameEmpty')); return }
     let data = null
-    if (tab === 'templates') {
-      if (!pickedTemplate) { setError(t('pickTemplateFirst')); return }
-      data = pickedTemplate.build(name.trim())
-    } else if (tab === 'paste') {
+    if (tab === 'paste') {
       if (pasteError) return
       data = uploadedDataRef.current
     } else if (tab === 'upload') {
@@ -127,30 +105,12 @@ export default function AddTripDialog({ open, onClose, onCreate, initialTab = 't
           scrollButtons="auto"
           sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 36, '& .MuiTab-root': { minHeight: 36, fontSize: '0.78rem', textTransform: 'none', py: 0.5 } }}
         >
-          <Tab value="templates" label={t('tabTemplates')} data-testid="addtrip-tab-templates" />
           <Tab value="ai" label={t('tabBuildAi')} data-testid="addtrip-tab-ai" />
           <Tab value="upload" label={t('tabUpload')} data-testid="addtrip-tab-upload" />
           <Tab value="paste" label={t('tabPaste')} data-testid="addtrip-tab-paste" />
         </Tabs>
 
         <Box sx={{ minHeight: 200 }}>
-          {tab === 'templates' && (
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.25 }}>
-                {t('templatesHelp')}
-              </Typography>
-              <TemplateGrid onPick={pickTemplate} />
-              {pickedTemplate && (
-                <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                  <Typography variant="caption" color="success.main">
-                    {t('templatePicked', { name: t(pickedTemplate.nameKey) })}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          )}
-
           {tab === 'ai' && (
             <TripPlannerWizard
               onComplete={(tripName, itinerary) => {

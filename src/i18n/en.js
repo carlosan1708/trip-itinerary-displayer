@@ -58,7 +58,6 @@ export default {
   noSharedTripsTitle: 'No trips yet',
   noSharedTripsBody: "No one has shared a trip with you yet. Ask the trip owner to add your email, or start planning your own adventure.",
   noSharedTripsAiCta: 'Plan with AI',
-  noSharedTripsTplCta: 'Use a template',
   addItineraryTooltip: 'Add itinerary',
   deleteFolderTooltip: 'Delete folder',
   addDestination: 'Add destination / folder',
@@ -224,13 +223,9 @@ export default {
   dayLabel: 'Day {id}',
 
   // Add Trip dialog tabs
-  tabTemplates: 'Templates',
   tabBuildAi: 'Build with AI',
   tabUpload: 'Upload',
   tabPaste: 'Paste JSON',
-  templatesHelp: 'Pick a skeleton — we will create the structure, you fill in the days.',
-  templatePicked: 'Selected: {name}',
-  pickTemplateFirst: 'Pick a template first.',
   uploadHelp: 'Upload a previously exported itinerary JSON.',
   pasteHelp: 'Paste an itinerary JSON below.',
   jsonValid: '✓ Valid JSON',
@@ -274,19 +269,6 @@ export default {
   legacyPromptHelp: 'Copy this prompt, paste it in ChatGPT, then paste the JSON it returns into the Paste tab.',
   copyPrompt: 'Copy prompt',
   copied: 'Copied!',
-  tplDaysChip: '{days} days',
-
-  // Templates
-  tplCityBreak3dName: 'City break — 3 days',
-  tplCityBreak3dDesc: 'A long-weekend skeleton: arrival, full day, departure.',
-  tplRoadTrip7dName: 'Road trip — 7 days',
-  tplRoadTrip7dDesc: 'Two parts: driving leg, then arrival at destination.',
-  tplBeachWeekName: 'Beach week',
-  tplBeachWeekDesc: 'A relaxed 7 days, single location, no driving days.',
-  tplFamily7dName: 'Family with kids — 7 days',
-  tplFamily7dDesc: 'Slower paced, two-part trip designed for traveling with children.',
-  tplSkiWeekName: 'Ski week',
-  tplSkiWeekDesc: 'Mountain-anchored 7 days, single resort.',
 
   // Trip Share Dialog
   shareTripTitle: 'Who can see this trip?',
@@ -309,8 +291,6 @@ export default {
   emptyOrSeparator: 'or start a different way',
   emptyCtaAiTitle: 'Build with AI',
   emptyCtaAiDesc: 'Describe your trip in a chat. The assistant builds the itinerary for you.',
-  emptyCtaTemplateTitle: 'Pick a template',
-  emptyCtaTemplateDesc: 'Start from a skeleton — city break, road trip, beach week, and more.',
   emptyCtaPasteTitle: 'Paste my own JSON',
   emptyCtaPasteDesc: 'Already have an itinerary file? Paste it and go.',
   defaultFolderName: 'My Trips',

@@ -68,15 +68,22 @@ async function openWizard(page) {
   await page.getByText('Canadá').hover()
   await page.getByRole('button', { name: 'Add itinerary' }).first().click()
   await expect(page.getByRole('dialog')).toBeVisible()
-  await page.getByTestId('addtrip-tab-ai').click()
-  // Wizard renders the first question (destination) when AI tab is active
+  // AI tab is now the default; only click if not already selected (avoids
+  // a re-render that can steal focus from the wizard's auto-focused input)
+  const aiTab = page.getByTestId('addtrip-tab-ai')
+  if ((await aiTab.getAttribute('aria-selected')) !== 'true') {
+    await aiTab.click()
+  }
   await expect(page.getByText('Where are you going?')).toBeVisible({ timeout: 5000 })
 }
 
 async function typeAndAdvance(page, currentQuestion, value, nextQuestion) {
-  // Each step auto-focuses its input via useEffect — type into focused element
   await expect(page.getByText(currentQuestion)).toBeVisible({ timeout: 5000 })
-  await page.waitForTimeout(250)  // wait for fade + focus
+  await page.waitForTimeout(300)  // wait for fade animation
+  // Scope to the open dialog so we don't grab the dashboard search input.
+  // The wizard renders a single input per step (text or number).
+  const input = page.getByRole('dialog').locator('input:visible, textarea:visible').first()
+  await input.click()
   await page.keyboard.type(value)
   await page.keyboard.press('Enter')
   if (nextQuestion) {
@@ -404,24 +411,40 @@ test.describe('AI Agent — wizard behaviors', () => {
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByTestId('addtrip-tab-ai').click()
 
+    // Helper: same focus pattern as typeAndAdvance, scoped to dialog
+    const typeStep = async (currentQuestion, value, nextQuestion) => {
+      await expect(page.getByText(currentQuestion)).toBeVisible({ timeout: 5000 })
+      await page.waitForTimeout(300)
+      const inp = page.getByRole('dialog').locator('input:visible, textarea:visible').first()
+      await inp.click()
+      await page.keyboard.type(value)
+      await page.keyboard.press('Enter')
+      if (nextQuestion) await expect(page.getByText(nextQuestion)).toBeVisible({ timeout: 5000 })
+    }
+
     // Spanish question text is "¿A dónde van?" (not "vas")
-    await expect(page.getByText('¿A dónde van?')).toBeVisible({ timeout: 5000 })
-    await page.waitForTimeout(250)
-    await page.keyboard.type('Costa Rica'); await page.keyboard.press('Enter')
-    await page.waitForTimeout(300); await page.keyboard.type('Jun 1 - 7'); await page.keyboard.press('Enter')
-    await page.waitForTimeout(300); await page.keyboard.type('7'); await page.keyboard.press('Enter')
-    await page.waitForTimeout(300); await page.keyboard.type('2 adultos'); await page.keyboard.press('Enter')
+    await typeStep('¿A dónde van?', 'Costa Rica', '¿Cuáles son las fechas del viaje?')
+    await typeStep('¿Cuáles son las fechas del viaje?', 'Jun 1 - 7', null)
     await page.waitForTimeout(300)
+    const numInput = page.getByRole('dialog').locator('input[type="number"]:visible').first()
+    await numInput.click(); await page.keyboard.type('7'); await page.keyboard.press('Enter')
+    await page.waitForTimeout(300)
+    await typeStep('¿Quiénes viajan?', '2 adultos', '¿Cuál es tu estilo de presupuesto?')
     await page.getByRole('button', { name: 'Moderado', exact: true }).click()
     await page.getByRole('button', { name: 'Siguiente' }).click()
     await page.waitForTimeout(300)
     // Spanish balanced pace is "Equilibrado" not "Balanceado"
     await page.getByRole('button', { name: 'Equilibrado', exact: true }).click()
     await page.getByRole('button', { name: 'Siguiente' }).click()
-    await page.waitForTimeout(300); await page.keyboard.type('hiking'); await page.keyboard.press('Enter')
-    await page.waitForTimeout(300); await page.keyboard.type('auto'); await page.keyboard.press('Enter')
-    await page.waitForTimeout(300); await page.keyboard.type('Arenal'); await page.keyboard.press('Enter')
     await page.waitForTimeout(300)
+    const fillTextRaw = async (val) => {
+      const i = page.getByRole('dialog').locator('input:visible, textarea:visible').first()
+      await i.click(); await page.keyboard.type(val); await page.keyboard.press('Enter')
+      await page.waitForTimeout(300)
+    }
+    await fillTextRaw('hiking')
+    await fillTextRaw('auto')
+    await fillTextRaw('Arenal')
     await page.getByRole('button', { name: 'Generar itinerario' }).click()
 
     await expect.poll(() => capturedPayload !== null, { timeout: 10000 }).toBe(true)

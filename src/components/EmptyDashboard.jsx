@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { Box, Typography, Paper, Stack, TextField, Button, Divider } from '@mui/material'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
-import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize'
 import ContentPasteIcon from '@mui/icons-material/ContentPaste'
 
 import { useT } from '../i18n'
 
-export default function EmptyDashboard({ onBuildWithAi, onPickTemplate, onPasteJson }) {
+export default function EmptyDashboard({ onBuildWithAi, onPasteJson }) {
   const t = useT()
   const [description, setDescription] = useState('')
 
@@ -25,15 +24,6 @@ export default function EmptyDashboard({ onBuildWithAi, onPickTemplate, onPasteJ
       onClick: () => onBuildWithAi?.(),
       gradient: 'linear-gradient(135deg, #B71C1C 0%, #7B1FA2 100%)',
       testid: 'empty-cta-ai',
-    },
-    {
-      key: 'template',
-      icon: <DashboardCustomizeIcon sx={{ fontSize: 28 }} />,
-      title: t('emptyCtaTemplateTitle'),
-      desc: t('emptyCtaTemplateDesc'),
-      onClick: onPickTemplate,
-      gradient: 'linear-gradient(135deg, #0277BD 0%, #00838F 100%)',
-      testid: 'empty-cta-template',
     },
     {
       key: 'paste',

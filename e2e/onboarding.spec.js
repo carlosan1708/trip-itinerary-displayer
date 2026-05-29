@@ -36,22 +36,17 @@ test.describe('Onboarding — first-run empty dashboard', () => {
     await page.goto('/')
   })
 
-  test('shows the empty-dashboard panel with all three CTAs', async ({ page }) => {
+  test('shows the empty-dashboard panel with AI + Paste CTAs', async ({ page }) => {
     await expect(page.getByTestId('empty-dashboard')).toBeVisible({ timeout: 5000 })
     await expect(page.getByTestId('empty-cta-ai')).toBeVisible()
-    await expect(page.getByTestId('empty-cta-template')).toBeVisible()
     await expect(page.getByTestId('empty-cta-paste')).toBeVisible()
+    // Templates feature was removed
+    await expect(page.getByTestId('empty-cta-template')).not.toBeVisible()
   })
 
   test('does NOT show the search bar or trip list when registry is empty', async ({ page }) => {
     await expect(page.getByTestId('empty-dashboard')).toBeVisible({ timeout: 5000 })
     await expect(page.getByPlaceholder('Search trip...')).not.toBeVisible()
-  })
-
-  test('clicking "Pick a template" opens the dialog on the Templates tab', async ({ page }) => {
-    await page.getByTestId('empty-cta-template').click()
-    await expect(page.getByRole('dialog')).toBeVisible()
-    await expect(page.getByTestId('template-grid')).toBeVisible()
   })
 
   test('clicking "Paste my own JSON" opens the dialog on the Paste tab', async ({ page }) => {
@@ -104,9 +99,10 @@ test.describe('Onboarding — Add Trip dialog tabs', () => {
     await expect(page.getByRole('dialog')).toBeVisible()
   }
 
-  test('opens with Templates tab selected by default', async ({ page }) => {
+  test('opens with Build with AI tab selected by default', async ({ page }) => {
     await openAddTripDialog(page)
-    await expect(page.getByTestId('template-grid')).toBeVisible()
+    // AI tab is default; wizard's first question should be visible
+    await expect(page.getByText(/Where are you going|¿A dónde van/i)).toBeVisible({ timeout: 5000 })
   })
 
   test('switching to Build with AI tab shows the wizard first question', async ({ page }) => {
@@ -126,39 +122,6 @@ test.describe('Onboarding — Add Trip dialog tabs', () => {
     await openAddTripDialog(page)
     await page.getByTestId('addtrip-tab-upload').click()
     await expect(page.getByRole('button', { name: /Upload file/i })).toBeVisible()
-  })
-})
-
-// ── Templates flow ─────────────────────────────────────────────────────────
-
-test.describe('Onboarding — templates', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupAllowedUserAuth(page)
-    await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
-  })
-
-  test('selecting a template and confirming creates a trip in the folder', async ({ page }) => {
-    await page.getByText('Canadá').hover()
-    await page.getByRole('button', { name: 'Add itinerary' }).first().click()
-    await expect(page.getByTestId('template-grid')).toBeVisible()
-    await page.getByTestId('template-tile-city-break-3d').click()
-    // Template selection populates the name field — confirm button should add the trip
-    await page.getByTestId('addtrip-confirm').click()
-    await expect(page.getByRole('dialog')).not.toBeVisible()
-    // The new trip appears in the list (template name is "City break — 3 days")
-    await expect(page.getByText(/City break — 3 days/)).toBeVisible()
-  })
-
-  test('confirming with no template selected shows an error', async ({ page }) => {
-    await page.getByText('Canadá').hover()
-    await page.getByRole('button', { name: 'Add itinerary' }).first().click()
-    // Provide a name but skip picking a template
-    await page.getByLabel('Itinerary name').fill('Untitled')
-    await page.getByTestId('addtrip-confirm').click()
-    // Dialog stays open and an alert with the pick-template-first message appears
-    await expect(page.getByRole('dialog')).toBeVisible()
-    await expect(page.getByText(/Pick a template first/i)).toBeVisible()
   })
 })
 

@@ -278,11 +278,6 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
     onBuildWithAi?.(folderId, seedText)
   }
 
-  function handleEmptyTemplate() {
-    const folderId = ensureFolderId()
-    setAddTrip({ folderId, initialTab: 'templates' })
-  }
-
   function handleEmptyPaste() {
     const folderId = ensureFolderId()
     setAddTrip({ folderId, initialTab: 'paste' })
@@ -488,7 +483,6 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
       {!registryLoading && registry.length === 0 && (
         <EmptyDashboard
           onBuildWithAi={handleEmptyAi}
-          onPickTemplate={handleEmptyTemplate}
           onPasteJson={handleEmptyPaste}
         />
       )}
@@ -509,13 +503,6 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
               sx={{ background: 'linear-gradient(135deg, #B71C1C 0%, #7B1FA2 100%)', textTransform: 'none' }}
             >
               {t('noSharedTripsAiCta')}
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => { const fid = ensureFolderId(); setAddTrip({ folderId: fid, initialTab: 'templates' }) }}
-              sx={{ textTransform: 'none' }}
-            >
-              {t('noSharedTripsTplCta')}
             </Button>
           </Stack>
         </Box>
@@ -576,7 +563,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
               </Typography>
               <Box className="folder-actions" sx={{ display: 'flex', gap: 0.5 }} onClick={e => e.stopPropagation()}>
                 <Tooltip title={t('addItineraryTooltip')}>
-                  <IconButton size="small" onClick={e => { e.stopPropagation(); setAddTrip({ folderId: folder.id, initialTab: 'templates' }) }}>
+                  <IconButton size="small" onClick={e => { e.stopPropagation(); setAddTrip({ folderId: folder.id, initialTab: 'ai' }) }}>
                     <AddIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
@@ -709,7 +696,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
 
               {/* Add trip row */}
               <Box
-                onClick={e => { e.stopPropagation(); setAddTrip({ folderId: folder.id, initialTab: 'templates' }) }}
+                onClick={e => { e.stopPropagation(); setAddTrip({ folderId: folder.id, initialTab: 'ai' }) }}
                 sx={{
                   display: 'flex', alignItems: 'center', gap: 1,
                   px: 5, py: 1, cursor: 'pointer', borderTop: '1px dashed #e0e0e0',

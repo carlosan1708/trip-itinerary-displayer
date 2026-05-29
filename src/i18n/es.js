@@ -58,7 +58,6 @@ export default {
   noSharedTripsTitle: 'Aún no hay viajes',
   noSharedTripsBody: 'Nadie ha compartido un viaje contigo todavía. Pedile al dueño del viaje que te agregue, o empezá a planear tu propia aventura.',
   noSharedTripsAiCta: 'Planear con IA',
-  noSharedTripsTplCta: 'Usar una plantilla',
   addItineraryTooltip: 'Agregar itinerario',
   deleteFolderTooltip: 'Eliminar carpeta',
   addDestination: 'Agregar destino / carpeta',
@@ -224,13 +223,9 @@ export default {
   dayLabel: 'Día {id}',
 
   // Add Trip dialog tabs
-  tabTemplates: 'Plantillas',
   tabBuildAi: 'Crear con IA',
   tabUpload: 'Subir',
   tabPaste: 'Pegar JSON',
-  templatesHelp: 'Elige un esqueleto — armamos la estructura, vos completás los días.',
-  templatePicked: 'Seleccionada: {name}',
-  pickTemplateFirst: 'Elegí una plantilla primero.',
   uploadHelp: 'Subí un itinerario JSON exportado previamente.',
   pasteHelp: 'Pegá un itinerario JSON abajo.',
   jsonValid: '✓ JSON válido',
@@ -274,19 +269,6 @@ export default {
   legacyPromptHelp: 'Copiá este prompt, pegalo en ChatGPT y luego pegá el JSON resultante en la pestaña Pegar.',
   copyPrompt: 'Copiar prompt',
   copied: '¡Copiado!',
-  tplDaysChip: '{days} días',
-
-  // Templates
-  tplCityBreak3dName: 'Escapada urbana — 3 días',
-  tplCityBreak3dDesc: 'Esqueleto de fin de semana largo: llegada, día completo, salida.',
-  tplRoadTrip7dName: 'Roadtrip — 7 días',
-  tplRoadTrip7dDesc: 'Dos partes: tramo de manejo, luego llegada al destino.',
-  tplBeachWeekName: 'Semana de playa',
-  tplBeachWeekDesc: '7 días relajados, una sola ubicación, sin días de viaje.',
-  tplFamily7dName: 'En familia con niños — 7 días',
-  tplFamily7dDesc: 'Ritmo más lento, viaje en dos partes pensado para viajar con chicos.',
-  tplSkiWeekName: 'Semana de ski',
-  tplSkiWeekDesc: '7 días en la montaña, un solo resort.',
 
   // Trip Share Dialog
   shareTripTitle: '¿Quién puede ver este viaje?',
@@ -309,8 +291,6 @@ export default {
   emptyOrSeparator: 'o empezar de otra forma',
   emptyCtaAiTitle: 'Crear con IA',
   emptyCtaAiDesc: 'Describí tu viaje en un chat. El asistente arma el itinerario por vos.',
-  emptyCtaTemplateTitle: 'Elegir una plantilla',
-  emptyCtaTemplateDesc: 'Empezá desde un esqueleto — escapada urbana, roadtrip, semana de playa y más.',
   emptyCtaPasteTitle: 'Pegar mi propio JSON',
   emptyCtaPasteDesc: '¿Ya tenés un archivo de itinerario? Pegalo y listo.',
   defaultFolderName: 'Mis viajes',
