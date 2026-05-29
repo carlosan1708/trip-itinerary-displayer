@@ -42,13 +42,21 @@ function useQuestions() {
       id: 'budget',
       question: t('wizBudget'),
       type: 'chips',
-      options: [t('wizBudgetLow'), t('wizBudgetMid'), t('wizBudgetHigh')],
+      options: [
+        { label: t('wizBudgetLow'),  value: 'budget' },
+        { label: t('wizBudgetMid'),  value: 'mid' },
+        { label: t('wizBudgetHigh'), value: 'luxury' },
+      ],
     },
     {
       id: 'pace',
       question: t('wizPace'),
       type: 'chips',
-      options: [t('wizPaceRelaxed'), t('wizPaceBalanced'), t('wizPacePacked')],
+      options: [
+        { label: t('wizPaceRelaxed'),  value: 'relaxed' },
+        { label: t('wizPaceBalanced'), value: 'moderate' },
+        { label: t('wizPacePacked'),   value: 'packed' },
+      ],
     },
     {
       id: 'interests',
@@ -161,11 +169,18 @@ export default function TripPlannerWizard({ onComplete, onCancel }) {
       finalAnswers.notes,
     ].filter(Boolean)
 
+    const travelersMatch = String(finalAnswers.travelers || '').match(/\d+/)
+    const travelersInt = travelersMatch
+      ? parseInt(travelersMatch[0], 10)
+      : /couple|pareja/i.test(finalAnswers.travelers || '') ? 2
+      : /solo|alone/i.test(finalAnswers.travelers || '')   ? 1
+      : 2
+
     const params = {
       destination: finalAnswers.destination,
       dates:       finalAnswers.dates,
       num_days:    parseInt(finalAnswers.num_days, 10) || 7,
-      travelers:   finalAnswers.travelers,
+      travelers:   travelersInt,
       budget:      finalAnswers.budget,
       pace:        finalAnswers.pace,
       interests,
@@ -290,17 +305,17 @@ export default function TripPlannerWizard({ onComplete, onCancel }) {
           {q.type === 'chips' ? (
             <Stack direction="row" flexWrap="wrap" gap={1} mt={1.5} mb={2}>
               {q.options.map(opt => {
-                const selected = (answers[q.id] || input) === opt
+                const selected = (answers[q.id] || input) === opt.value
                 return (
                   <Chip
-                    key={opt}
-                    label={opt}
+                    key={opt.value}
+                    label={opt.label}
                     clickable
                     color={selected ? 'primary' : 'default'}
                     variant={selected ? 'filled' : 'outlined'}
                     onClick={() => {
-                      setInput(opt)
-                      setAnswers(a => ({ ...a, [q.id]: opt }))
+                      setInput(opt.value)
+                      setAnswers(a => ({ ...a, [q.id]: opt.value }))
                     }}
                     sx={{ fontSize: '0.85rem', px: 0.5 }}
                   />

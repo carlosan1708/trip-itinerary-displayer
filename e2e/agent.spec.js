@@ -114,7 +114,7 @@ test.describe('AI Agent — TripPlannerWizard UI', () => {
     await setupAllowedUserAuth(page)
   })
 
-  test('wizard sends POST to /agent/create when submitted', async ({ page }) => {
+  test('wizard sends payload matching backend Pydantic schema', async ({ page }) => {
     let capturedRequest = null
     await page.route('**/agent/create', async (route) => {
       const request = route.request()
@@ -139,16 +139,87 @@ test.describe('AI Agent — TripPlannerWizard UI', () => {
     await openWizard(page)
     await fillWizard(page)
 
-    // Wait for the request to be made
-    await page.waitForFunction(() => true, null, { timeout: 5000 })
     await expect.poll(() => capturedRequest !== null, { timeout: 10000 }).toBe(true)
 
     expect(capturedRequest.method).toBe('POST')
     expect(capturedRequest.url).toContain('/agent/create')
-    expect(capturedRequest.postData.destination).toBe('Costa Rica')
-    expect(capturedRequest.postData.num_days).toBe(7)
-    expect(capturedRequest.postData.budget).toBeTruthy()
-    expect(capturedRequest.postData.pace).toBeTruthy()
+
+    // Validate EVERY field matches the backend CreateRequest Pydantic schema:
+    //   destination: str (1-200), dates: str (1-100), num_days: int (1-60),
+    //   travelers: int (1-20), interests: list[str] (max 20),
+    //   budget: Literal["budget","mid","luxury"],
+    //   pace: Literal["relaxed","moderate","packed"],
+    //   language: str matching /^[a-z]{2}$/
+    const p = capturedRequest.postData
+
+    expect(typeof p.destination).toBe('string')
+    expect(p.destination.length).toBeGreaterThanOrEqual(1)
+    expect(p.destination.length).toBeLessThanOrEqual(200)
+
+    expect(typeof p.dates).toBe('string')
+    expect(p.dates.length).toBeGreaterThanOrEqual(1)
+    expect(p.dates.length).toBeLessThanOrEqual(100)
+
+    expect(Number.isInteger(p.num_days)).toBe(true)
+    expect(p.num_days).toBeGreaterThanOrEqual(1)
+    expect(p.num_days).toBeLessThanOrEqual(60)
+
+    expect(Number.isInteger(p.travelers)).toBe(true)
+    expect(p.travelers).toBeGreaterThanOrEqual(1)
+    expect(p.travelers).toBeLessThanOrEqual(20)
+
+    expect(Array.isArray(p.interests)).toBe(true)
+    expect(p.interests.length).toBeLessThanOrEqual(20)
+    p.interests.forEach(i => expect(typeof i).toBe('string'))
+
+    expect(['budget', 'mid', 'luxury']).toContain(p.budget)
+    expect(['relaxed', 'moderate', 'packed']).toContain(p.pace)
+    expect(p.language).toMatch(/^[a-z]{2}$/)
+  })
+
+  test('captured payload is accepted by live backend (no 422)', async ({ page, request }) => {
+    // This test catches schema drift: drives the wizard, captures the payload,
+    // then POSTs it to the REAL backend on :8000. If the backend returns 422
+    // (validation error), the wizard is sending data the backend won't accept.
+    let capturedPayload = null
+    await page.route('**/agent/create', async (route) => {
+      capturedPayload = route.request().postDataJSON()
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body: ssePayload({ done: { itinerary: MOCK_ITINERARY } }),
+      })
+    })
+
+    await page.goto('/')
+    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await openWizard(page)
+    await fillWizard(page)
+    await expect.poll(() => capturedPayload !== null, { timeout: 10000 }).toBe(true)
+
+    // POST the exact payload to the live backend.
+    let res
+    try {
+      res = await request.post('http://localhost:8000/agent/create', {
+        headers: {
+          'Origin': 'http://localhost:5173',
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer test-token',
+        },
+        data: capturedPayload,
+      })
+    } catch (err) {
+      test.skip(true, 'Backend not running on localhost:8000')
+      return
+    }
+
+    // 422 = schema mismatch (the bug we're catching).
+    // 401/403 (auth) is OK — means schema validated successfully.
+    if (res.status() === 422) {
+      const body = await res.json()
+      throw new Error(`Backend rejected wizard payload with 422: ${JSON.stringify(body.detail, null, 2)}`)
+    }
+    expect(res.status()).not.toBe(422)
   })
 
   test('successful generation creates a trip', async ({ page }) => {
