@@ -138,6 +138,24 @@ def _merge(skeleton: dict, days_by_part: dict, user_email: str) -> dict:
 # Public runner
 # ---------------------------------------------------------------------------
 
+_MESSAGES = {
+    "en": {
+        "skeleton_done": "Structure planned",
+        "days_done":     "Days generated",
+        "creation_failed": "Could not generate the itinerary. Please try again.",
+    },
+    "es": {
+        "skeleton_done": "Estructura planificada",
+        "days_done":     "Días generados",
+        "creation_failed": "No se pudo generar el itinerario. Intenta de nuevo.",
+    },
+}
+
+
+def _msg(lang: str, key: str) -> str:
+    return _MESSAGES.get(lang, _MESSAGES["en"]).get(key, _MESSAGES["en"][key])
+
+
 async def run_creation(user_params: dict, user_email: str) -> AsyncIterator[dict]:
     """
     Yields SSE event dicts:
@@ -146,11 +164,12 @@ async def run_creation(user_params: dict, user_email: str) -> AsyncIterator[dict
       { "event": "error",    "data": { "message": "..." } }
     """
     params = _params_text(user_params)
+    lang   = user_params.get("language", "en")
 
     try:
         # Call 1 — skeleton (structure only, fast)
         skeleton = await _gemini_json(_SKELETON_PROMPT, params)
-        yield {"event": "progress", "data": {"text": "Estructura planificada"}}
+        yield {"event": "progress", "data": {"text": _msg(lang, "skeleton_done")}}
 
         # Call 2 — all days for all parts in one shot
         days_user_msg = (
@@ -159,7 +178,7 @@ async def run_creation(user_params: dict, user_email: str) -> AsyncIterator[dict
             "Generate day content for ALL parts listed above."
         )
         days_by_part = await _gemini_json(_DAYS_PROMPT, days_user_msg)
-        yield {"event": "progress", "data": {"text": "Días generados"}}
+        yield {"event": "progress", "data": {"text": _msg(lang, "days_done")}}
 
         # Merge — pure Python, no API call
         itinerary = _merge(skeleton, days_by_part, user_email)
@@ -167,4 +186,4 @@ async def run_creation(user_params: dict, user_email: str) -> AsyncIterator[dict
 
     except Exception as exc:
         logger.exception("Creation failed")
-        yield {"event": "error", "data": {"message": "No se pudo generar el itinerario. Intenta de nuevo."}}
+        yield {"event": "error", "data": {"message": _msg(lang, "creation_failed")}}
