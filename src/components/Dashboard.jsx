@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { signOut } from 'firebase/auth'
-import { doc, setDoc, onSnapshot } from 'firebase/firestore'
+import { doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
 const GATEWAY_TRIP_ID = import.meta.env.VITE_TRIP_ID
@@ -200,6 +200,11 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
     })
     updateRegistry(next)
     deleteTripData(tripId)
+    // Also delete the cloud doc so the trip doesn't come back on next sync /
+    // registry rebuild. Firestore rules permit this for admin / author /
+    // gateway user (same write rule as create).
+    deleteDoc(doc(db, 'trips', tripId, 'data', 'itinerary'))
+      .catch(err => console.warn('[sync] Could not delete trip from Firestore:', err.message))
   }
 
   function toggleHideTrip(folderId, tripId, e) {
@@ -671,7 +676,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
                           </IconButton>
                         </Tooltip>
                       )}
-                      {isAuthor && (
+                      {(isAuthor || isAdmin) && (
                         <Tooltip title={t('deleteAction')}>
                           <IconButton size="small" color="error" onClick={e => deleteTrip(folder.id, trip.id, e)}>
                             <DeleteIcon sx={{ fontSize: 16 }} />
@@ -871,7 +876,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
                 <ListItemText>{t('uploadJson')}</ListItemText>
               </MenuItem>
             ),
-            isMobAuthor && [
+            (isMobAuthor || isAdmin) && [
               <Divider key="div" />,
               <MenuItem key="del" onClick={e => { deleteTrip(folderId, trip.id, e); close() }} sx={{ color: 'error.main' }}>
                 <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
