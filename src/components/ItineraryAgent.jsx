@@ -10,6 +10,7 @@ import ItineraryAgentChat from './ItineraryAgentChat'
 import { streamChat } from '../utils/agentClient'
 import { applyPatch, describePatch } from '../utils/itineraryPatch'
 import { saveTripData, getRegistry, saveRegistry } from '../utils/registry'
+import { useT } from '../i18n'
 
 const DRAWER_WIDTH = 420
 
@@ -25,6 +26,7 @@ export default function ItineraryAgent({
   initialPrompt = '',
   onInitialPromptConsumed,
 }) {
+  const t = useT()
   const [openInternal, setOpenInternal] = useState(false)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -101,23 +103,25 @@ export default function ItineraryAgent({
     const base = itinerary ? applyPatch(itinerary, patch) : {}
     const username = user.email.split('@')[0]
     const newId = `${_tripId(itinerary)}-${username}-copy`
-    const duplicate = { ...base, version: 1, author: user.email, label: `${base.label || 'Viaje'} — Mi versión` }
+    const fallback = t('agentDuplicateFallbackName')
+    const suffix = t('agentDuplicateLabelSuffix')
+    const duplicate = { ...base, version: 1, author: user.email, label: `${base.label || fallback} — ${suffix}` }
     onDuplicateCreated?.(newId, duplicate)
     setMessages(prev => [
       ...prev.map(m => m.patch === patch ? { ...m, patch: null, changes: null } : m),
-      { role: 'assistant', content: `Listo — guardé una copia como "${duplicate.label}". Encuéntrala en el Dashboard cuando quieras.` },
+      { role: 'assistant', content: t('agentDuplicateConfirm', { label: duplicate.label }) },
     ])
-  }, [itinerary, user, onDuplicateCreated])
+  }, [itinerary, user, onDuplicateCreated, t])
 
   const handleDismissPatch = useCallback((msgIndex) => {
     setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, patch: null, changes: null } : m))
   }, [])
 
   const modeLabel = !itinerary
-    ? { text: 'Crear itinerario', color: '#81c784' }
+    ? { text: t('agentModeCreate'), color: '#81c784' }
     : canEdit
-      ? { text: 'El agente propondrá cambios — tú decides si aplicarlos', color: '#81c784' }
-      : { text: 'Modo exploración — los cambios crearán una copia tuya', color: 'rgba(255,255,255,0.5)' }
+      ? { text: t('agentModeEdit'), color: '#81c784' }
+      : { text: t('agentModeExplore'), color: 'rgba(255,255,255,0.5)' }
 
   return (
     <>
@@ -149,7 +153,7 @@ export default function ItineraryAgent({
       >
         <AutoAwesomeIcon sx={{ fontSize: 20 }} />
         <Typography variant="button" sx={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: 0.5 }}>
-          Asistente IA
+          {t('agentFabLabel')}
         </Typography>
       </Fab>
 
@@ -193,13 +197,13 @@ export default function ItineraryAgent({
           </Box>
           <Box sx={{ flex: 1 }}>
             <Typography variant="subtitle1" fontWeight={700} lineHeight={1.2}>
-              Asistente de viaje
+              {t('agentDrawerTitle')}
             </Typography>
             <Typography variant="caption" sx={{ color: modeLabel.color, fontSize: 11 }}>
               {modeLabel.text}
             </Typography>
           </Box>
-          <Tooltip title="Limpiar conversación">
+          <Tooltip title={t('agentClearTooltip')}>
             <IconButton
               size="small"
               onClick={handleClear}

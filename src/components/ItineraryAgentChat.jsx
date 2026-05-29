@@ -7,6 +7,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LanguageIcon from '@mui/icons-material/Language'
 import ItineraryAgentDiff from './ItineraryAgentDiff'
 import ItineraryAgentProgress from './ItineraryAgentProgress'
+import { useT } from '../i18n'
 
 export default function ItineraryAgentChat({
   messages,
@@ -22,6 +23,7 @@ export default function ItineraryAgentChat({
   progressSteps,
   progressCurrent,
 }) {
+  const t = useT()
   const bottomRef = useRef(null)
 
   useEffect(() => {
@@ -46,8 +48,8 @@ export default function ItineraryAgentChat({
             </Box>
             <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)', px: 2, lineHeight: 1.6 }}>
               {itinerary
-                ? 'Pregunta sobre el itinerario o pide cambios…'
-                : 'Describe el viaje que quieres planear y lo creo para ti.'}
+                ? t('agentInputPlaceholderWithItinerary')
+                : t('agentInputPlaceholderEmpty')}
             </Typography>
           </Box>
         )}
@@ -174,7 +176,7 @@ export default function ItineraryAgentChat({
             fullWidth
             multiline
             maxRows={4}
-            placeholder="Escribe un mensaje…"
+            placeholder={t('agentInputPlaceholder')}
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={(e) => {
@@ -193,7 +195,7 @@ export default function ItineraryAgentChat({
             }}
             inputProps={{ 'data-testid': 'agent-input' }}
           />
-          <Tooltip title="Enviar (Enter)">
+          <Tooltip title={t('agentSendTooltip')}>
             <span>
               <IconButton
                 size="small"
