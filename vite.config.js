@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => ({
       '/auth':  'http://localhost:8000',
       '/health': 'http://localhost:8000',
     },
+    // Firebase Auth signInWithPopup polls popup.closed; strict COOP
+    // blocks that and prints noisy warnings. Allow same-origin popup access.
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+    },
   },
   ...(mode !== 'test' && {
     build: {
