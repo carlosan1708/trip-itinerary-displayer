@@ -273,9 +273,9 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
     return defaultFolder.id
   }
 
-  function handleEmptyAi() {
+  function handleEmptyAi(seedText) {
     const folderId = ensureFolderId()
-    onBuildWithAi?.(folderId)
+    onBuildWithAi?.(folderId, seedText)
   }
 
   function handleEmptyTemplate() {
@@ -286,10 +286,6 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
   function handleEmptyPaste() {
     const folderId = ensureFolderId()
     setAddTrip({ folderId, initialTab: 'paste' })
-  }
-
-  function handleOpenAgentFromDialog() {
-    if (addTrip?.folderId) onBuildWithAi?.(addTrip.folderId)
   }
 
   function openCopyDialog(trip, folderId, e) {
@@ -764,7 +760,6 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
         initialTab={addTrip?.initialTab}
         onClose={() => setAddTrip(null)}
         onCreate={handleCreateTrip}
-        onOpenAgent={handleOpenAgentFromDialog}
       />
 
       {/* ── Add Folder Dialog ── */}

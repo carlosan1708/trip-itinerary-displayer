@@ -1,7 +1,7 @@
 export default {
   // App level
   loading: 'Loading...',
-  footer: '🍁 Have a great trip! · Canada 2026',
+  footer: 'Have a great trip!',
 
   // Common
   cancel: 'Cancel',
@@ -302,7 +302,11 @@ export default {
 
   // Empty Dashboard
   emptyHeading: 'Plan your first trip',
-  emptyPitch: 'Three ways to get started — pick whichever fits.',
+  emptyPitch: 'Describe your trip in a sentence — destination, dates, who\'s traveling, what you want to do. The AI will draft an itinerary you can edit.',
+  emptyDescribeLabel: 'Describe your trip',
+  emptyDescribePlaceholder: 'e.g. 7 days in Costa Rica, family with two kids, beaches and wildlife, mid budget',
+  emptyDescribeSubmit: 'Build my itinerary',
+  emptyOrSeparator: 'or start a different way',
   emptyCtaAiTitle: 'Build with AI',
   emptyCtaAiDesc: 'Describe your trip in a chat. The assistant builds the itinerary for you.',
   emptyCtaTemplateTitle: 'Pick a template',

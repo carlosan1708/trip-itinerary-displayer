@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Box, Drawer, Fab, IconButton, Stack, Tooltip, Typography, Chip,
 } from '@mui/material'
@@ -22,6 +22,8 @@ export default function ItineraryAgent({
   open: openProp,
   onOpenChange,
   language = 'en',
+  initialPrompt = '',
+  onInitialPromptConsumed,
 }) {
   const [openInternal, setOpenInternal] = useState(false)
   const [messages, setMessages] = useState([])
@@ -32,6 +34,15 @@ export default function ItineraryAgent({
   const controlled = openProp !== undefined
   const open = controlled ? openProp : openInternal
   const setOpen = (val) => controlled ? onOpenChange?.(val) : setOpenInternal(val)
+
+  // When the drawer opens with a seed prompt (from EmptyDashboard input),
+  // pre-fill the chat input so the user can edit or send as-is.
+  useEffect(() => {
+    if (open && initialPrompt) {
+      setInput(initialPrompt)
+      onInitialPromptConsumed?.()
+    }
+  }, [open, initialPrompt, onInitialPromptConsumed])
 
   const mode = canEdit ? 'edit' : 'explore'
 

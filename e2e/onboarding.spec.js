@@ -59,6 +59,33 @@ test.describe('Onboarding — first-run empty dashboard', () => {
     await expect(page.getByRole('dialog')).toBeVisible()
     await expect(page.getByPlaceholder(/version.*title.*My trip/i)).toBeVisible()
   })
+
+  test('describe-trip input is visible and submit is disabled when empty', async ({ page }) => {
+    await expect(page.getByTestId('empty-describe-input')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByTestId('empty-describe-submit')).toBeDisabled()
+  })
+
+  test('typing in the describe-trip input enables the submit button', async ({ page }) => {
+    await page.getByTestId('empty-describe-input').fill('7 days in Costa Rica, family of 4, wildlife')
+    await expect(page.getByTestId('empty-describe-submit')).toBeEnabled()
+  })
+
+  test('submitting the describe-trip input opens the agent with the text pre-filled', async ({ page }) => {
+    const seed = '7 days in Costa Rica, family of 4, wildlife'
+    await page.getByTestId('empty-describe-input').fill(seed)
+    await page.getByTestId('empty-describe-submit').click()
+
+    // The agent drawer should open with the seed text pre-filled in its input
+    await expect(page.getByTestId('agent-input')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByTestId('agent-input')).toHaveValue(seed)
+  })
+
+  test('no "Canadá" folder or canada-trip references leak into a new user', async ({ page }) => {
+    // Empty registry → no Canadá folder should appear
+    await expect(page.getByTestId('empty-dashboard')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText('Canadá')).not.toBeVisible()
+    await expect(page.getByText(/Ruta (Este|Oeste)/i)).not.toBeVisible()
+  })
 })
 
 // ── Add Trip dialog — tabs ─────────────────────────────────────────────────
@@ -82,10 +109,11 @@ test.describe('Onboarding — Add Trip dialog tabs', () => {
     await expect(page.getByTestId('template-grid')).toBeVisible()
   })
 
-  test('switching to Build with AI tab shows the AI builder button', async ({ page }) => {
+  test('switching to Build with AI tab shows the wizard first question', async ({ page }) => {
     await openAddTripDialog(page)
     await page.getByTestId('addtrip-tab-ai').click()
-    await expect(page.getByTestId('build-with-ai-btn')).toBeVisible()
+    // The AI tab now renders the TripPlannerWizard inline — first question is "Where are you going?"
+    await expect(page.getByText(/Where are you going|¿A dónde van/i)).toBeVisible({ timeout: 5000 })
   })
 
   test('switching to Paste tab shows the JSON textarea', async ({ page }) => {
@@ -134,22 +162,3 @@ test.describe('Onboarding — templates', () => {
   })
 })
 
-// ── Build with AI button ───────────────────────────────────────────────────
-
-test.describe('Onboarding — build with AI', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupAllowedUserAuth(page)
-    await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
-  })
-
-  test('clicking Build with AI from the dialog closes it and opens the agent', async ({ page }) => {
-    await page.getByText('Canadá').hover()
-    await page.getByRole('button', { name: 'Add itinerary' }).first().click()
-    await page.getByTestId('addtrip-tab-ai').click()
-    await page.getByTestId('build-with-ai-btn').click()
-    await expect(page.getByRole('dialog')).not.toBeVisible()
-    // Agent FAB is always present; the drawer becomes visible once opened.
-    await expect(page.getByText(/Asistente de viaje/)).toBeVisible({ timeout: 3000 })
-  })
-})

@@ -1,5 +1,3 @@
-import { tripsRegistry as defaultRegistry } from '../data/trips-registry'
-
 const tripModules = import.meta.glob('../data/**/*.json')
 
 const REGISTRY_KEY  = 'trips-registry'
@@ -8,28 +6,7 @@ const DATA_PREFIX   = 'trip-data-'
 
 export function getRegistry() {
   const s = localStorage.getItem(REGISTRY_KEY)
-  if (!s) return structuredClone(defaultRegistry)
-
-  const stored = JSON.parse(s)
-  let changed = false
-
-  for (const defaultFolder of defaultRegistry) {
-    const storedFolder = stored.find(f => f.id === defaultFolder.id)
-    if (!storedFolder) {
-      stored.push(structuredClone(defaultFolder))
-      changed = true
-    } else {
-      for (const defaultTrip of defaultFolder.trips) {
-        if (!storedFolder.trips.find(t => t.id === defaultTrip.id)) {
-          storedFolder.trips.push(structuredClone(defaultTrip))
-          changed = true
-        }
-      }
-    }
-  }
-
-  if (changed) localStorage.setItem(REGISTRY_KEY, JSON.stringify(stored))
-  return stored
+  return s ? JSON.parse(s) : []
 }
 
 export function saveRegistry(registry) {

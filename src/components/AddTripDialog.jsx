@@ -17,7 +17,7 @@ import { useT } from '../i18n'
 
 const TABS = ['templates', 'ai', 'upload', 'paste']
 
-export default function AddTripDialog({ open, onClose, onCreate, onOpenAgent, initialTab = 'templates' }) {
+export default function AddTripDialog({ open, onClose, onCreate, initialTab = 'templates' }) {
   const t = useT()
   const [tab, setTab] = useState(initialTab)
   const [name, setName] = useState('')
@@ -100,11 +100,6 @@ export default function AddTripDialog({ open, onClose, onCreate, onOpenAgent, in
       data = uploadedDataRef.current
     }
     onCreate(name.trim(), data)
-  }
-
-  function handleBuildWithAi() {
-    onOpenAgent()
-    onClose()
   }
 
   return (

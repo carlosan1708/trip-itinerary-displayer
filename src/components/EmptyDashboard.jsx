@@ -1,4 +1,5 @@
-import { Box, Typography, Paper, Stack } from '@mui/material'
+import { useState } from 'react'
+import { Box, Typography, Paper, Stack, TextField, Button, Divider } from '@mui/material'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import DashboardCustomizeIcon from '@mui/icons-material/DashboardCustomize'
 import ContentPasteIcon from '@mui/icons-material/ContentPaste'
@@ -7,6 +8,13 @@ import { useT } from '../i18n'
 
 export default function EmptyDashboard({ onBuildWithAi, onPickTemplate, onPasteJson }) {
   const t = useT()
+  const [description, setDescription] = useState('')
+
+  function handleSubmit() {
+    const text = description.trim()
+    if (!text) return
+    onBuildWithAi?.(text)
+  }
 
   const ctas = [
     {
@@ -14,7 +22,7 @@ export default function EmptyDashboard({ onBuildWithAi, onPickTemplate, onPasteJ
       icon: <AutoAwesomeIcon sx={{ fontSize: 28 }} />,
       title: t('emptyCtaAiTitle'),
       desc: t('emptyCtaAiDesc'),
-      onClick: onBuildWithAi,
+      onClick: () => onBuildWithAi?.(),
       gradient: 'linear-gradient(135deg, #B71C1C 0%, #7B1FA2 100%)',
       testid: 'empty-cta-ai',
     },
@@ -40,13 +48,48 @@ export default function EmptyDashboard({ onBuildWithAi, onPickTemplate, onPasteJ
 
   return (
     <Box data-testid="empty-dashboard" sx={{ maxWidth: 720, mx: 'auto', px: { xs: 2, sm: 3 }, py: 5 }}>
-      <Paper elevation={0} sx={{ p: { xs: 3, sm: 4 }, borderRadius: 3, border: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
-        <Typography variant="h5" fontWeight={700} sx={{ mb: 0.75 }}>
+      <Paper elevation={0} sx={{ p: { xs: 3, sm: 4 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+        <Typography variant="h5" fontWeight={700} sx={{ mb: 0.75, textAlign: 'center' }}>
           {t('emptyHeading')}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3.5 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
           {t('emptyPitch')}
         </Typography>
+
+        <Stack spacing={1.5}>
+          <TextField
+            multiline
+            minRows={3}
+            maxRows={6}
+            fullWidth
+            label={t('emptyDescribeLabel')}
+            placeholder={t('emptyDescribePlaceholder')}
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            inputProps={{ 'data-testid': 'empty-describe-input' }}
+          />
+          <Button
+            variant="contained"
+            size="large"
+            disabled={!description.trim()}
+            onClick={handleSubmit}
+            startIcon={<AutoAwesomeIcon />}
+            data-testid="empty-describe-submit"
+            sx={{
+              alignSelf: 'flex-end',
+              background: 'linear-gradient(135deg, #B71C1C 0%, #7B1FA2 100%)',
+              '&:hover': { background: 'linear-gradient(135deg, #a01818 0%, #6a1b9a 100%)' },
+            }}
+          >
+            {t('emptyDescribeSubmit')}
+          </Button>
+        </Stack>
+
+        <Divider sx={{ my: 3 }}>
+          <Typography variant="caption" color="text.secondary">
+            {t('emptyOrSeparator')}
+          </Typography>
+        </Divider>
 
         <Stack
           direction={{ xs: 'column', sm: 'row' }}

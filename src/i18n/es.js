@@ -1,7 +1,7 @@
 export default {
   // App level
   loading: 'Cargando...',
-  footer: '🍁 ¡Buen viaje! · Canadá 2026',
+  footer: '¡Buen viaje!',
 
   // Common
   cancel: 'Cancelar',
@@ -302,7 +302,11 @@ export default {
 
   // Empty Dashboard
   emptyHeading: 'Planificá tu primer viaje',
-  emptyPitch: 'Tres formas de empezar — elegí la que mejor te quede.',
+  emptyPitch: 'Describí tu viaje en una frase — destino, fechas, con quién viajás, qué querés hacer. La IA arma un borrador que vos podés editar.',
+  emptyDescribeLabel: 'Describí tu viaje',
+  emptyDescribePlaceholder: 'ej. 7 días en Costa Rica, familia con dos chicos, playa y naturaleza, presupuesto medio',
+  emptyDescribeSubmit: 'Crear mi itinerario',
+  emptyOrSeparator: 'o empezar de otra forma',
   emptyCtaAiTitle: 'Crear con IA',
   emptyCtaAiDesc: 'Describí tu viaje en un chat. El asistente arma el itinerario por vos.',
   emptyCtaTemplateTitle: 'Elegir una plantilla',

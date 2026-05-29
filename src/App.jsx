@@ -50,6 +50,7 @@ export default function App() {
   const [pdfLoading, setPdfLoading]         = useState(false)
   const [agentOpen, setAgentOpen]           = useState(false)
   const [agentTargetFolderId, setAgentTargetFolderId] = useState(null)
+  const [agentInitialPrompt, setAgentInitialPrompt] = useState('')
   const [language, setLanguage]             = useState(() => {
     const stored = localStorage.getItem('lang')
     return stored === 'en' || stored === 'es' ? stored : 'en'
@@ -292,8 +293,9 @@ export default function App() {
       .catch(err => console.warn('[sync] Could not save registry to Firestore:', err.message))
   }
 
-  function handleBuildWithAi(folderId) {
+  function handleBuildWithAi(folderId, seedText) {
     setAgentTargetFolderId(folderId || null)
+    setAgentInitialPrompt(seedText || '')
     queueMicrotask(() => {
       document.querySelector('[data-testid="agent-fab"]')?.click()
     })
@@ -324,6 +326,8 @@ export default function App() {
           pdfLoading={pdfLoading}
           agentOpen={agentOpen}
           setAgentOpen={setAgentOpen}
+          agentInitialPrompt={agentInitialPrompt}
+          setAgentInitialPrompt={setAgentInitialPrompt}
           language={language}
           onToggleEdit={canEdit ? handleToggleEdit : null}
           onUploadJson={canEdit ? handleJsonUpload : null}
@@ -352,6 +356,7 @@ function AppContent({
   jsonEditorOpen, setJsonEditorOpen,
   versionHistoryOpen, setVersionHistoryOpen,
   pdfLoading, agentOpen, setAgentOpen,
+  agentInitialPrompt, setAgentInitialPrompt,
   language,
   onToggleEdit, onUploadJson, onOpenJsonEditor, onOpenVersionHistory,
   onDownloadPdf, onRestoreVersion, onJsonEditorSave,
@@ -380,6 +385,8 @@ function AppContent({
           canEdit={false}
           onDuplicateCreated={onAgentDuplicate}
           language={language}
+          initialPrompt={agentInitialPrompt}
+          onInitialPromptConsumed={() => setAgentInitialPrompt('')}
         />
       </>
     )
