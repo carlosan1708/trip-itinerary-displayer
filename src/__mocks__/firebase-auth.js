@@ -1,7 +1,12 @@
 // Mock firebase/auth — auth state is controlled via window.__mockAuth in tests
 
 export function getAuth() {
-  return { __isMock: true }
+  return {
+    __isMock: true,
+    get currentUser() {
+      return (typeof window !== 'undefined' && window.__mockAuth?.currentUser) ?? null
+    },
+  }
 }
 
 export function onAuthStateChanged(_auth, callback) {
