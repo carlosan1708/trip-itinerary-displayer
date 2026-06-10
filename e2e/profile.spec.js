@@ -7,7 +7,7 @@ test.describe('Traveler profile dialog', () => {
   test.beforeEach(async ({ page }) => {
     await setupAllowedUserAuth(page)
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
   })
 
   test('opens from the dashboard with empty fields when no profile exists', async ({ page }) => {

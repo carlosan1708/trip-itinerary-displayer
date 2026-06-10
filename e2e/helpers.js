@@ -5,29 +5,27 @@ const GATEWAY_TRIP_ID = 'canada-trip'
 const ADMIN_EMAIL = 'admin@test.com'
 const USER_EMAIL = 'user@test.com'
 
-/** Registry stored in Firestore (cloud). Loaded by syncRegistryFromCloud on Dashboard mount.
- *  Must include 'canada-trip' so itinerary tests can navigate to the gateway trip. */
-const MOCK_REGISTRY = [
+/** Registry stored in Firestore (cloud), new flat shape: array of trips.
+ *  Dashboard groups them by role (My Trips / All Trips). Test trips are
+ *  authored by USER_EMAIL so non-admin tests see them in "My Trips". */
+const MOCK_REGISTRY_TRIPS = [
   {
-    id: 'canada',
-    label: 'Canadá',
-    emoji: '🍁',
-    trips: [
-      {
-        id: 'canada-trip',
-        label: 'Ruta Este',
-        subtitle: 'SJO → YYZ · Toronto, Ottawa, Montreal',
-        dates: 'Sep 12–30, 2026',
-        duration: '19 días',
-      },
-      {
-        id: 'canada-trip-2',
-        label: 'Ruta Oeste',
-        subtitle: 'SJO → YVR · Vancouver, Victoria',
-        dates: 'Sep 12–30, 2026',
-        duration: '19 días',
-      },
-    ],
+    id: 'canada-trip',
+    label: 'Ruta Este',
+    subtitle: 'SJO → YYZ · Toronto, Ottawa, Montreal',
+    dates: 'Sep 12–30, 2026',
+    duration: '19 días',
+    author: USER_EMAIL,
+    viewers: [USER_EMAIL],
+  },
+  {
+    id: 'canada-trip-2',
+    label: 'Ruta Oeste',
+    subtitle: 'SJO → YVR · Vancouver, Victoria',
+    dates: 'Sep 12–30, 2026',
+    duration: '19 días',
+    author: USER_EMAIL,
+    viewers: [USER_EMAIL],
   },
 ]
 
@@ -97,7 +95,7 @@ export async function setupAdminAuth(page) {
   const adminEmail = ADMIN_EMAIL
   const gatewayTripId = GATEWAY_TRIP_ID
   const itinerary = MOCK_ITINERARY
-  const registry = MOCK_REGISTRY
+  const registry = MOCK_REGISTRY_TRIPS
 
   await page.addInitScript(
     ({ adminEmail, gatewayTripId, itinerary, registry }) => {
@@ -112,7 +110,7 @@ export async function setupAdminAuth(page) {
         docs: {
           [`trips/${gatewayTripId}/allowed_users/${adminEmail}`]: { email: adminEmail },
           [`trips/${gatewayTripId}/data/itinerary`]: itinerary,
-          [`trips/${gatewayTripId}/registry/main`]: { folders: registry },
+          [`trips/${gatewayTripId}/registry/main`]: { trips: registry },
         },
       }
     },
@@ -127,7 +125,7 @@ export async function setupAllowedUserAuth(page) {
   const userEmail = USER_EMAIL
   const gatewayTripId = GATEWAY_TRIP_ID
   const itinerary = MOCK_ITINERARY
-  const registry = MOCK_REGISTRY
+  const registry = MOCK_REGISTRY_TRIPS
 
   await page.addInitScript(
     ({ userEmail, gatewayTripId, itinerary, registry }) => {
@@ -142,7 +140,7 @@ export async function setupAllowedUserAuth(page) {
         docs: {
           [`trips/${gatewayTripId}/allowed_users/${userEmail}`]: { email: userEmail },
           [`trips/${gatewayTripId}/data/itinerary`]: itinerary,
-          [`trips/${gatewayTripId}/registry/main`]: { folders: registry },
+          [`trips/${gatewayTripId}/registry/main`]: { trips: registry },
         },
       }
     },

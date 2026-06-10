@@ -89,12 +89,13 @@ test.describe('Onboarding — Add Trip dialog tabs', () => {
   test.beforeEach(async ({ page }) => {
     await setupAllowedUserAuth(page)
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    // After the registry refactor the folder is "My Trips" (computed by role)
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
   })
 
   async function openAddTripDialog(page) {
-    // Hover on folder to reveal action buttons; click + on the folder row
-    await page.getByText('Canadá').hover()
+    // Hover on My Trips folder to reveal the action buttons; click + on the row
+    await page.getByTestId('folder-my').hover()
     await page.getByRole('button', { name: 'Add itinerary' }).first().click()
     await expect(page.getByRole('dialog')).toBeVisible()
   }

@@ -65,7 +65,7 @@ async function mockAgentCreate(page, { progress, done, error } = {}) {
 }
 
 async function openWizard(page) {
-  await page.getByText('Canadá').hover()
+  await page.getByTestId('folder-my').hover()
   await page.getByRole('button', { name: 'Add itinerary' }).first().click()
   await expect(page.getByRole('dialog')).toBeVisible()
   // AI tab is now the default; only click if not already selected (avoids
@@ -142,7 +142,7 @@ test.describe('AI Agent — TripPlannerWizard UI', () => {
     })
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
     await openWizard(page)
     await fillWizard(page)
 
@@ -199,7 +199,7 @@ test.describe('AI Agent — TripPlannerWizard UI', () => {
     })
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
     await openWizard(page)
     await fillWizard(page)
     await expect.poll(() => capturedPayload !== null, { timeout: 10000 }).toBe(true)
@@ -233,7 +233,7 @@ test.describe('AI Agent — TripPlannerWizard UI', () => {
     await mockAgentCreate(page)
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
     await openWizard(page)
     await fillWizard(page)
 
@@ -246,7 +246,7 @@ test.describe('AI Agent — TripPlannerWizard UI', () => {
     await mockAgentCreate(page, { error: 'Server error 500' })
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
     await openWizard(page)
     await fillWizard(page)
 
@@ -265,7 +265,7 @@ test.describe('AI Agent — TripPlannerWizard UI', () => {
     })
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
     await openWizard(page)
     await fillWizard(page)
 
@@ -378,7 +378,7 @@ test.describe('AI Agent — wizard behaviors', () => {
     })
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
     await openWizard(page)
     await fillWizard(page)
     await expect.poll(() => capturedHeaders !== null, { timeout: 10000 }).toBe(true)
@@ -404,9 +404,9 @@ test.describe('AI Agent — wizard behaviors', () => {
     })
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
 
-    await page.getByText('Canadá').hover()
+    await page.getByTestId('folder-my').hover()
     await page.getByRole('button', { name: /Agregar itinerario/i }).first().click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.getByTestId('addtrip-tab-ai').click()
@@ -467,14 +467,14 @@ test.describe('AI Agent — wizard behaviors', () => {
     })
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
     await openWizard(page)
     await fillWizard(page)
     await expect(page.getByText(/Building your itinerary/i)).toBeVisible({ timeout: 5000 })
 
     // Reload the page — guarantees the wizard unmounts and React's cleanup runs
     await page.reload()
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
 
     // NOW resolve the request that's still pending in the network layer
     resolveRoute()
@@ -497,7 +497,7 @@ test.describe('AI Agent — wizard behaviors', () => {
     })
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
     await openWizard(page)
 
     // Same as fillWizard but with out-of-range values
@@ -538,7 +538,7 @@ test.describe('AI Agent — wizard behaviors', () => {
     })
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
     await openWizard(page)
     await fillWizard(page)
     await expect(page.getByRole('button', { name: /Try again|Reintentar/i })).toBeVisible({ timeout: 10000 })
@@ -558,7 +558,7 @@ test.describe('AI Agent — wizard behaviors', () => {
     })
 
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
     await openWizard(page)
     await fillWizard(page)
 

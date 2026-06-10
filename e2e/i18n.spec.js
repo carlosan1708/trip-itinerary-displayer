@@ -34,11 +34,11 @@ test.describe('i18n — default language is English', () => {
   test.beforeEach(async ({ page }) => {
     await setupAllowedUserAuth(page)
     await page.goto('/')
-    await page.getByRole('heading', { name: /My Trips/i }).waitFor({ timeout: 5000 })
+    await page.getByRole('heading', { level: 1, name: /My Trips/i }).waitFor({ timeout: 5000 })
   })
 
   test('dashboard heading is in English', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /My Trips/i })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /My Trips/i })).toBeVisible()
   })
 
   test('search placeholder is in English', async ({ page }) => {
@@ -53,9 +53,8 @@ test.describe('i18n — default language is English', () => {
     await expect(page.getByRole('button', { name: /Favorites/i })).toBeVisible()
   })
 
-  test('Add destination button is in English', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /Add destination/i })).toBeVisible()
-  })
+  // 'Add destination' button was removed when folders were dropped in favor
+  // of the per-user My Trips / All Trips computed view.
 })
 
 // ── Spanish language (via localStorage) ──────────────────────────────────────
@@ -64,11 +63,11 @@ test.describe('i18n — Spanish language from localStorage', () => {
   test.beforeEach(async ({ page }) => {
     await setupWithLanguage(page, setupAllowedUserAuth, 'es')
     await page.goto('/')
-    await page.getByRole('heading', { name: /Mis Viajes/i }).waitFor({ timeout: 5000 })
+    await page.getByRole('heading', { level: 1, name: /Mis Viajes/i }).waitFor({ timeout: 5000 })
   })
 
   test('dashboard heading is in Spanish', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /Mis Viajes/i })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: /Mis Viajes/i })).toBeVisible()
   })
 
   test('search placeholder is in Spanish', async ({ page }) => {
@@ -79,9 +78,8 @@ test.describe('i18n — Spanish language from localStorage', () => {
     await expect(page.getByRole('button', { name: /Favoritos/i })).toBeVisible()
   })
 
-  test('Add destination button is in Spanish', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /Agregar destino/i })).toBeVisible()
-  })
+  // 'Add destination' button was removed when folders were dropped in favor
+  // of the per-user My Trips / All Trips computed view.
 })
 
 // ── Language toggle in dashboard header ──────────────────────────────────────
@@ -90,7 +88,7 @@ test.describe('i18n — language toggle in dashboard header', () => {
   test.beforeEach(async ({ page }) => {
     await setupAllowedUserAuth(page)
     await page.goto('/')
-    await page.getByRole('heading', { name: /My Trips/i }).waitFor({ timeout: 5000 })
+    await page.getByRole('heading', { level: 1, name: /My Trips/i }).waitFor({ timeout: 5000 })
   })
 
   test('EN toggle button is visible for any user', async ({ page }) => {
@@ -112,7 +110,7 @@ test.describe('i18n — Spanish pre-loaded via localStorage', () => {
   test.beforeEach(async ({ page }) => {
     await setupWithLanguage(page, setupAllowedUserAuth, 'es')
     await page.goto('/')
-    await page.getByRole('heading', { name: /Mis Viajes/i }).waitFor({ timeout: 5000 })
+    await page.getByRole('heading', { level: 1, name: /Mis Viajes/i }).waitFor({ timeout: 5000 })
   })
 
   test('ES toggle button is active when Spanish is pre-loaded', async ({ page }) => {

@@ -49,7 +49,6 @@ export default function App() {
   const [versionHistoryOpen, setVersionHistoryOpen] = useState(false)
   const [pdfLoading, setPdfLoading]         = useState(false)
   const [agentOpen, setAgentOpen]           = useState(false)
-  const [agentTargetFolderId, setAgentTargetFolderId] = useState(null)
   const [agentInitialPrompt, setAgentInitialPrompt] = useState('')
   const [language, setLanguage]             = useState(() => {
     const stored = localStorage.getItem('lang')
@@ -265,36 +264,15 @@ export default function App() {
       dates: duplicateItinerary.subtitle || '',
       subtitle: '',
       author: user.email,
+      viewers: [user.email],
     }
-
-    let placed = false
-    if (agentTargetFolderId) {
-      const target = reg.find(f => f.id === agentTargetFolderId)
-      if (target) {
-        target.trips = target.trips || []
-        target.trips.push(newTripEntry)
-        placed = true
-      }
-      setAgentTargetFolderId(null)
-    }
-    if (!placed) {
-      for (const folder of reg) {
-        const original = folder.trips?.find(t => t.id === selectedTripId)
-        if (original) {
-          folder.trips = folder.trips || []
-          folder.trips.push({ ...newTripEntry, subtitle: original.subtitle || '' })
-          placed = true
-          break
-        }
-      }
-    }
-    saveRegistry(reg)
-    setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { folders: reg })
+    const next = [...reg, newTripEntry]
+    saveRegistry(next)
+    setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { trips: next })
       .catch(err => console.warn('[sync] Could not save registry to Firestore:', err.message))
   }
 
-  function handleBuildWithAi(folderId, seedText) {
-    setAgentTargetFolderId(folderId || null)
+  function handleBuildWithAi(_folderId, seedText) {
     setAgentInitialPrompt(seedText || '')
     queueMicrotask(() => {
       document.querySelector('[data-testid="agent-fab"]')?.click()

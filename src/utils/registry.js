@@ -4,9 +4,23 @@ const REGISTRY_KEY  = 'trips-registry'
 const FAVORITES_KEY = 'trip-favorites'
 const DATA_PREFIX   = 'trip-data-'
 
+// Registry is now a flat list of trips. Folders are computed at render
+// time based on user role (My Trips for everyone; My Trips + All Trips
+// for admin). Old folder-shaped data ([{id, label, trips: [...]}]) is
+// flattened on read for backward compatibility.
 export function getRegistry() {
   const s = localStorage.getItem(REGISTRY_KEY)
-  return s ? JSON.parse(s) : []
+  if (!s) return []
+  try {
+    const parsed = JSON.parse(s)
+    if (!Array.isArray(parsed)) return []
+    if (parsed.length > 0 && Array.isArray(parsed[0]?.trips)) {
+      return parsed.flatMap(f => f.trips || [])
+    }
+    return parsed
+  } catch {
+    return []
+  }
 }
 
 export function saveRegistry(registry) {

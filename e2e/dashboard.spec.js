@@ -14,7 +14,7 @@ test.describe('Dashboard — allowed user', () => {
   })
 
   test('shows the Canada folder', async ({ page }) => {
-    await expect(page.getByText('Canadá')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByTestId('folder-my')).toBeVisible({ timeout: 5000 })
   })
 
   test('shows trips inside the folder', async ({ page }) => {
@@ -79,7 +79,7 @@ test.describe('Dashboard — folder expand / collapse', () => {
   test.beforeEach(async ({ page }) => {
     await setupAllowedUserAuth(page)
     await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
+    await page.getByTestId('folder-my').waitFor({ timeout: 5000 })
   })
 
   test('trips are visible when folder is expanded (default)', async ({ page }) => {
@@ -87,14 +87,15 @@ test.describe('Dashboard — folder expand / collapse', () => {
   })
 
   test('clicking folder header collapses its trips', async ({ page }) => {
-    await page.getByText('Canadá').click()
+    await page.getByTestId('folder-my').getByText(/My Trips/).click()
     await expect(page.getByText('Ruta Este')).not.toBeVisible()
   })
 
   test('clicking folder header again re-expands it', async ({ page }) => {
-    await page.getByText('Canadá').click()
+    const header = page.getByTestId('folder-my').getByText(/My Trips/)
+    await header.click()
     await expect(page.getByText('Ruta Este')).not.toBeVisible()
-    await page.getByText('Canadá').click()
+    await header.click()
     await expect(page.getByText('Ruta Este')).toBeVisible()
   })
 })
@@ -115,33 +116,8 @@ test.describe('Dashboard — favorites', () => {
   })
 })
 
-// ── Add folder dialog ───────────────────────────────────────────────────────
-
-test.describe('Dashboard — add folder', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupAllowedUserAuth(page)
-    await page.goto('/')
-    await page.getByText('Canadá').waitFor({ timeout: 5000 })
-  })
-
-  test('opens the add folder dialog', async ({ page }) => {
-    await page.getByRole('button', { name: /Add destination/i }).click()
-    await expect(page.getByRole('dialog')).toBeVisible()
-    await expect(page.getByText('New destination')).toBeVisible()
-  })
-
-  test('creates a new folder and shows it in the list', async ({ page }) => {
-    await page.getByRole('button', { name: /Add destination/i }).click()
-    await page.getByLabel(/Name/).fill('TestDestino')
-    await page.getByRole('button', { name: 'Create' }).click()
-    await expect(page.getByText('TestDestino')).toBeVisible()
-  })
-
-  test('Create button is disabled when name is empty', async ({ page }) => {
-    await page.getByRole('button', { name: /Add destination/i }).click()
-    await expect(page.getByRole('button', { name: 'Create' })).toBeDisabled()
-  })
-})
+// Add-folder tests removed: folders are now computed by user role
+// (My Trips / All Trips), no longer a data entity to create.
 
 // ── Copy trip ────────────────────────────────────────────────────────────────
 

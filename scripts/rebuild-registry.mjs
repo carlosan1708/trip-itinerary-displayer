@@ -32,54 +32,28 @@ const CRED_PATH  = process.env.GOOGLE_APPLICATION_CREDENTIALS
 initializeApp({ credential: cert(CRED_PATH), projectId: PROJECT_ID })
 const db = getFirestore()
 
-const FOLDER_LABELS = {
-  canada:   { label: 'Canadá',   emoji: '🍁' },
-  'my-trips': { label: 'My Trips', emoji: '✈️' },
-  trip:     { label: 'Other',    emoji: '📁' },
-}
-
-function folderIdFor(tripId) {
-  if (tripId === GATEWAY) return null   // gateway itself isn't a trip card
-  if (tripId.startsWith('canada-')) return 'canada'
-  if (tripId.startsWith('my-trips-')) return 'my-trips'
-  return 'trip'
-}
-
 const ALWAYS_HIDDEN_IDS = new Set(['canada-trip-2', 'canada-trip-3', 'canada-2026'])
 
 async function run() {
   const tripRefs = await db.collection('trips').listDocuments()
-  const folders = {}
+  const trips = []
 
   for (const tref of tripRefs) {
-    const fid = folderIdFor(tref.id)
-    if (!fid) continue
-
-    const itinRef = db.doc(`${tref.path}/data/itinerary`)
-    const snap = await itinRef.get()
+    if (tref.id === GATEWAY) continue
+    const snap = await db.doc(`${tref.path}/data/itinerary`).get()
     if (!snap.exists) continue
 
     const data   = snap.data()
-    const label  = data.label  || data.title    || tref.id
+    const label  = data.label    || data.title    || tref.id
     const subtitle = data.subtitle || ''
-    const dates  = data.dates  || data.subtitle || ''
+    const dates  = data.dates    || data.subtitle || ''
     const duration = data.duration || (Array.isArray(data.parts) ? `${data.parts.reduce((n, p) => n + (p.days?.length || 0), 0)} days` : '')
     const author = data.author || null
 
-    if (!folders[fid]) {
-      folders[fid] = {
-        id: fid,
-        label: FOLDER_LABELS[fid]?.label || fid,
-        emoji: FOLDER_LABELS[fid]?.emoji || '📁',
-        trips: [],
-      }
-    }
-
-    // viewers: explicit owner-only by default. Empty array means "private to
-    // author"; canSeeTrip in the dashboard treats `undefined` as legacy open
-    // and shows it to everyone — that's exactly what we want to avoid here.
-    // Admin always sees everything via isAdmin check anyway.
-    folders[fid].trips.push({
+    // viewers: explicit owner-only by default. canSeeTrip treats undefined
+    // as legacy open and shows it to everyone — avoided here. Admin always
+    // sees everything via the isAdmin check anyway.
+    trips.push({
       id: tref.id,
       label,
       subtitle,
@@ -91,17 +65,10 @@ async function run() {
     })
   }
 
-  const orderedFolders = ['canada', 'my-trips', 'trip']
-    .filter(k => folders[k])
-    .map(k => folders[k])
+  console.log(`\nRebuilt registry — ${trips.length} trip(s):`)
+  trips.forEach(t => console.log(`  - ${t.label}  [${t.id}]  author: ${t.author || '?'}`))
 
-  console.log(`\nRebuilt registry — ${orderedFolders.length} folder(s):`)
-  for (const f of orderedFolders) {
-    console.log(`  ${f.emoji} ${f.label}  (${f.trips.length} trip${f.trips.length === 1 ? '' : 's'})`)
-    f.trips.forEach(t => console.log(`     - ${t.label}  [${t.id}]`))
-  }
-
-  await db.doc(`trips/${GATEWAY}/registry/main`).set({ folders: orderedFolders })
+  await db.doc(`trips/${GATEWAY}/registry/main`).set({ trips })
   console.log(`\nWrote trips/${GATEWAY}/registry/main ✅\n`)
 }
 

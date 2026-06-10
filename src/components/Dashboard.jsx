@@ -26,7 +26,6 @@ import DownloadIcon      from '@mui/icons-material/Download'
 import UploadFileIcon    from '@mui/icons-material/UploadFile'
 import DeleteIcon        from '@mui/icons-material/Delete'
 import AddIcon              from '@mui/icons-material/Add'
-import CreateNewFolderIcon  from '@mui/icons-material/CreateNewFolder'
 import AutoAwesomeIcon      from '@mui/icons-material/AutoAwesome'
 import ContentCopyIcon      from '@mui/icons-material/ContentCopy'
 import VisibilityOffIcon    from '@mui/icons-material/VisibilityOff'
@@ -54,13 +53,13 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
   const t          = useT()
   const lang       = useLang()
   const changeLang = useChangeLang()
+  // `registry` is now a flat array of trip entries. Folders for display
+  // are computed by role: My Trips for everyone, plus All Trips for admin.
   const [registry, setRegistry]     = useState(() => getRegistry())
   const [favorites, setFavorites]   = useState(() => getFavorites())
   const [search, setSearch]         = useState('')
   const [showFavsOnly, setShowFavsOnly] = useState(false)
-  const [expanded, setExpanded]     = useState(() =>
-    Object.fromEntries(getRegistry().map(f => [f.id, true]))
-  )
+  const [expanded, setExpanded]     = useState({ __my: true, __all: true })
   const [adminOpen, setAdminOpen]     = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
   const [registryLoading, setRegistryLoading] = useState(() => !localStorage.getItem('trips-registry'))
@@ -70,17 +69,11 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
   // addTrip state: null when closed, else { folderId, initialTab }
   const [addTrip, setAddTrip] = useState(null)
 
-  const [addFolderOpen, setAddFolderOpen] = useState(false)
-
-  const [newFolderEmoji, setNewFolderEmoji] = useState('🌍')
-  const [newFolderName, setNewFolderName]   = useState('')
-
   const uploadReplaceRef  = useRef()
   const uploadReplaceTrip = useRef(null)
 
   const [copyDialog, setCopyDialog] = useState(null)
   const [copyName, setCopyName]     = useState('')
-  const [copyFolder, setCopyFolder] = useState('')
   const [copying, setCopying]       = useState(false)
 
   const [mobileMenu, setMobileMenu] = useState(null)
@@ -93,15 +86,16 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
       snap => {
         setRegistryLoading(false)
         if (!snap.exists()) return
-        const remote = snap.data().folders
-        if (!Array.isArray(remote)) return
-        saveRegistry(remote)
-        setRegistry(remote)
-        setExpanded(prev => {
-          const next = { ...prev }
-          remote.forEach(f => { if (!(f.id in next)) next[f.id] = true })
-          return next
-        })
+        const data = snap.data()
+        // New flat shape: { trips: [...] }. Legacy folder shape: { folders: [{trips: [...]}] }.
+        const flat = Array.isArray(data.trips)
+          ? data.trips
+          : Array.isArray(data.folders)
+            ? data.folders.flatMap(f => f.trips || [])
+            : null
+        if (!Array.isArray(flat)) return
+        saveRegistry(flat)
+        setRegistry(flat)
       },
       err => {
         console.warn('[sync] Registry snapshot error:', err.message)
@@ -114,7 +108,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
   function updateRegistry(next) {
     saveRegistry(next)
     setRegistry(next)
-    setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { folders: next })
+    setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { trips: next })
       .catch(err => console.warn('[sync] Could not save registry to Firestore:', err.message))
   }
 
@@ -172,16 +166,8 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
     setEditingTrip({ folderId, trip, initialJson: data })
   }
 
-  function handleSaveEdit(folderId, tripId, meta, jsonData) {
-    const next = registry.map(folder => {
-      if (folder.id !== folderId) return folder
-      return {
-        ...folder,
-        trips: folder.trips.map(t2 =>
-          t2.id === tripId ? { ...t2, ...meta } : t2
-        ),
-      }
-    })
+  function handleSaveEdit(_folderId, tripId, meta, jsonData) {
+    const next = registry.map(t => t.id === tripId ? { ...t, ...meta } : t)
     updateRegistry(next)
     if (jsonData) {
       const syncedData = meta.label ? { ...jsonData, title: meta.label } : jsonData
@@ -191,14 +177,10 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
     }
   }
 
-  function deleteTrip(folderId, tripId, e) {
+  function deleteTrip(_folderId, tripId, e) {
     e.stopPropagation()
     if (!window.confirm(t('confirmDeleteTrip'))) return
-    const next = registry.map(f => {
-      if (f.id !== folderId) return f
-      return { ...f, trips: f.trips.filter(tr => tr.id !== tripId) }
-    })
-    updateRegistry(next)
+    updateRegistry(registry.filter(t => t.id !== tripId))
     deleteTripData(tripId)
     // Also delete the cloud doc so the trip doesn't come back on next sync /
     // registry rebuild. Firestore rules permit this for admin / author /
@@ -207,47 +189,28 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
       .catch(err => console.warn('[sync] Could not delete trip from Firestore:', err.message))
   }
 
-  function toggleHideTrip(folderId, tripId, e) {
+  function toggleHideTrip(_folderId, tripId, e) {
     e.stopPropagation()
-    const next = registry.map(f => {
-      if (f.id !== folderId) return f
-      return { ...f, trips: f.trips.map(tr => tr.id === tripId ? { ...tr, hidden: !tr.hidden } : tr) }
-    })
+    const next = registry.map(t => t.id === tripId ? { ...t, hidden: !t.hidden } : t)
     updateRegistry(next)
   }
 
-  function deleteFolder(folderId, e) {
-    e.stopPropagation()
-    if (!window.confirm(t('confirmDeleteFolder'))) return
-    const folder = registry.find(f => f.id === folderId)
-    folder?.trips.forEach(tr => deleteTripData(tr.id))
-    updateRegistry(registry.filter(f => f.id !== folderId))
-  }
-
-  function saveViewers(folderId, tripId, viewers) {
-    const next = registry.map(f => {
-      if (f.id !== folderId) return f
-      return {
-        ...f,
-        trips: f.trips.map(t => {
-          if (t.id !== tripId) return t
-          const updated = { ...t }
-          if (viewers === undefined) {
-            delete updated.viewers  // open to all — remove the field
-          } else {
-            updated.viewers = viewers
-          }
-          return updated
-        }),
+  function saveViewers(_folderId, tripId, viewers) {
+    const next = registry.map(t => {
+      if (t.id !== tripId) return t
+      const updated = { ...t }
+      if (viewers === undefined) {
+        delete updated.viewers  // open to all — remove the field
+      } else {
+        updated.viewers = viewers
       }
+      return updated
     })
     updateRegistry(next)
   }
 
   function handleCreateTrip(name, jsonData) {
-    const folderId = addTrip?.folderId
-    if (!folderId) return
-    const id = `${folderId}-${slugify(name)}-${Date.now()}`
+    const id = `trip-${slugify(name)}-${Date.now()}`
     const trip = {
       id,
       label:    jsonData?.label?.trim() || name,
@@ -255,13 +218,9 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
       dates:    jsonData?.subtitle ?? '',
       duration: jsonData?.stats?.[0] ?? '',
       author:   user.email,
-      viewers:  [],
+      viewers:  [user.email],
     }
-    const next = registry.map(f => {
-      if (f.id !== folderId) return f
-      return { ...f, trips: [...f.trips, trip] }
-    })
-    updateRegistry(next)
+    updateRegistry([...registry, trip])
     if (jsonData) {
       saveTripData(id, jsonData)
       setDoc(doc(db, 'trips', id, 'data', 'itinerary'), jsonData)
@@ -270,33 +229,22 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
     setAddTrip(null)
   }
 
-  function ensureFolderId() {
-    if (registry.length > 0) return registry[0].id
-    const defaultFolder = { id: 'my-trips', label: t('defaultFolderName'), emoji: '✈️', trips: [] }
-    updateRegistry([defaultFolder])
-    setExpanded(e => ({ ...e, [defaultFolder.id]: true }))
-    return defaultFolder.id
-  }
-
   function handleEmptyAi(seedText) {
-    const folderId = ensureFolderId()
-    onBuildWithAi?.(folderId, seedText)
+    onBuildWithAi?.(null, seedText)
   }
 
   function handleEmptyPaste() {
-    const folderId = ensureFolderId()
-    setAddTrip({ folderId, initialTab: 'paste' })
+    setAddTrip({ initialTab: 'paste' })
   }
 
-  function openCopyDialog(trip, folderId, e) {
+  function openCopyDialog(trip, _folderId, e) {
     e.stopPropagation()
-    setCopyDialog({ trip, folderId })
+    setCopyDialog({ trip })
     setCopyName(`${t('copyPrefix')} ${trip.label}`)
-    setCopyFolder(folderId)
   }
 
   async function confirmCopy() {
-    if (!copyName.trim() || !copyFolder) return
+    if (!copyName.trim()) return
     setCopying(true)
     try {
       let sourceData = getTripData(copyDialog.trip.id)
@@ -304,7 +252,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
         const snap = await getDoc(doc(db, 'trips', copyDialog.trip.id, 'data', 'itinerary'))
         if (snap.exists()) sourceData = snap.data()
       }
-      const newId = `${copyFolder}-${slugify(copyName)}-${Date.now()}`
+      const newId = `trip-${slugify(copyName)}-${Date.now()}`
       const newTrip = {
         id: newId,
         label: copyName.trim(),
@@ -312,13 +260,9 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
         dates: copyDialog.trip.dates,
         duration: copyDialog.trip.duration,
         author: user.email,
-        viewers: [],
+        viewers: [user.email],
       }
-      const next = registry.map(f => {
-        if (f.id !== copyFolder) return f
-        return { ...f, trips: [...f.trips, newTrip] }
-      })
-      updateRegistry(next)
+      updateRegistry([...registry, newTrip])
       if (sourceData) {
         const newData = { ...sourceData, author: user.email, version: 1 }
         saveTripData(newId, newData)
@@ -332,18 +276,6 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
     }
   }
 
-  function confirmAddFolder() {
-    if (!newFolderName.trim()) return
-    const id = slugify(newFolderName) || `folder-${Date.now()}`
-    const folder = { id, label: newFolderName.trim(), emoji: newFolderEmoji, trips: [] }
-    const next = [...registry, folder]
-    updateRegistry(next)
-    setExpanded(e => ({ ...e, [id]: true }))
-    setAddFolderOpen(false)
-    setNewFolderName('')
-    setNewFolderEmoji('🌍')
-  }
-
   function canSeeTrip(tr) {
     if (isAdmin) return true
     if (tr.author === user.email) return true
@@ -352,22 +284,31 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
   }
 
   const query2 = search.toLowerCase()
-  const filtered = registry
-    .map(folder => ({
-      ...folder,
-      trips: folder.trips.filter(tr => {
-        if (!canSeeTrip(tr)) return false
-        if (!isAdmin && tr.hidden) return false
-        if (showFavsOnly && !favorites.includes(tr.id)) return false
-        if (!query2) return true
-        return (
-          tr.label.toLowerCase().includes(query2) ||
-          tr.subtitle.toLowerCase().includes(query2) ||
-          folder.label.toLowerCase().includes(query2)
-        )
-      }),
-    }))
-    .filter(f => f.trips.length > 0 || (isAdmin && !showFavsOnly && !query2))
+
+  function matchesFilters(tr) {
+    if (!canSeeTrip(tr)) return false
+    if (!isAdmin && tr.hidden) return false
+    if (showFavsOnly && !favorites.includes(tr.id)) return false
+    if (!query2) return true
+    return (
+      tr.label.toLowerCase().includes(query2) ||
+      (tr.subtitle || '').toLowerCase().includes(query2)
+    )
+  }
+  // Compute display folders from the flat registry by user role:
+  //  - everyone gets "My Trips" (trips they authored)
+  //  - admin also gets "All Trips" (every other trip)
+  const visibleTrips = registry.filter(matchesFilters)
+  const mineTrips    = visibleTrips.filter(tr => tr.author === user.email)
+  const othersTrips  = visibleTrips.filter(tr => tr.author !== user.email)
+  const filtered = isAdmin
+    ? [
+        { id: '__my',  label: t('myTrips'),  emoji: '✈️', trips: mineTrips },
+        { id: '__all', label: t('allTrips'), emoji: '🗂️', trips: othersTrips },
+      ].filter(f => f.trips.length > 0 || (!showFavsOnly && !query2))
+    : [
+        { id: '__my',  label: t('myTrips'),  emoji: '✈️', trips: mineTrips },
+      ].filter(f => f.trips.length > 0)
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f7fa' }}>
@@ -504,7 +445,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
             <Button
               variant="contained"
               startIcon={<AutoAwesomeIcon />}
-              onClick={() => { const fid = ensureFolderId(); setAddTrip({ folderId: fid, initialTab: 'ai' }) }}
+              onClick={() => setAddTrip({ initialTab: 'ai' })}
               sx={{ background: 'linear-gradient(135deg, #B71C1C 0%, #7B1FA2 100%)', textTransform: 'none' }}
             >
               {t('noSharedTripsAiCta')}
@@ -549,7 +490,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
         )}
 
         {!registryLoading && filtered.map(folder => (
-          <Box key={folder.id} sx={{ mb: 2, bgcolor: '#fff', borderRadius: 2, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <Box key={folder.id} data-testid={`folder-${folder.id.replace('__','')}`} sx={{ mb: 2, bgcolor: '#fff', borderRadius: 2, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
 
             {/* Folder row */}
             <Box
@@ -566,18 +507,15 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
               <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
                 {folder.emoji} {folder.label}
               </Typography>
-              <Box className="folder-actions" sx={{ display: 'flex', gap: 0.5 }} onClick={e => e.stopPropagation()}>
-                <Tooltip title={t('addItineraryTooltip')}>
-                  <IconButton size="small" onClick={e => { e.stopPropagation(); setAddTrip({ folderId: folder.id, initialTab: 'ai' }) }}>
-                    <AddIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={t('deleteFolderTooltip')}>
-                  <IconButton size="small" color="error" onClick={e => deleteFolder(folder.id, e)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
+              {folder.id === '__my' && (
+                <Box className="folder-actions" sx={{ display: 'flex', gap: 0.5 }} onClick={e => e.stopPropagation()}>
+                  <Tooltip title={t('addItineraryTooltip')}>
+                    <IconButton size="small" onClick={e => { e.stopPropagation(); setAddTrip({ initialTab: 'ai' }) }}>
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              )}
               <Chip label={`${folder.trips.length}`} size="small" sx={{ fontSize: '0.72rem', height: 22, ml: 0.5 }} />
               <IconButton size="small" disableRipple>
                 {expanded[folder.id] ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
@@ -699,9 +637,10 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
                 )
               })}
 
-              {/* Add trip row */}
+              {/* Add trip row — only on My Trips folder */}
+              {folder.id === '__my' && (
               <Box
-                onClick={e => { e.stopPropagation(); setAddTrip({ folderId: folder.id, initialTab: 'ai' }) }}
+                onClick={e => { e.stopPropagation(); setAddTrip({ initialTab: 'ai' }) }}
                 sx={{
                   display: 'flex', alignItems: 'center', gap: 1,
                   px: 5, py: 1, cursor: 'pointer', borderTop: '1px dashed #e0e0e0',
@@ -712,22 +651,11 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
                 <AddIcon sx={{ fontSize: 16 }} />
                 <Typography variant="caption">{t('addItineraryTooltip')}</Typography>
               </Box>
+              )}
             </Collapse>
           </Box>
         ))}
 
-        {/* Add folder — admins only */}
-        {isAdmin && (
-          <Button
-            startIcon={<CreateNewFolderIcon />}
-            onClick={() => setAddFolderOpen(true)}
-            variant="outlined"
-            fullWidth
-            sx={{ mt: 1, borderStyle: 'dashed', color: 'text.secondary', borderColor: 'divider', '&:hover': { borderColor: 'primary.main', color: 'primary.main' } }}
-          >
-            {t('addDestination')}
-          </Button>
-        )}
       </Box>
       )}
 
@@ -754,23 +682,6 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
         onCreate={handleCreateTrip}
       />
 
-      {/* ── Add Folder Dialog ── */}
-      <Dialog open={addFolderOpen} onClose={() => setAddFolderOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t('newDestination')}</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
-          <Stack direction="row" spacing={1}>
-            <TextField label={t('emojiLabel')} size="small" value={newFolderEmoji}
-              onChange={e => setNewFolderEmoji(e.target.value)} sx={{ width: 80 }} />
-            <TextField label={t('folderNamePlaceholder')} size="small" value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)} fullWidth autoFocus />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddFolderOpen(false)}>{t('cancel')}</Button>
-          <Button variant="contained" onClick={confirmAddFolder} disabled={!newFolderName.trim()}>{t('create')}</Button>
-        </DialogActions>
-      </Dialog>
-
       {/* ── Copy Trip Dialog ── */}
       {copyDialog && (
         <Dialog open onClose={() => setCopyDialog(null)} maxWidth="xs" fullWidth>
@@ -787,19 +698,6 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
               fullWidth
               autoFocus
             />
-            <TextField
-              select
-              label={t('destinationFolder')}
-              value={copyFolder}
-              onChange={e => setCopyFolder(e.target.value)}
-              size="small"
-              fullWidth
-              SelectProps={{ native: true }}
-            >
-              {registry.map(f => (
-                <option key={f.id} value={f.id}>{f.emoji} {f.label}</option>
-              ))}
-            </TextField>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setCopyDialog(null)}>{t('cancel')}</Button>

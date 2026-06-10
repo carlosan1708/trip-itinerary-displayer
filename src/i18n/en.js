@@ -59,8 +59,6 @@ export default {
   noSharedTripsBody: "No one has shared a trip with you yet. Ask the trip owner to add your email, or start planning your own adventure.",
   noSharedTripsAiCta: 'Plan with AI',
   addItineraryTooltip: 'Add itinerary',
-  deleteFolderTooltip: 'Delete folder',
-  addDestination: 'Add destination / folder',
   hiddenChip: 'hidden',
   showItinerary: 'Show itinerary',
   hideItinerary: 'Hide itinerary',
@@ -81,18 +79,11 @@ export default {
   invalidJsonPaste: 'Invalid JSON',
   copyPrefix: 'Copy of',
   confirmDeleteTrip: 'Delete this itinerary from the panel?',
-  confirmDeleteFolder: 'Delete this folder and all its trips?',
-
-  // Add folder dialog
-  newDestination: 'New destination',
-  emojiLabel: 'Emoji',
-  folderNamePlaceholder: 'Name (e.g. Japan)',
 
   // Copy trip dialog
   copyItineraryTitle: 'Copy itinerary',
   originalLabel: 'Original: {label}',
   newItineraryName: 'New itinerary name',
-  destinationFolder: 'Destination folder',
   copyingBtn: 'Copying…',
 
   // Trip row actions
@@ -294,6 +285,7 @@ export default {
   emptyCtaPasteTitle: 'Paste my own JSON',
   emptyCtaPasteDesc: 'Already have an itinerary file? Paste it and go.',
   defaultFolderName: 'My Trips',
+  allTrips: 'All Trips',
 
   // AI Agent (drawer + chat)
   agentFabLabel: 'AI Assistant',

@@ -59,8 +59,6 @@ export default {
   noSharedTripsBody: 'Nadie ha compartido un viaje contigo todavía. Pedile al dueño del viaje que te agregue, o empezá a planear tu propia aventura.',
   noSharedTripsAiCta: 'Planear con IA',
   addItineraryTooltip: 'Agregar itinerario',
-  deleteFolderTooltip: 'Eliminar carpeta',
-  addDestination: 'Agregar destino / carpeta',
   hiddenChip: 'oculto',
   showItinerary: 'Mostrar itinerario',
   hideItinerary: 'Ocultar itinerario',
@@ -81,18 +79,11 @@ export default {
   invalidJsonPaste: 'JSON inválido',
   copyPrefix: 'Copia de',
   confirmDeleteTrip: '¿Eliminar este itinerario del panel?',
-  confirmDeleteFolder: '¿Eliminar esta carpeta y todos sus viajes?',
-
-  // Add folder dialog
-  newDestination: 'Nuevo destino',
-  emojiLabel: 'Emoji',
-  folderNamePlaceholder: 'Nombre (ej: Japón)',
 
   // Copy trip dialog
   copyItineraryTitle: 'Copiar itinerario',
   originalLabel: 'Original: {label}',
   newItineraryName: 'Nombre del nuevo itinerario',
-  destinationFolder: 'Carpeta destino',
   copyingBtn: 'Copiando…',
 
   // Trip row actions
@@ -294,6 +285,7 @@ export default {
   emptyCtaPasteTitle: 'Pegar mi propio JSON',
   emptyCtaPasteDesc: '¿Ya tenés un archivo de itinerario? Pegalo y listo.',
   defaultFolderName: 'Mis viajes',
+  allTrips: 'Todos los viajes',
 
   // Asistente IA (drawer + chat)
   agentFabLabel: 'Asistente IA',
