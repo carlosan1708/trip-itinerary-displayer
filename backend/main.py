@@ -14,6 +14,7 @@ from slowapi.util import get_remote_address
 from auth import verify_token, set_admin_claim
 from chat import run_conversation
 from create import run_creation
+from demo import require_user_or_demo_quota, verify_turnstile
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,10 @@ class ChatRequest(BaseModel):
         return [m.model_dump() for m in self.messages]
 
 
+class DemoStartRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=4096)
+
+
 class CreateRequest(BaseModel):
     destination: str = Field(min_length=1, max_length=200)
     dates: str = Field(min_length=1, max_length=100)
@@ -84,12 +89,18 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _identity(user: dict) -> str:
+    """Stable identity for a request. Anonymous (demo) users have no email,
+    so fall back to a synthetic `demo:{uid}` matching the client convention."""
+    return user.get("email") or f"demo:{user['uid']}"
+
+
 async def _stream_conversation(req: ChatRequest, user: dict):
     async for chunk in run_conversation(
         messages=req.messages_as_dicts(),
         itinerary=req.itinerary,
         mode=req.mode,
-        user_email=user["email"],
+        user_email=_identity(user),
         language=req.language,
     ):
         yield _sse(chunk["event"], chunk["data"])
@@ -98,7 +109,7 @@ async def _stream_conversation(req: ChatRequest, user: dict):
 async def _stream_creation(req: CreateRequest, user: dict):
     async for chunk in run_creation(
         user_params=req.model_dump(),
-        user_email=user["email"],
+        user_email=_identity(user),
     ):
         yield _sse(chunk["event"], chunk["data"])
 
@@ -114,7 +125,7 @@ async def health():
 
 @app.post("/agent/chat")
 @limiter.limit("30/minute")
-async def chat(request: Request, req: ChatRequest, user: dict = Depends(verify_token)):
+async def chat(request: Request, req: ChatRequest, user: dict = Depends(require_user_or_demo_quota)):
     return StreamingResponse(
         _stream_conversation(req, user),
         media_type="text/event-stream",
@@ -124,12 +135,26 @@ async def chat(request: Request, req: ChatRequest, user: dict = Depends(verify_t
 
 @app.post("/agent/create")
 @limiter.limit("5/minute")
-async def create(request: Request, req: CreateRequest, user: dict = Depends(verify_token)):
+async def create(request: Request, req: CreateRequest, user: dict = Depends(require_user_or_demo_quota)):
     return StreamingResponse(
         _stream_creation(req, user),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.post("/demo/start")
+@limiter.limit("10/minute")
+async def demo_start(request: Request, req: DemoStartRequest):
+    """
+    Gate the demo: verify the Cloudflare Turnstile token. The client only
+    calls signInAnonymously() after this returns ok, so bots can't mint
+    anonymous identities at scale without solving a challenge each time.
+    """
+    client_ip = request.client.host if request.client else None
+    if not await verify_turnstile(req.token, client_ip):
+        raise HTTPException(status_code=403, detail="turnstile_failed")
+    return {"ok": True}
 
 
 @app.post("/auth/set-admin-claim")

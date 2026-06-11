@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => ({
     proxy: {
       '/agent': 'http://localhost:8000',
       '/auth':  'http://localhost:8000',
+      '/demo':  'http://localhost:8000',
       '/health': 'http://localhost:8000',
     },
     // Firebase Auth signInWithPopup polls popup.closed; strict COOP

@@ -3,6 +3,15 @@ export default {
   loading: 'Loading...',
   footer: 'Have a great trip!',
 
+  // Demo mode
+  orTryDemo: 'or',
+  tryDemo: 'Try the demo',
+  demoStarting: 'Starting your demo…',
+  demoError: 'Could not start the demo. Please try again.',
+  demoBanner: 'Demo mode — you can create up to {maxTrips} trips and use the AI assistant {maxAi} times. Changes here are sandboxed.',
+  demoTripLimit: 'Demo limit reached: you can create up to {max} trips. Sign in for full access or get in touch.',
+  demoAiLimit: "You've reached the demo limit for the AI assistant. Reach out to the owner for full access.",
+
   // Common
   cancel: 'Cancel',
   save: 'Save',
@@ -70,10 +79,6 @@ export default {
   itineraryNameLabel: 'Itinerary name',
   uploadFileBtn: 'Upload file',
   fileLoaded: '✓ File loaded',
-  orPasteJson: 'or paste JSON:',
-  noJsonTitle: "Don't have JSON? Generate it with AI",
-  noJsonInstructions: 'Copy the prompt below, paste it in <strong>ChatGPT</strong>, answer the questions and then download the JSON it generates to upload here.',
-  noJsonNote: 'After generating it, download the JSON and upload it with the "Upload JSON" button above.',
   invalidJsonFile: 'The file is not valid JSON.',
   nameEmpty: 'Name cannot be empty.',
   invalidJsonPaste: 'Invalid JSON',
@@ -122,7 +127,6 @@ export default {
   addedBy: 'Added by {email}',
   youChip: 'You',
   revokeAccess: 'Revoke access',
-  languageSection: 'Language',
   languageEnglish: 'English',
   languageSpanish: 'Español',
   appDefaultLanguage: 'App default language',
@@ -163,7 +167,6 @@ export default {
   deleteTooltip: 'Delete',
   fileTooLarge: 'File is {size}. {helperText}.',
   uploadFileError: 'Could not upload file.',
-  readFileError: 'Could not read selected file.',
   fileTagsLabel: 'Tags',
   fileTagsPlaceholder: 'Add tag, press Enter…',
   fileTagsMax: 'Max {max} tags',
@@ -220,7 +223,6 @@ export default {
   uploadHelp: 'Upload a previously exported itinerary JSON.',
   pasteHelp: 'Paste an itinerary JSON below.',
   jsonValid: '✓ Valid JSON',
-  buildAiPitch: 'Plan your trip in a chat — the AI assistant asks a few questions and writes the itinerary for you.',
 
   // Trip Planner Wizard
   wizStep: 'Question {current} of {total}',
@@ -255,11 +257,6 @@ export default {
   wizHighlightsHint: 'e.g. Machu Picchu, sunset at Santorini, stay in a ryokan',
   wizNotes: 'Anything else the AI should know?',
   wizNotesHint: 'e.g. dietary restrictions, accessibility needs, special occasion, photography focus',
-  openAiBuilder: 'Open AI builder',
-  legacyPromptToggle: 'No AI access? Show the prompt for ChatGPT instead.',
-  legacyPromptHelp: 'Copy this prompt, paste it in ChatGPT, then paste the JSON it returns into the Paste tab.',
-  copyPrompt: 'Copy prompt',
-  copied: 'Copied!',
 
   // Trip Share Dialog
   shareTripTitle: 'Who can see this trip?',
@@ -284,7 +281,6 @@ export default {
   emptyCtaAiDesc: 'Describe your trip in a chat. The assistant builds the itinerary for you.',
   emptyCtaPasteTitle: 'Paste my own JSON',
   emptyCtaPasteDesc: 'Already have an itinerary file? Paste it and go.',
-  defaultFolderName: 'My Trips',
   allTrips: 'All Trips',
 
   // AI Agent (drawer + chat)
@@ -298,6 +294,8 @@ export default {
   agentInputPlaceholderWithItinerary: 'Ask about the itinerary or request changes…',
   agentInputPlaceholder: 'Type a message…',
   agentSendTooltip: 'Send (Enter)',
+  agentInputHint: 'Shift+Enter for a new line · changes always require confirmation',
+  agentDiffDayLabel: 'Day {n}',
   agentDuplicateLabelSuffix: 'My version',
   agentDuplicateFallbackName: 'Trip',
   agentDuplicateConfirm: 'Done — I saved a copy as "{label}". You\'ll find it in the Dashboard.',

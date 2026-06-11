@@ -8,7 +8,7 @@ import { auth, db } from './firebase'
 import { findTripData, saveTripData, getRegistry, saveRegistry } from './utils/registry'
 
 import theme from './theme'
-import { I18nProvider, useT } from './i18n'
+import { I18nProvider, useT, translate } from './i18n'
 import ItineraryAgent       from './components/ItineraryAgent'
 import TripEditorModal      from './components/TripEditorModal'
 import VersionHistoryModal  from './components/VersionHistoryModal'
@@ -21,6 +21,8 @@ import AccessDenied from './components/AccessDenied'
 import Dashboard from './components/Dashboard'
 
 const GATEWAY_TRIP_ID = import.meta.env.VITE_TRIP_ID
+const DEMO_TRIP_ID    = import.meta.env.VITE_DEMO_TRIP_ID || 'demo-gateway'
+const DEMO_MAX_TRIPS  = Number(import.meta.env.VITE_DEMO_MAX_TRIPS || 2)
 
 function LoadingScreen() {
   const t = useT()
@@ -66,6 +68,17 @@ export default function App() {
     return onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) { setUser(null); setAllowed(false); return }
 
+      // ── Demo (anonymous) users ──────────────────────────────────────
+      // No admin claim, no allowed_users whitelist. They get a synthetic
+      // identity (demo:{uid}) so all author/viewer logic keyed on email
+      // keeps working, and they operate in the isolated DEMO_TRIP_ID space.
+      if (currentUser.isAnonymous) {
+        const demoEmail = `demo:${currentUser.uid}`
+        setUser({ ...currentUser, email: demoEmail, isAdmin: false, isDemo: true })
+        setAllowed(true)
+        return
+      }
+
       try {
         const token = await currentUser.getIdToken()
         await fetch('/auth/set-admin-claim', {
@@ -81,7 +94,7 @@ export default function App() {
       const isAdminUser = tokenResult.claims.admin === true
       const email       = currentUser.email
 
-      setUser({ ...currentUser, isAdmin: isAdminUser })
+      setUser({ ...currentUser, isAdmin: isAdminUser, isDemo: false })
 
       const userRef = doc(db, 'trips', GATEWAY_TRIP_ID, 'allowed_users', email)
       const snap    = await getDoc(userRef)
@@ -191,7 +204,8 @@ export default function App() {
     }
     if (changed) {
       saveRegistry(reg)
-      setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { folders: reg })
+      const gatewayId = user?.isDemo ? DEMO_TRIP_ID : GATEWAY_TRIP_ID
+      setDoc(doc(db, 'trips', gatewayId, 'registry', 'main'), { trips: reg })
         .catch(err => console.warn('[sync] Could not update registry in Firestore:', err.message))
     }
   }
@@ -238,7 +252,7 @@ export default function App() {
     setPdfLoading(true)
     try {
       const { generateItinerarioPdf } = await import('./utils/generatePdf.jsx')
-      await generateItinerarioPdf(itinerary)
+      await generateItinerarioPdf(itinerary, language)
     } finally {
       setPdfLoading(false)
     }
@@ -250,15 +264,28 @@ export default function App() {
   }
 
   async function handleAgentDuplicate(newTripId, duplicateItinerary) {
-    saveTripData(newTripId, duplicateItinerary)
-    const itinRef = doc(db, 'trips', newTripId, 'data', 'itinerary')
+    const { getRegistry, saveRegistry } = await import('./utils/registry')
+    const reg = getRegistry()
+
+    // Demo users are capped at DEMO_MAX_TRIPS. The backend/Firestore rules are
+    // the real guard; this is the UX-facing check.
+    if (user?.isDemo) {
+      const owned = reg.filter(tr => tr.author === user.email).length
+      if (owned >= DEMO_MAX_TRIPS) {
+        window.alert(translate(language, 'demoTripLimit', { max: DEMO_MAX_TRIPS }))
+        return
+      }
+    }
+
+    // Demo trips get a uid-scoped id so Firestore rules can verify ownership.
+    const tripId = user?.isDemo ? `demo-${user.uid}-${Date.now()}` : newTripId
+    saveTripData(tripId, duplicateItinerary)
+    const itinRef = doc(db, 'trips', tripId, 'data', 'itinerary')
     try { await setDoc(itinRef, duplicateItinerary) } catch (err) {
       console.warn('[agent] Could not save duplicate to Firestore:', err.message)
     }
-    const { getRegistry, saveRegistry } = await import('./utils/registry')
-    const reg = getRegistry()
     const newTripEntry = {
-      id: newTripId,
+      id: tripId,
       label: duplicateItinerary.label,
       duration: duplicateItinerary.stats?.[0] || '',
       dates: duplicateItinerary.subtitle || '',
@@ -268,7 +295,8 @@ export default function App() {
     }
     const next = [...reg, newTripEntry]
     saveRegistry(next)
-    setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { trips: next })
+    const gatewayId = user?.isDemo ? DEMO_TRIP_ID : GATEWAY_TRIP_ID
+    setDoc(doc(db, 'trips', gatewayId, 'registry', 'main'), { trips: next })
       .catch(err => console.warn('[sync] Could not save registry to Firestore:', err.message))
   }
 
@@ -281,6 +309,8 @@ export default function App() {
 
   // ── Render ───────────────────────────────────────────────────────
   const isAdmin = user?.isAdmin === true
+  const isDemo  = user?.isDemo === true
+  const activeGatewayId = isDemo ? DEMO_TRIP_ID : GATEWAY_TRIP_ID
   const canEdit = !!itinerary?.author && user?.email === itinerary.author
 
   return (
@@ -291,6 +321,8 @@ export default function App() {
           user={user}
           allowed={allowed}
           isAdmin={isAdmin}
+          isDemo={isDemo}
+          gatewayTripId={activeGatewayId}
           canEdit={canEdit}
           selectedTripId={selectedTripId}
           setSelectedTripId={setSelectedTripId}
@@ -328,7 +360,7 @@ export default function App() {
 }
 
 function AppContent({
-  user, allowed, isAdmin, canEdit,
+  user, allowed, isAdmin, isDemo, gatewayTripId, canEdit,
   selectedTripId, setSelectedTripId,
   itinerary, loadingTrip, editMode, setEditMode,
   jsonEditorOpen, setJsonEditorOpen,
@@ -354,6 +386,8 @@ function AppContent({
         <Dashboard
           user={user}
           isAdmin={isAdmin}
+          isDemo={isDemo}
+          gatewayTripId={gatewayTripId}
           onSelectTrip={id => { setEditMode(false); setSelectedTripId(id) }}
           onBuildWithAi={onBuildWithAi}
         />
@@ -396,7 +430,7 @@ function AppContent({
         open={filesPanelOpen}
         onClose={() => setFilesPanelOpen(false)}
         tripId={selectedTripId}
-        gatewayTripId={GATEWAY_TRIP_ID}
+        gatewayTripId={gatewayTripId}
         itinerary={itinerary}
       />
 
@@ -441,7 +475,7 @@ function AppContent({
                 editMode={editMode}
                 onDayChange={updated => onDayChange(part.id, day.dayNumber, updated)}
                 tripId={selectedTripId}
-                gatewayTripId={GATEWAY_TRIP_ID}
+                gatewayTripId={gatewayTripId}
                 user={user}
                 isAdmin={isAdmin}
               />

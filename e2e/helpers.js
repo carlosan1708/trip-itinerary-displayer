@@ -244,6 +244,50 @@ export async function setupUserWithOthersTrips(page) {
 }
 
 /**
+ * Demo mode: start unauthenticated (LoginScreen). The demo namespace
+ * (demo-gateway) is pre-seeded with one sample trip. Turnstile is bypassed
+ * via window.__turnstileBypassToken and /demo/start is mocked to succeed, so
+ * clicking "Try the demo" signs the visitor in anonymously and lands them on
+ * the demo dashboard.
+ */
+export async function setupDemoEntry(page) {
+  const demoGateway = 'demo-gateway'
+  const itinerary = MOCK_ITINERARY
+
+  // Mock the backend Turnstile verification endpoint.
+  await page.route('**/demo/start', route =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) })
+  )
+
+  await page.addInitScript(
+    ({ demoGateway, itinerary }) => {
+      // Start logged out.
+      window.__mockAuth = { currentUser: null }
+      // The anonymous user that signInAnonymously() will resolve to.
+      window.__mockAnonUser = {
+        uid: 'anon-123', email: null, isAnonymous: true,
+        getIdToken: () => Promise.resolve('mock-anon-token'),
+        getIdTokenResult: () => Promise.resolve({ claims: {} }),
+      }
+      // Skip the real Cloudflare widget in tests.
+      window.__turnstileBypassToken = 'test-token'
+      window.__mockFirestore = {
+        docs: {
+          [`trips/demo-sample/data/itinerary`]: { ...itinerary, title: 'Sample Trip', author: 'demo-sample' },
+          [`trips/${demoGateway}/registry/main`]: {
+            trips: [{
+              id: 'demo-sample', label: 'Sample Trip', subtitle: 'Demo',
+              dates: '3 days', duration: '3 days', author: 'demo-sample',
+            }],
+          },
+        },
+      }
+    },
+    { demoGateway, itinerary }
+  )
+}
+
+/**
  * Inject mock state for an authenticated user NOT on the allowed list.
  */
 export async function setupUnauthorizedAuth(page) {

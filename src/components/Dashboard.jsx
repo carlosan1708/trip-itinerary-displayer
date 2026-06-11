@@ -3,7 +3,7 @@ import { signOut } from 'firebase/auth'
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
-const GATEWAY_TRIP_ID = import.meta.env.VITE_TRIP_ID
+const DEMO_MAX_TRIPS = Number(import.meta.env.VITE_DEMO_MAX_TRIPS || 2)
 import {
   Box, Typography, TextField, Collapse, Chip,
   Button, Tooltip, InputAdornment, IconButton,
@@ -32,6 +32,7 @@ import VisibilityOffIcon    from '@mui/icons-material/VisibilityOff'
 import VisibilityIcon       from '@mui/icons-material/Visibility'
 import MoreVertIcon         from '@mui/icons-material/MoreVert'
 import GroupAddIcon         from '@mui/icons-material/GroupAdd'
+import ExploreOutlinedIcon  from '@mui/icons-material/ExploreOutlined'
 
 import AdminPanel        from './AdminPanel'
 import TripEditorModal   from './TripEditorModal'
@@ -49,7 +50,8 @@ import { useT, useLang, useChangeLang } from '../i18n'
 
 const TRIP_COLORS = ['#2E7D32', '#0277BD', '#AD1457', '#F57C00', '#7B1FA2', '#00838F']
 
-export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }) {
+export default function Dashboard({ user, isAdmin, isDemo, gatewayTripId, onSelectTrip, onBuildWithAi }) {
+  const GATEWAY_TRIP_ID = gatewayTripId
   const t          = useT()
   const lang       = useLang()
   const changeLang = useChangeLang()
@@ -212,8 +214,27 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
     }))
   }
 
+  // Demo users are capped at DEMO_MAX_TRIPS. Returns true if blocked.
+  function demoTripCapReached() {
+    if (!isDemo) return false
+    const owned = registry.filter(tr => tr.author === user.email).length
+    if (owned >= DEMO_MAX_TRIPS) {
+      window.alert(t('demoTripLimit', { max: DEMO_MAX_TRIPS }))
+      return true
+    }
+    return false
+  }
+
+  // Demo trips need a uid-scoped id so Firestore rules can verify ownership.
+  function newTripId(name) {
+    return isDemo
+      ? `demo-${user.uid}-${Date.now()}`
+      : `trip-${slugify(name)}-${Date.now()}`
+  }
+
   function handleCreateTrip(name, jsonData) {
-    const id = `trip-${slugify(name)}-${Date.now()}`
+    if (demoTripCapReached()) { setAddTrip(null); return }
+    const id = newTripId(name)
     const trip = {
       id,
       label:    jsonData?.label?.trim() || name,
@@ -248,6 +269,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
 
   async function confirmCopy() {
     if (!copyName.trim()) return
+    if (demoTripCapReached()) { setCopyDialog(null); return }
     setCopying(true)
     try {
       let sourceData = getTripData(copyDialog.trip.id)
@@ -255,7 +277,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
         const snap = await getDoc(doc(db, 'trips', copyDialog.trip.id, 'data', 'itinerary'))
         if (snap.exists()) sourceData = snap.data()
       }
-      const newId = `trip-${slugify(copyName)}-${Date.now()}`
+      const newId = newTripId(copyName)
       const newTrip = {
         id: newId,
         label: copyName.trim(),
@@ -303,10 +325,16 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
   // Compute display folders from the flat registry by user role:
   //  - everyone gets "My Trips" (trips they authored)
   //  - admin also gets "All Trips" (every other trip)
+  //  - demo users get a single "My Trips" folder that also includes the
+  //    seeded sample trip(s), so they have something to explore immediately.
   const visibleTrips = registry.filter(matchesFilters)
   const mineTrips    = visibleTrips.filter(tr => tr.author === user.email)
   const othersTrips  = visibleTrips.filter(tr => tr.author !== user.email)
-  const filtered = isAdmin
+  const filtered = isDemo
+    ? [
+        { id: '__my', label: t('myTrips'), emoji: '✈️', trips: visibleTrips },
+      ].filter(f => f.trips.length > 0)
+    : isAdmin
     ? [
         { id: '__my',  label: t('myTrips'),  emoji: '✈️', trips: mineTrips },
         { id: '__all', label: t('allTrips'), emoji: '🗂️', trips: othersTrips },
@@ -374,6 +402,25 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
           {t('selectItinerary')}
         </Typography>
       </Box>
+
+      {/* ── Demo-mode notice ── */}
+      {isDemo && (
+        <Box sx={{ maxWidth: 720, mx: 'auto', px: { xs: 2, sm: 3 }, pt: 3 }}>
+          <Box data-testid="demo-banner" sx={{
+            display: 'flex', alignItems: 'center', gap: 1.25,
+            bgcolor: '#fff8e1', border: '1px solid #ffe082',
+            borderRadius: 2, px: 2, py: 1.25,
+          }}>
+            <ExploreOutlinedIcon sx={{ color: '#f57c00', fontSize: 20, flexShrink: 0 }} />
+            <Typography variant="caption" sx={{ color: '#7a5c00', lineHeight: 1.5 }}>
+              {t('demoBanner', {
+                maxTrips: DEMO_MAX_TRIPS,
+                maxAi: import.meta.env.VITE_DEMO_MAX_AI_CALLS || 100,
+              })}
+            </Typography>
+          </Box>
+        </Box>
+      )}
 
       {/* ── AI assistant banner — only when user has visible trips ── */}
       {(registryLoading || filtered.length > 0) && (

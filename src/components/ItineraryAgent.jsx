@@ -1,15 +1,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import {
-  Box, Drawer, Fab, IconButton, Stack, Tooltip, Typography, Chip,
+  Box, Drawer, Fab, IconButton, Stack, Tooltip, Typography,
 } from '@mui/material'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 
 import ItineraryAgentChat from './ItineraryAgentChat'
-import { streamChat } from '../utils/agentClient'
+import { streamChat, DEMO_LIMIT_ERROR } from '../utils/agentClient'
 import { applyPatch, describePatch } from '../utils/itineraryPatch'
-import { saveTripData, getRegistry, saveRegistry } from '../utils/registry'
 import { useT } from '../i18n'
 
 const DRAWER_WIDTH = 420
@@ -84,7 +83,8 @@ export default function ItineraryAgent({
       },
       (errMsg) => {
         setLoading(false)
-        updateLastAssistant(() => ({ content: `Error: ${errMsg}`, streaming: false }))
+        const content = errMsg === DEMO_LIMIT_ERROR ? t('demoAiLimit') : `Error: ${errMsg}`
+        updateLastAssistant(() => ({ content, streaming: false }))
       },
     )
     abortRef.current = abort

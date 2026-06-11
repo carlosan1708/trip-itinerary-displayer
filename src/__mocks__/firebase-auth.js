@@ -1,5 +1,13 @@
 // Mock firebase/auth — auth state is controlled via window.__mockAuth in tests
 
+const _listeners = new Set()
+
+function _notify() {
+  const currentUser =
+    (typeof window !== 'undefined' && window.__mockAuth?.currentUser) ?? null
+  for (const cb of _listeners) cb(currentUser)
+}
+
 export function getAuth() {
   return {
     __isMock: true,
@@ -10,13 +18,14 @@ export function getAuth() {
 }
 
 export function onAuthStateChanged(_auth, callback) {
-  // Simulate async Firebase auth resolution
+  _listeners.add(callback)
+  // Simulate async Firebase auth resolution for the initial state
   setTimeout(() => {
     const currentUser =
       (typeof window !== 'undefined' && window.__mockAuth?.currentUser) ?? null
     callback(currentUser)
   }, 50)
-  return () => {} // unsubscribe noop
+  return () => { _listeners.delete(callback) }
 }
 
 export function signInWithPopup() {
@@ -27,7 +36,30 @@ export function signInWithEmailAndPassword() {
   return Promise.resolve()
 }
 
+export function signInAnonymously() {
+  // Tests provide the anon user via window.__mockAnonUser. Signing in sets it
+  // as the current user and re-fires onAuthStateChanged listeners so the app
+  // transitions from LoginScreen → demo dashboard, mirroring real Firebase.
+  const user =
+    (typeof window !== 'undefined' && window.__mockAnonUser) ?? {
+      uid: 'demo-test-uid',
+      email: null,
+      isAnonymous: true,
+      getIdToken: () => Promise.resolve('mock-anon-token'),
+      getIdTokenResult: () => Promise.resolve({ claims: {} }),
+    }
+  if (typeof window !== 'undefined') {
+    window.__mockAuth = { ...(window.__mockAuth || {}), currentUser: user }
+    _notify()
+  }
+  return Promise.resolve({ user })
+}
+
 export function signOut() {
+  if (typeof window !== 'undefined') {
+    window.__mockAuth = { ...(window.__mockAuth || {}), currentUser: null }
+    _notify()
+  }
   return Promise.resolve()
 }
 

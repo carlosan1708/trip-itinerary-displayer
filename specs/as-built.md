@@ -34,6 +34,49 @@ an inline itinerary editor, an AI agent for itinerary generation, and a multi-tr
 
 ---
 
+## Demo Mode (anonymous "try it" sandbox)
+
+**How it works**
+
+- `LoginScreen.jsx` offers a **"Try the demo"** button. Clicking it renders a
+  **Cloudflare Turnstile** widget (`TurnstileWidget.jsx`). On a valid token the
+  client calls `POST /demo/start` (backend verifies the token with Cloudflare's
+  siteverify), then `signInAnonymouslyDemo()` (Firebase Anonymous Auth).
+- Anonymous users have `email === null`. `App.jsx` gives them a **synthetic
+  identity** `demo:{uid}` (set as `user.email`) so all author/viewer/notes logic
+  keyed on email works unchanged, plus `isDemo: true`. They skip the admin-claim
+  fetch and the `allowed_users` whitelist entirely.
+- **Isolated namespace**: demo users operate against `VITE_DEMO_TRIP_ID`
+  (`demo-gateway`) instead of the real `VITE_TRIP_ID`. The real Canada data is
+  never readable or writable by anonymous users. Seed the sample trip with
+  `npm run seed:demo` (`scripts/seed-demo.mjs`).
+- **Limits** (per anonymous uid):
+  - **2 trips** (`VITE_DEMO_MAX_TRIPS`) — enforced client-side in `Dashboard.jsx`
+    / `App.jsx` (create, copy, agent-duplicate paths) and bounded by Firestore
+    rules (an anon user may only write trips whose id is `demo-{uid}-*`).
+  - **100 AI interactions** (`DEMO_MAX_AI_CALLS`) — enforced server-side in
+    `backend/demo.py` (`require_user_or_demo_quota`), counting against
+    `demo_quota/{uid}` in Firestore. Over the cap → HTTP 429
+    `{ code: "demo_limit_reached" }`, which `agentClient.js` turns into the
+    `demoAiLimit` "contact me" message.
+- **Bot defense**: Turnstile gates the door (each demo entry costs one solved
+  challenge); the AI cap bounds cost per identity; `demo_quota` is Admin-SDK-only
+  so a visitor can't reset their own count.
+- The Dashboard shows a **demo banner** stating the limits and a single
+  "My Trips" folder that includes the seeded sample trip plus the user's own.
+
+**Relevant files**
+
+- `src/components/LoginScreen.jsx`, `src/components/TurnstileWidget.jsx`
+- `src/App.jsx` — `isDemo` detection, synthetic identity, gateway selection
+- `src/components/Dashboard.jsx` — demo banner, trip cap, demo folder
+- `src/utils/agentClient.js` — `DEMO_LIMIT_ERROR` handling
+- `backend/demo.py`, `backend/main.py` — `/demo/start`, quota dependency
+- `firestore.rules` — `isDemoUser()`, `ownsDemoTrip()`, demo namespace access
+- `scripts/seed-demo.mjs` — seeds the sample trip + demo registry
+
+---
+
 ## Multi-Trip Dashboard
 
 **How it works**
@@ -41,12 +84,20 @@ an inline itinerary editor, an AI agent for itinerary generation, and a multi-tr
 - `Dashboard.jsx` is shown when no trip is selected.
 - Trip registry is stored in `trips/{GATEWAY_TRIP_ID}/registry/main` (Firestore) and mirrored to
   `localStorage` via `src/utils/registry.js`.
-- Registry structure: `{ folders: [{ id, label, trips: [{ id, label, duration, dates }] }] }`.
-- Users can browse folders, favorite trips (persisted to `localStorage`), and open any trip.
-- Admins can create folders, add trips (JSON upload or editor), rename, delete, and reorder.
+- Registry structure: a **flat list** of trips — `{ trips: [{ id, label, subtitle, dates, duration,
+  author, viewers[] }] }`. (Legacy `{ folders: [...] }` docs are flattened on read for compat.)
+- **Folders are computed by role at render time**, not stored:
+  - every user sees a **My Trips** folder listing trips they authored;
+  - admins additionally see an **All Trips** folder listing every other author's trips.
+- A trip is visible to a non-admin only if `viewers` includes their email (or `viewers` is absent —
+  legacy "open" trips). Admins see everything (`isAdmin` short-circuits `canSeeTrip`).
+- Users can favorite trips (persisted to `localStorage`) and open any visible trip.
+- Trip actions are role-gated: Edit/Upload require authorship; **Delete is allowed for the author
+  or any admin**; Share (manage viewers) is author-or-admin. Deleting also removes the cloud
+  `trips/{id}/data/itinerary` doc.
 - **First-run experience**: when the synced registry is empty, `EmptyDashboard.jsx` replaces the
-  trip list with a structured panel offering three onboarding CTAs (Build with AI / Pick a template /
-  Paste my own JSON). The first CTA used auto-creates a default "My Trips" folder.
+  trip list with a panel offering a free-text "describe your trip" input (seeds the AI wizard) plus
+  two secondary CTAs (Build with AI / Paste my own JSON).
 
 **Relevant files**
 
@@ -60,40 +111,30 @@ an inline itinerary editor, an AI agent for itinerary generation, and a multi-tr
 
 **How it works**
 
-- `AddTripDialog.jsx` is a tabbed modal opened from any folder's "+" action or from `EmptyDashboard`.
-- Four tabs:
-  - **Templates** — `TemplateGrid` shows tiles backed by `src/data/templates/templates.js`. Each
-    template is a content-empty skeleton (parts + empty `days[]`); selecting one fills the name field.
-  - **Build with AI** — pitch + button that closes the dialog and opens the `ItineraryAgent` drawer
-    via `onBuildWithAi`. A collapsible section underneath exposes the legacy ChatGPT prompt as a
-    no-Claude-budget fallback.
+- `AddTripDialog.jsx` is a tabbed modal opened from the My Trips folder's "+" action or from
+  `EmptyDashboard`. Defaults to the Build with AI tab.
+- Three tabs:
+  - **Build with AI** — renders the `TripPlannerWizard` inline; on completion `onCreate(name,
+    itinerary)` adds the trip.
   - **Upload** — file picker for previously-exported JSON.
   - **Paste** — JSON textarea with live validation.
 - The dialog accepts an `initialTab` prop so EmptyDashboard CTAs deep-link to the right tab.
-- On confirm, `onCreate(name, jsonData)` runs the same registry + Firestore write path used by all
-  trip-creation flows.
-
-**Trip starter templates**
-
-- Bundled in source at `src/data/templates/templates.js` — IDs: `city-break-3d`, `road-trip-7d`,
-  `beach-week`, `family-with-kids-7d`, `ski-week`.
-- Each template's `build(name)` function returns a fresh itinerary object matching the schema below;
-  content fields (`activities`, `tips`, `warnings`, `links`, `images`) are intentionally empty.
-- Names and descriptions are routed through `i18n` (`tplCityBreak3dName`, `tplCityBreak3dDesc`, …).
+- On confirm, `onCreate(name, jsonData)` creates a trip with id `trip-<slug>-<ts>`, `author` =
+  current user, and `viewers: [author]` (private by default), then writes the registry + the
+  `trips/{id}/data/itinerary` doc.
 
 **Build-with-AI wiring**
 
-- `App.jsx` exposes `onBuildWithAi(folderId)` which sets `agentTargetFolderId` and clicks the agent FAB.
-- `handleAgentDuplicate` honors `agentTargetFolderId` when set: the new trip lands in that folder
-  rather than the folder containing `selectedTripId`.
+- `App.jsx` exposes `onBuildWithAi(_folderId, seedText)` which sets `agentInitialPrompt` and clicks
+  the agent FAB; the drawer pre-fills its chat input with the seed text.
+- `handleAgentDuplicate` appends the new trip to the flat registry with `viewers: [author]`.
 - The conversational prompt-script that auto-emits final JSON without a confirmation step remains a
   follow-up (see [onboarding.md](onboarding.md) — out-of-scope notes).
 
 **Relevant files**
 
 - `src/components/AddTripDialog.jsx`
-- `src/components/TemplateGrid.jsx`
-- `src/data/templates/templates.js`
+- `src/components/TripPlannerWizard.jsx`
 
 ---
 
@@ -309,10 +350,12 @@ Triggered from Header; renders the full itinerary to a printable PDF.
 
 ```
 app-settings/config                          # default language
+demo_quota/{uid}                             # per-demo-user AI call counter (Admin-SDK only)
 users/{email}                                # per-user traveler profile (self-only access)
+trips/{DEMO_TRIP_ID}/registry/main           # demo registry (anonymous sandbox namespace)
 trips/{GATEWAY_TRIP_ID}/
   allowed_users/{email}                      # access whitelist + per-user lang
-  registry/main                              # folder/trip list
+  registry/main                              # flat { trips: [...] } list
   files/{fileId}                             # all uploaded files (all trips)
   notes/{noteId}                             # all notes (all trips)
 trips/{tripId}/
@@ -329,6 +372,11 @@ trips/{tripId}/
 | `VITE_FIREBASE_*` | Firebase project credentials |
 | `VITE_ADMIN_EMAIL` | Email that receives admin claim |
 | `VITE_TRIP_ID` | Firestore key for the gateway/main trip |
+| `VITE_DEMO_TRIP_ID` | Firestore key for the isolated demo gateway/registry |
+| `VITE_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (public) |
+| `VITE_DEMO_MAX_TRIPS` / `VITE_DEMO_MAX_AI_CALLS` | Demo caps (client UX) |
+| `TURNSTILE_SECRET_KEY` | Turnstile secret (backend siteverify) |
+| `DEMO_TRIP_ID` / `DEMO_MAX_AI_CALLS` | Backend demo namespace + AI cap |
 
 ---
 

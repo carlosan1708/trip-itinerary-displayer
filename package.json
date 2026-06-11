@@ -25,7 +25,8 @@
     "sync:download": "node --env-file=.env scripts/sync-data.mjs --download",
     "sync": "node --env-file=.env scripts/sync-data.mjs --sync",
     "sync:pull-registry": "node --env-file=.env scripts/sync-data.mjs --pull-registry",
-    "sync:push-registry": "node --env-file=.env scripts/sync-data.mjs --push-registry"
+    "sync:push-registry": "node --env-file=.env scripts/sync-data.mjs --push-registry",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.13.0",
