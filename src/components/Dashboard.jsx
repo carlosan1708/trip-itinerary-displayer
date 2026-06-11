@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { signOut } from 'firebase/auth'
-import { doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
 const GATEWAY_TRIP_ID = import.meta.env.VITE_TRIP_ID
@@ -105,11 +105,17 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
     return unsub
   }, [])
 
-  function updateRegistry(next) {
-    saveRegistry(next)
-    setRegistry(next)
-    setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { trips: next })
-      .catch(err => console.warn('[sync] Could not save registry to Firestore:', err.message))
+  // Accepts either the next array, or an updater fn (prev) => next. Using the
+  // updater form avoids stale-closure bugs when called after an await (e.g.
+  // confirmCopy reads source data asynchronously before appending).
+  function updateRegistry(nextOrFn) {
+    setRegistry(prev => {
+      const next = typeof nextOrFn === 'function' ? nextOrFn(prev) : nextOrFn
+      saveRegistry(next)
+      setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { trips: next })
+        .catch(err => console.warn('[sync] Could not save registry to Firestore:', err.message))
+      return next
+    })
   }
 
   function toggleFavorite(tripId, e) {
@@ -167,8 +173,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
   }
 
   function handleSaveEdit(_folderId, tripId, meta, jsonData) {
-    const next = registry.map(t => t.id === tripId ? { ...t, ...meta } : t)
-    updateRegistry(next)
+    updateRegistry(prev => prev.map(t => t.id === tripId ? { ...t, ...meta } : t))
     if (jsonData) {
       const syncedData = meta.label ? { ...jsonData, title: meta.label } : jsonData
       saveTripData(tripId, syncedData)
@@ -180,7 +185,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
   function deleteTrip(_folderId, tripId, e) {
     e.stopPropagation()
     if (!window.confirm(t('confirmDeleteTrip'))) return
-    updateRegistry(registry.filter(t => t.id !== tripId))
+    updateRegistry(prev => prev.filter(t => t.id !== tripId))
     deleteTripData(tripId)
     // Also delete the cloud doc so the trip doesn't come back on next sync /
     // registry rebuild. Firestore rules permit this for admin / author /
@@ -191,12 +196,11 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
 
   function toggleHideTrip(_folderId, tripId, e) {
     e.stopPropagation()
-    const next = registry.map(t => t.id === tripId ? { ...t, hidden: !t.hidden } : t)
-    updateRegistry(next)
+    updateRegistry(prev => prev.map(t => t.id === tripId ? { ...t, hidden: !t.hidden } : t))
   }
 
   function saveViewers(_folderId, tripId, viewers) {
-    const next = registry.map(t => {
+    updateRegistry(prev => prev.map(t => {
       if (t.id !== tripId) return t
       const updated = { ...t }
       if (viewers === undefined) {
@@ -205,8 +209,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
         updated.viewers = viewers
       }
       return updated
-    })
-    updateRegistry(next)
+    }))
   }
 
   function handleCreateTrip(name, jsonData) {
@@ -220,7 +223,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
       author:   user.email,
       viewers:  [user.email],
     }
-    updateRegistry([...registry, trip])
+    updateRegistry(prev => [...prev, trip])
     if (jsonData) {
       saveTripData(id, jsonData)
       setDoc(doc(db, 'trips', id, 'data', 'itinerary'), jsonData)
@@ -262,7 +265,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
         author: user.email,
         viewers: [user.email],
       }
-      updateRegistry([...registry, newTrip])
+      updateRegistry(prev => [...prev, newTrip])
       if (sourceData) {
         const newData = { ...sourceData, author: user.email, version: 1 }
         saveTripData(newId, newData)
@@ -271,6 +274,8 @@ export default function Dashboard({ user, isAdmin, onSelectTrip, onBuildWithAi }
       }
       setCopyDialog(null)
       setCopyName('')
+    } catch (err) {
+      console.warn('[copy] confirmCopy failed:', err.message)
     } finally {
       setCopying(false)
     }
