@@ -100,7 +100,9 @@ test.describe('Itinerary view — navigation', () => {
 
   test('back button returns to the dashboard', async ({ page }) => {
     await page.getByRole('button', { name: 'My Trips' }).click()
-    await expect(page.getByRole('heading', { name: /My Trips/i })).toBeVisible()
+    // Dashboard heading is h1; folder card heading is also "My Trips" so be
+    // specific about the h1 to avoid strict-mode mismatch.
+    await expect(page.getByRole('heading', { level: 1, name: /My Trips/i })).toBeVisible()
   })
 })
 

@@ -94,19 +94,23 @@ async function getRemote(tripId) {
 // Devuelve lista de { tripId, filePath } para trips en el registry de Firestore
 // que no tienen archivo local. Solo usa el registry — nunca lista la colección entera
 // para evitar descargar trips borrados intencionalmente.
+// Registry is a flat { trips: [...] } doc. Older docs may still be folder-shaped
+// ({ folders: [{ trips: [...] }] }); flatten both into a single trips array.
+function registryTrips(data) {
+  if (Array.isArray(data?.trips)) return data.trips
+  if (Array.isArray(data?.folders)) return data.folders.flatMap(f => f.trips ?? [])
+  return []
+}
+
 async function findCloudOnlyTrips() {
   const regSnap = await registryRef().get()
   if (!regSnap.exists) return []
 
   const missing = []
-  const folders = regSnap.data().folders ?? []
-  for (const folder of folders) {
-    const folderDir = resolve(DATA_ROOT, folder.id)
-    for (const trip of (folder.trips ?? [])) {
-      if (trip.id === GATEWAY_TRIP_ID) continue  // gateway trip no es un archivo local
-      const filePath = resolve(folderDir, `${trip.id}.json`)
-      if (!existsSync(filePath)) missing.push({ tripId: trip.id, filePath })
-    }
+  for (const trip of registryTrips(regSnap.data())) {
+    if (trip.id === GATEWAY_TRIP_ID) continue  // gateway trip no es un archivo local
+    const filePath = resolve(DATA_ROOT, `${trip.id}.json`)
+    if (!existsSync(filePath)) missing.push({ tripId: trip.id, filePath })
   }
   return missing
 }
@@ -202,10 +206,11 @@ async function pushRegistry() {
   const raw     = readFileSync(resolve(ROOT, 'src/data/trips-registry.js'), 'utf8')
   const match   = raw.match(/export const tripsRegistry = (\[[\s\S]*\])/)
   if (!match) { console.error('❌  No se pudo parsear trips-registry.js'); process.exit(1) }
-  const folders = JSON.parse(match[1])
-  const total   = folders.flatMap(f => f.trips).length
-  await registryRef().set({ folders })
-  console.log(`\n📋  Registry subido a Firestore (${total} trips) ✅\n`)
+  const parsed  = JSON.parse(match[1])
+  // Accept either the flat trips array or the legacy folder shape.
+  const trips   = registryTrips(Array.isArray(parsed) ? { trips: parsed } : parsed)
+  await registryRef().set({ trips })
+  console.log(`\n📋  Registry subido a Firestore (${trips.length} trips) ✅\n`)
 }
 
 // ── Pull registry Firestore → local ──────────────────────────────────
@@ -215,11 +220,10 @@ async function pullRegistry() {
     console.error('❌  No existe registry en Firestore')
     process.exit(1)
   }
-  const { folders } = snap.data()
-  const total  = folders.flatMap(f => f.trips).length
-  const js     = `export const tripsRegistry = ${JSON.stringify(folders, null, 2)}\n`
+  const trips = registryTrips(snap.data())
+  const js    = `export const tripsRegistry = ${JSON.stringify(trips, null, 2)}\n`
   writeFileSync(resolve(ROOT, 'src/data/trips-registry.js'), js, 'utf8')
-  console.log(`\n📋  Registry bajado de Firestore (${total} trips) → src/data/trips-registry.js ✅\n`)
+  console.log(`\n📋  Registry bajado de Firestore (${trips.length} trips) → src/data/trips-registry.js ✅\n`)
 }
 
 // ── Main ──────────────────────────────────────────────────────────────

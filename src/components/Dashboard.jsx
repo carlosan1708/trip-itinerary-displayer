@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { signOut } from 'firebase/auth'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 
-const GATEWAY_TRIP_ID = import.meta.env.VITE_TRIP_ID
+const DEMO_MAX_TRIPS = Number(import.meta.env.VITE_DEMO_MAX_TRIPS || 2)
 import {
   Box, Typography, TextField, Collapse, Chip,
   Button, Tooltip, InputAdornment, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions, Stack,
-  Alert, CircularProgress, Menu, MenuItem, ListItemIcon, ListItemText, Divider,
+  CircularProgress, Menu, MenuItem, ListItemIcon, ListItemText, Divider,
 } from '@mui/material'
 import SearchIcon        from '@mui/icons-material/Search'
 import ExpandMoreIcon    from '@mui/icons-material/ExpandMore'
@@ -17,6 +17,7 @@ import FolderIcon        from '@mui/icons-material/Folder'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import LogoutIcon        from '@mui/icons-material/Logout'
 import PeopleIcon        from '@mui/icons-material/People'
+import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos'
 import StarIcon          from '@mui/icons-material/Star'
 import StarBorderIcon    from '@mui/icons-material/StarBorder'
@@ -25,17 +26,20 @@ import DownloadIcon      from '@mui/icons-material/Download'
 import UploadFileIcon    from '@mui/icons-material/UploadFile'
 import DeleteIcon        from '@mui/icons-material/Delete'
 import AddIcon              from '@mui/icons-material/Add'
-import CreateNewFolderIcon  from '@mui/icons-material/CreateNewFolder'
 import AutoAwesomeIcon      from '@mui/icons-material/AutoAwesome'
 import ContentCopyIcon      from '@mui/icons-material/ContentCopy'
-import CheckIcon            from '@mui/icons-material/Check'
 import VisibilityOffIcon    from '@mui/icons-material/VisibilityOff'
 import VisibilityIcon       from '@mui/icons-material/Visibility'
-import PersonIcon           from '@mui/icons-material/Person'
 import MoreVertIcon         from '@mui/icons-material/MoreVert'
+import GroupAddIcon         from '@mui/icons-material/GroupAdd'
+import ExploreOutlinedIcon  from '@mui/icons-material/ExploreOutlined'
 
-import AdminPanel       from './AdminPanel'
-import TripEditorModal  from './TripEditorModal'
+import AdminPanel        from './AdminPanel'
+import TripEditorModal   from './TripEditorModal'
+import AddTripDialog     from './AddTripDialog'
+import EmptyDashboard    from './EmptyDashboard'
+import TripShareDialog   from './TripShareDialog'
+import UserProfileDialog from './UserProfileDialog'
 import {
   getRegistry, saveRegistry,
   getFavorites, saveFavorites,
@@ -46,75 +50,74 @@ import { useT, useLang, useChangeLang } from '../i18n'
 
 const TRIP_COLORS = ['#2E7D32', '#0277BD', '#AD1457', '#F57C00', '#7B1FA2', '#00838F']
 
-export default function Dashboard({ user, isAdmin, onSelectTrip }) {
+export default function Dashboard({ user, isAdmin, isDemo, gatewayTripId, onSelectTrip, onBuildWithAi }) {
+  const GATEWAY_TRIP_ID = gatewayTripId
   const t          = useT()
   const lang       = useLang()
   const changeLang = useChangeLang()
+  // `registry` is now a flat array of trip entries. Folders for display
+  // are computed by role: My Trips for everyone, plus All Trips for admin.
   const [registry, setRegistry]     = useState(() => getRegistry())
   const [favorites, setFavorites]   = useState(() => getFavorites())
   const [search, setSearch]         = useState('')
   const [showFavsOnly, setShowFavsOnly] = useState(false)
-  const [expanded, setExpanded]     = useState(() =>
-    Object.fromEntries(getRegistry().map(f => [f.id, true]))
-  )
-  const [adminOpen, setAdminOpen]   = useState(false)
+  const [expanded, setExpanded]     = useState({ __my: true, __all: true })
+  const [adminOpen, setAdminOpen]     = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [registryLoading, setRegistryLoading] = useState(() => !localStorage.getItem('trips-registry'))
 
   const [editingTrip, setEditingTrip] = useState(null)
 
-  const [addTripFolder, setAddTripFolder] = useState(null)
-  const [addTripName, setAddTripName]     = useState('')
-  const [addTripError, setAddTripError]   = useState('')
-  const [pasteJson, setPasteJson]         = useState('')
-  const [pasteError, setPasteError]       = useState('')
-  const uploadNewRef  = useRef()
-  const uploadNewData = useRef(null)
-
-  const [addFolderOpen, setAddFolderOpen] = useState(false)
-
-  const [showAiPrompt, setShowAiPrompt] = useState(false)
-  const [copied, setCopied]             = useState(false)
-  const [newFolderEmoji, setNewFolderEmoji] = useState('🌍')
-  const [newFolderName, setNewFolderName]   = useState('')
+  // addTrip state: null when closed, else { folderId, initialTab }
+  const [addTrip, setAddTrip] = useState(null)
 
   const uploadReplaceRef  = useRef()
   const uploadReplaceTrip = useRef(null)
-  const promptRef         = useRef()
 
   const [copyDialog, setCopyDialog] = useState(null)
   const [copyName, setCopyName]     = useState('')
-  const [copyFolder, setCopyFolder] = useState('')
   const [copying, setCopying]       = useState(false)
 
   const [mobileMenu, setMobileMenu] = useState(null)
+  const [shareDialog, setShareDialog] = useState(null) // { trip, folderId }
 
-  // ── Registry cloud sync ───────────────────────────────────────────
+  // ── Registry live sync ────────────────────────────────────────────
   useEffect(() => {
-    async function syncRegistryFromCloud() {
-      try {
-        const snap = await getDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'))
+    const unsub = onSnapshot(
+      doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'),
+      snap => {
+        setRegistryLoading(false)
         if (!snap.exists()) return
-        const remote = snap.data().folders
-        if (!Array.isArray(remote)) return
-        saveRegistry(remote)
-        setRegistry(remote)
-        setExpanded(prev => {
-          const next = { ...prev }
-          remote.forEach(f => { if (!(f.id in next)) next[f.id] = true })
-          return next
-        })
-      } catch (err) {
-        console.warn('[sync] Could not load registry from Firestore:', err.message)
+        const data = snap.data()
+        // New flat shape: { trips: [...] }. Legacy folder shape: { folders: [{trips: [...]}] }.
+        const flat = Array.isArray(data.trips)
+          ? data.trips
+          : Array.isArray(data.folders)
+            ? data.folders.flatMap(f => f.trips || [])
+            : null
+        if (!Array.isArray(flat)) return
+        saveRegistry(flat)
+        setRegistry(flat)
+      },
+      err => {
+        console.warn('[sync] Registry snapshot error:', err.message)
+        setRegistryLoading(false)
       }
-    }
-    syncRegistryFromCloud().finally(() => setRegistryLoading(false))
+    )
+    return unsub
   }, [])
 
-  function updateRegistry(next) {
-    saveRegistry(next)
-    setRegistry(next)
-    setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { folders: next })
-      .catch(err => console.warn('[sync] Could not save registry to Firestore:', err.message))
+  // Accepts either the next array, or an updater fn (prev) => next. Using the
+  // updater form avoids stale-closure bugs when called after an await (e.g.
+  // confirmCopy reads source data asynchronously before appending).
+  function updateRegistry(nextOrFn) {
+    setRegistry(prev => {
+      const next = typeof nextOrFn === 'function' ? nextOrFn(prev) : nextOrFn
+      saveRegistry(next)
+      setDoc(doc(db, 'trips', GATEWAY_TRIP_ID, 'registry', 'main'), { trips: next })
+        .catch(err => console.warn('[sync] Could not save registry to Firestore:', err.message))
+      return next
+    })
   }
 
   function toggleFavorite(tripId, e) {
@@ -171,17 +174,8 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
     setEditingTrip({ folderId, trip, initialJson: data })
   }
 
-  function handleSaveEdit(folderId, tripId, meta, jsonData) {
-    const next = registry.map(folder => {
-      if (folder.id !== folderId) return folder
-      return {
-        ...folder,
-        trips: folder.trips.map(t2 =>
-          t2.id === tripId ? { ...t2, ...meta } : t2
-        ),
-      }
-    })
-    updateRegistry(next)
+  function handleSaveEdit(_folderId, tripId, meta, jsonData) {
+    updateRegistry(prev => prev.map(t => t.id === tripId ? { ...t, ...meta } : t))
     if (jsonData) {
       const syncedData = meta.label ? { ...jsonData, title: meta.label } : jsonData
       saveTripData(tripId, syncedData)
@@ -190,103 +184,92 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
     }
   }
 
-  function deleteTrip(folderId, tripId, e) {
+  function deleteTrip(_folderId, tripId, e) {
     e.stopPropagation()
     if (!window.confirm(t('confirmDeleteTrip'))) return
-    const next = registry.map(f => {
-      if (f.id !== folderId) return f
-      return { ...f, trips: f.trips.filter(tr => tr.id !== tripId) }
-    })
-    updateRegistry(next)
+    updateRegistry(prev => prev.filter(t => t.id !== tripId))
     deleteTripData(tripId)
+    // Also delete the cloud doc so the trip doesn't come back on next sync /
+    // registry rebuild. Firestore rules permit this for admin / author /
+    // gateway user (same write rule as create).
+    deleteDoc(doc(db, 'trips', tripId, 'data', 'itinerary'))
+      .catch(err => console.warn('[sync] Could not delete trip from Firestore:', err.message))
   }
 
-  function toggleHideTrip(folderId, tripId, e) {
+  function toggleHideTrip(_folderId, tripId, e) {
     e.stopPropagation()
-    const next = registry.map(f => {
-      if (f.id !== folderId) return f
-      return { ...f, trips: f.trips.map(tr => tr.id === tripId ? { ...tr, hidden: !tr.hidden } : tr) }
-    })
-    updateRegistry(next)
+    updateRegistry(prev => prev.map(t => t.id === tripId ? { ...t, hidden: !t.hidden } : t))
   }
 
-  function deleteFolder(folderId, e) {
-    e.stopPropagation()
-    if (!window.confirm(t('confirmDeleteFolder'))) return
-    const folder = registry.find(f => f.id === folderId)
-    folder?.trips.forEach(tr => deleteTripData(tr.id))
-    updateRegistry(registry.filter(f => f.id !== folderId))
-  }
-
-  function handleAddTripFileChange(e) {
-    const file = e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result)
-        uploadNewData.current = data
-        setPasteJson('')
-        setPasteError('')
-        setAddTripName(data.label || data.title || file.name.replace('.json', ''))
-      } catch {
-        setAddTripError(t('invalidJsonFile'))
+  function saveViewers(_folderId, tripId, viewers) {
+    updateRegistry(prev => prev.map(t => {
+      if (t.id !== tripId) return t
+      const updated = { ...t }
+      if (viewers === undefined) {
+        delete updated.viewers  // open to all — remove the field
+      } else {
+        updated.viewers = viewers
       }
-    }
-    reader.readAsText(file)
-    e.target.value = ''
+      return updated
+    }))
   }
 
-  function handlePasteJsonChange(text2) {
-    setPasteJson(text2)
-    setPasteError('')
-    if (!text2.trim()) { uploadNewData.current = null; return }
-    try {
-      const data = JSON.parse(text2)
-      uploadNewData.current = data
-      if (!addTripName) setAddTripName(data.label || data.title || '')
-    } catch {
-      uploadNewData.current = null
-      setPasteError(t('invalidJsonPaste'))
+  // Demo users are capped at DEMO_MAX_TRIPS. Returns true if blocked.
+  function demoTripCapReached() {
+    if (!isDemo) return false
+    const owned = registry.filter(tr => tr.author === user.email).length
+    if (owned >= DEMO_MAX_TRIPS) {
+      window.alert(t('demoTripLimit', { max: DEMO_MAX_TRIPS }))
+      return true
     }
+    return false
   }
 
-  function confirmAddTrip() {
-    if (!addTripName.trim()) { setAddTripError(t('nameEmpty')); return }
-    if (pasteJson.trim() && pasteError) { return }
-    const id   = `${addTripFolder}-${slugify(addTripName)}-${Date.now()}`
-    const data = uploadNewData.current
+  // Demo trips need a uid-scoped id so Firestore rules can verify ownership.
+  function newTripId(name) {
+    return isDemo
+      ? `demo-${user.uid}-${Date.now()}`
+      : `trip-${slugify(name)}-${Date.now()}`
+  }
+
+  function handleCreateTrip(name, jsonData) {
+    if (demoTripCapReached()) { setAddTrip(null); return }
+    const id = newTripId(name)
     const trip = {
       id,
-      label:    data?.label?.trim() || addTripName.trim(),
-      subtitle: data?.subtitle ?? '',
-      dates:    data?.subtitle ?? '',
-      duration: data?.stats?.[0] ?? '',
+      label:    jsonData?.label?.trim() || name,
+      subtitle: jsonData?.subtitle ?? '',
+      dates:    jsonData?.subtitle ?? '',
+      duration: jsonData?.stats?.[0] ?? '',
       author:   user.email,
+      viewers:  [user.email],
     }
-    const next = registry.map(f => {
-      if (f.id !== addTripFolder) return f
-      return { ...f, trips: [...f.trips, trip] }
-    })
-    updateRegistry(next)
-    if (data) saveTripData(id, data)
-    setAddTripFolder(null)
-    setAddTripName('')
-    setAddTripError('')
-    setPasteJson('')
-    setPasteError('')
-    uploadNewData.current = null
+    updateRegistry(prev => [...prev, trip])
+    if (jsonData) {
+      saveTripData(id, jsonData)
+      setDoc(doc(db, 'trips', id, 'data', 'itinerary'), jsonData)
+        .catch(err => console.warn('[sync] Could not save trip to Firestore:', err.message))
+    }
+    setAddTrip(null)
   }
 
-  function openCopyDialog(trip, folderId, e) {
+  function handleEmptyAi(seedText) {
+    onBuildWithAi?.(null, seedText)
+  }
+
+  function handleEmptyPaste() {
+    setAddTrip({ initialTab: 'paste' })
+  }
+
+  function openCopyDialog(trip, _folderId, e) {
     e.stopPropagation()
-    setCopyDialog({ trip, folderId })
+    setCopyDialog({ trip })
     setCopyName(`${t('copyPrefix')} ${trip.label}`)
-    setCopyFolder(folderId)
   }
 
   async function confirmCopy() {
-    if (!copyName.trim() || !copyFolder) return
+    if (!copyName.trim()) return
+    if (demoTripCapReached()) { setCopyDialog(null); return }
     setCopying(true)
     try {
       let sourceData = getTripData(copyDialog.trip.id)
@@ -294,7 +277,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
         const snap = await getDoc(doc(db, 'trips', copyDialog.trip.id, 'data', 'itinerary'))
         if (snap.exists()) sourceData = snap.data()
       }
-      const newId = `${copyFolder}-${slugify(copyName)}-${Date.now()}`
+      const newId = newTripId(copyName)
       const newTrip = {
         id: newId,
         label: copyName.trim(),
@@ -302,12 +285,9 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
         dates: copyDialog.trip.dates,
         duration: copyDialog.trip.duration,
         author: user.email,
+        viewers: [user.email],
       }
-      const next = registry.map(f => {
-        if (f.id !== copyFolder) return f
-        return { ...f, trips: [...f.trips, newTrip] }
-      })
-      updateRegistry(next)
+      updateRegistry(prev => [...prev, newTrip])
       if (sourceData) {
         const newData = { ...sourceData, author: user.email, version: 1 }
         saveTripData(newId, newData)
@@ -316,39 +296,52 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
       }
       setCopyDialog(null)
       setCopyName('')
+    } catch (err) {
+      console.warn('[copy] confirmCopy failed:', err.message)
     } finally {
       setCopying(false)
     }
   }
 
-  function confirmAddFolder() {
-    if (!newFolderName.trim()) return
-    const id = slugify(newFolderName) || `folder-${Date.now()}`
-    const folder = { id, label: newFolderName.trim(), emoji: newFolderEmoji, trips: [] }
-    const next = [...registry, folder]
-    updateRegistry(next)
-    setExpanded(e => ({ ...e, [id]: true }))
-    setAddFolderOpen(false)
-    setNewFolderName('')
-    setNewFolderEmoji('🌍')
+  function canSeeTrip(tr) {
+    if (isAdmin) return true
+    if (tr.author === user.email) return true
+    if (tr.viewers === undefined) return true   // legacy open trip
+    return tr.viewers.includes(user.email)
   }
 
   const query2 = search.toLowerCase()
-  const filtered = registry
-    .map(folder => ({
-      ...folder,
-      trips: folder.trips.filter(tr => {
-        if (!isAdmin && tr.hidden) return false
-        if (showFavsOnly && !favorites.includes(tr.id)) return false
-        if (!query2) return true
-        return (
-          tr.label.toLowerCase().includes(query2) ||
-          tr.subtitle.toLowerCase().includes(query2) ||
-          folder.label.toLowerCase().includes(query2)
-        )
-      }),
-    }))
-    .filter(f => f.trips.length > 0 || (!showFavsOnly && !query2))
+
+  function matchesFilters(tr) {
+    if (!canSeeTrip(tr)) return false
+    if (!isAdmin && tr.hidden) return false
+    if (showFavsOnly && !favorites.includes(tr.id)) return false
+    if (!query2) return true
+    return (
+      tr.label.toLowerCase().includes(query2) ||
+      (tr.subtitle || '').toLowerCase().includes(query2)
+    )
+  }
+  // Compute display folders from the flat registry by user role:
+  //  - everyone gets "My Trips" (trips they authored)
+  //  - admin also gets "All Trips" (every other trip)
+  //  - demo users get a single "My Trips" folder that also includes the
+  //    seeded sample trip(s), so they have something to explore immediately.
+  const visibleTrips = registry.filter(matchesFilters)
+  const mineTrips    = visibleTrips.filter(tr => tr.author === user.email)
+  const othersTrips  = visibleTrips.filter(tr => tr.author !== user.email)
+  const filtered = isDemo
+    ? [
+        { id: '__my', label: t('myTrips'), emoji: '✈️', trips: visibleTrips },
+      ].filter(f => f.trips.length > 0)
+    : isAdmin
+    ? [
+        { id: '__my',  label: t('myTrips'),  emoji: '✈️', trips: mineTrips },
+        { id: '__all', label: t('allTrips'), emoji: '🗂️', trips: othersTrips },
+      ].filter(f => f.trips.length > 0 || (!showFavsOnly && !query2))
+    : [
+        { id: '__my',  label: t('myTrips'),  emoji: '✈️', trips: mineTrips },
+      ].filter(f => f.trips.length > 0)
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f5f7fa' }}>
@@ -384,6 +377,14 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
               </Button>
             </Tooltip>
           )}
+          <Tooltip title={t('profile')}>
+            <Button size="small" startIcon={<AccountCircleIcon sx={{ fontSize: 16 }} />}
+              onClick={() => setProfileOpen(true)}
+              data-testid="dashboard-profile-btn"
+              sx={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.75rem', textTransform: 'none', '&:hover': { color: '#fff' } }}>
+              {t('profile')}
+            </Button>
+          </Tooltip>
           <Tooltip title={t('signOutTooltip', { email: user.email })}>
             <Button size="small" startIcon={<LogoutIcon sx={{ fontSize: 16 }} />}
               onClick={() => signOut(auth)}
@@ -402,7 +403,27 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
         </Typography>
       </Box>
 
-      {/* ── AI assistant banner ── */}
+      {/* ── Demo-mode notice ── */}
+      {isDemo && (
+        <Box sx={{ maxWidth: 720, mx: 'auto', px: { xs: 2, sm: 3 }, pt: 3 }}>
+          <Box data-testid="demo-banner" sx={{
+            display: 'flex', alignItems: 'center', gap: 1.25,
+            bgcolor: '#fff8e1', border: '1px solid #ffe082',
+            borderRadius: 2, px: 2, py: 1.25,
+          }}>
+            <ExploreOutlinedIcon sx={{ color: '#f57c00', fontSize: 20, flexShrink: 0 }} />
+            <Typography variant="caption" sx={{ color: '#7a5c00', lineHeight: 1.5 }}>
+              {t('demoBanner', {
+                maxTrips: DEMO_MAX_TRIPS,
+                maxAi: import.meta.env.VITE_DEMO_MAX_AI_CALLS || 100,
+              })}
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
+      {/* ── AI assistant banner — only when user has visible trips ── */}
+      {(registryLoading || filtered.length > 0) && (
       <Box sx={{ maxWidth: 720, mx: 'auto', px: { xs: 2, sm: 3 }, pt: 4, pb: 0 }}>
         <Box
           sx={{
@@ -454,40 +475,74 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
           </Button>
         </Box>
       </Box>
+      )}
+
+      {/* ── Empty: no trips exist at all ── */}
+      {!registryLoading && registry.length === 0 && (
+        <EmptyDashboard
+          onBuildWithAi={handleEmptyAi}
+          onPasteJson={handleEmptyPaste}
+        />
+      )}
+
+      {/* ── Empty: trips exist but none visible (not invited) ── */}
+      {!registryLoading && registry.length > 0 && filtered.length === 0 && !search && !showFavsOnly && (
+        <Box sx={{ maxWidth: 480, mx: 'auto', px: 3, pt: 6, pb: 4, textAlign: 'center' }}>
+          <Typography sx={{ fontSize: 48, mb: 2 }}>🗺️</Typography>
+          <Typography variant="h6" fontWeight={700} mb={1}>{t('noSharedTripsTitle')}</Typography>
+          <Typography variant="body2" color="text.secondary" mb={4} sx={{ lineHeight: 1.7 }}>
+            {t('noSharedTripsBody')}
+          </Typography>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center">
+            <Button
+              variant="contained"
+              startIcon={<AutoAwesomeIcon />}
+              onClick={() => setAddTrip({ initialTab: 'ai' })}
+              sx={{ background: 'linear-gradient(135deg, #B71C1C 0%, #7B1FA2 100%)', textTransform: 'none' }}
+            >
+              {t('noSharedTripsAiCta')}
+            </Button>
+          </Stack>
+        </Box>
+      )}
 
       {/* ── Filter bar ── */}
-      <Box sx={{ maxWidth: 720, mx: 'auto', px: { xs: 2, sm: 3 }, pt: 4, pb: 2, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
-        <TextField
-          size="small" placeholder={t('searchTrip')} value={search}
-          onChange={e => setSearch(e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} /></InputAdornment> }}
-          sx={{ bgcolor: '#fff', borderRadius: 2, flex: 1, minWidth: 180 }}
-        />
-        <Chip
-          icon={<StarIcon sx={{ fontSize: '16px !important' }} />}
-          label={t('favorites')}
-          onClick={() => setShowFavsOnly(v => !v)}
-          color={showFavsOnly ? 'warning' : 'default'}
-          variant={showFavsOnly ? 'filled' : 'outlined'}
-          sx={{ bgcolor: showFavsOnly ? undefined : '#fff', cursor: 'pointer' }}
-        />
-      </Box>
+      {(registryLoading || filtered.length > 0 || search || showFavsOnly) && registry.length > 0 && (
+        <Box sx={{ maxWidth: 720, mx: 'auto', px: { xs: 2, sm: 3 }, pt: 4, pb: 2, display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+          <TextField
+            size="small" placeholder={t('searchTrip')} value={search}
+            onChange={e => setSearch(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} /></InputAdornment> }}
+            sx={{ bgcolor: '#fff', borderRadius: 2, flex: 1, minWidth: 180 }}
+          />
+          <Chip
+            icon={<StarIcon sx={{ fontSize: '16px !important' }} />}
+            label={t('favorites')}
+            onClick={() => setShowFavsOnly(v => !v)}
+            color={showFavsOnly ? 'warning' : 'default'}
+            variant={showFavsOnly ? 'filled' : 'outlined'}
+            sx={{ bgcolor: showFavsOnly ? undefined : '#fff', cursor: 'pointer' }}
+          />
+        </Box>
+      )}
 
       {/* ── Trip list ── */}
+      {(registryLoading || filtered.length > 0 || search || showFavsOnly) && registry.length > 0 && (
       <Box sx={{ maxWidth: 720, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 4 }}>
         {registryLoading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 6 }}>
             <CircularProgress size={32} />
           </Box>
         )}
-        {!registryLoading && filtered.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 4 }}>
-            {t('noTripsFound')}
-          </Typography>
+        {!registryLoading && filtered.length === 0 && (search || showFavsOnly) && (
+          <Box sx={{ textAlign: 'center', mt: 4 }}>
+            <Typography variant="body2" color="text.secondary" mb={1.5}>{t('noTripsFound')}</Typography>
+            <Button size="small" onClick={() => { setSearch(''); setShowFavsOnly(false) }}>{t('clearFilters')}</Button>
+          </Box>
         )}
 
         {!registryLoading && filtered.map(folder => (
-          <Box key={folder.id} sx={{ mb: 2, bgcolor: '#fff', borderRadius: 2, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <Box key={folder.id} data-testid={`folder-${folder.id.replace('__','')}`} sx={{ mb: 2, bgcolor: '#fff', borderRadius: 2, boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
 
             {/* Folder row */}
             <Box
@@ -504,18 +559,15 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
               <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
                 {folder.emoji} {folder.label}
               </Typography>
-              <Box className="folder-actions" sx={{ display: 'flex', gap: 0.5 }} onClick={e => e.stopPropagation()}>
-                <Tooltip title={t('addItineraryTooltip')}>
-                  <IconButton size="small" onClick={e => { e.stopPropagation(); setAddTripFolder(folder.id); setAddTripName(''); uploadNewData.current = null }}>
-                    <AddIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={t('deleteFolderTooltip')}>
-                  <IconButton size="small" color="error" onClick={e => deleteFolder(folder.id, e)}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
+              {folder.id === '__my' && (
+                <Box className="folder-actions" sx={{ display: 'flex', gap: 0.5 }} onClick={e => e.stopPropagation()}>
+                  <Tooltip title={t('addItineraryTooltip')}>
+                    <IconButton size="small" onClick={e => { e.stopPropagation(); setAddTrip({ initialTab: 'ai' }) }}>
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              )}
               <Chip label={`${folder.trips.length}`} size="small" sx={{ fontSize: '0.72rem', height: 22, ml: 0.5 }} />
               <IconButton size="small" disableRipple>
                 {expanded[folder.id] ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
@@ -583,6 +635,13 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
                           </IconButton>
                         </Tooltip>
                       )}
+                      {(isAuthor || isAdmin) && (
+                        <Tooltip title={t('shareTripAction')}>
+                          <IconButton size="small" onClick={e => { e.stopPropagation(); setShareDialog({ trip, folderId: folder.id }) }}>
+                            <GroupAddIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       {isAuthor && (
                         <Tooltip title={t('editTripAction')}>
                           <IconButton size="small" onClick={e => openEdit(folder.id, trip, e)}>
@@ -607,7 +666,7 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
                           </IconButton>
                         </Tooltip>
                       )}
-                      {isAuthor && (
+                      {(isAuthor || isAdmin) && (
                         <Tooltip title={t('deleteAction')}>
                           <IconButton size="small" color="error" onClick={e => deleteTrip(folder.id, trip.id, e)}>
                             <DeleteIcon sx={{ fontSize: 16 }} />
@@ -630,9 +689,10 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
                 )
               })}
 
-              {/* Add trip row */}
+              {/* Add trip row — only on My Trips folder */}
+              {folder.id === '__my' && (
               <Box
-                onClick={e => { e.stopPropagation(); setAddTripFolder(folder.id); setAddTripName(''); uploadNewData.current = null }}
+                onClick={e => { e.stopPropagation(); setAddTrip({ initialTab: 'ai' }) }}
                 sx={{
                   display: 'flex', alignItems: 'center', gap: 1,
                   px: 5, py: 1, cursor: 'pointer', borderTop: '1px dashed #e0e0e0',
@@ -643,25 +703,16 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
                 <AddIcon sx={{ fontSize: 16 }} />
                 <Typography variant="caption">{t('addItineraryTooltip')}</Typography>
               </Box>
+              )}
             </Collapse>
           </Box>
         ))}
 
-        {/* Add folder */}
-        <Button
-          startIcon={<CreateNewFolderIcon />}
-          onClick={() => setAddFolderOpen(true)}
-          variant="outlined"
-          fullWidth
-          sx={{ mt: 1, borderStyle: 'dashed', color: 'text.secondary', borderColor: 'divider', '&:hover': { borderColor: 'primary.main', color: 'primary.main' } }}
-        >
-          {t('addDestination')}
-        </Button>
       </Box>
+      )}
 
       {/* ── Hidden file inputs ── */}
       <input ref={uploadReplaceRef} type="file" accept=".json,application/json" hidden onChange={handleReplaceFile} />
-      <input ref={uploadNewRef} type="file" accept=".json,application/json" hidden onChange={handleAddTripFileChange} />
 
       {/* ── Edit Trip Modal ── */}
       {editingTrip && (
@@ -676,193 +727,12 @@ export default function Dashboard({ user, isAdmin, onSelectTrip }) {
       )}
 
       {/* ── Add Trip Dialog ── */}
-      <Dialog open={!!addTripFolder} onClose={() => { setAddTripFolder(null); setShowAiPrompt(false); setPasteJson(''); setPasteError('') }}
-        maxWidth="sm" fullWidth PaperProps={{ sx: { maxHeight: '90vh' } }}>
-        <DialogTitle>{t('addTripTitle')}</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
-
-          {addTripError && <Alert severity="error" sx={{ py: 0.5 }}>{addTripError}</Alert>}
-
-          <TextField label={t('itineraryNameLabel')} size="small" value={addTripName}
-            onChange={e => { setAddTripName(e.target.value); setAddTripError('') }} fullWidth autoFocus />
-
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Button variant="outlined" startIcon={<UploadFileIcon />}
-              onClick={() => uploadNewRef.current.click()} size="small" sx={{ flexShrink: 0 }}>
-              {uploadNewData.current && !pasteJson ? t('fileLoaded') : t('uploadFileBtn')}
-            </Button>
-            <Typography variant="caption" color="text.secondary">{t('orPasteJson')}</Typography>
-          </Stack>
-
-          <TextField
-            multiline
-            minRows={4}
-            maxRows={10}
-            fullWidth
-            size="small"
-            placeholder='{ "version": 1, "title": "My trip", ... }'
-            value={pasteJson}
-            onChange={e => handlePasteJsonChange(e.target.value)}
-            error={!!pasteError}
-            helperText={pasteError || (uploadNewData.current && pasteJson ? '✓ JSON válido' : '')}
-            FormHelperTextProps={{ sx: { color: !pasteError && uploadNewData.current && pasteJson ? 'success.main' : undefined } }}
-            InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.75rem' } }}
-          />
-
-          {/* AI prompt box */}
-          <Box sx={{ border: '1px solid', borderColor: 'primary.light', borderRadius: 2, overflow: 'hidden' }}>
-            <Box
-              onClick={() => setShowAiPrompt(v => !v)}
-              sx={{
-                display: 'flex', alignItems: 'center', gap: 1,
-                px: 2, py: 1.25, cursor: 'pointer', bgcolor: '#f0f4ff',
-                '&:hover': { bgcolor: '#e8eeff' },
-              }}
-            >
-              <AutoAwesomeIcon sx={{ fontSize: 18, color: 'primary.main' }} />
-              <Typography variant="body2" fontWeight={600} sx={{ flex: 1, color: 'primary.main' }}>
-                {t('noJsonTitle')}
-              </Typography>
-              {showAiPrompt ? <ExpandLessIcon fontSize="small" sx={{ color: 'primary.main' }} /> : <ExpandMoreIcon fontSize="small" sx={{ color: 'primary.main' }} />}
-            </Box>
-
-            <Collapse in={showAiPrompt}>
-              <Box sx={{ px: 2, py: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Copia el prompt de abajo, pégalo en <strong>ChatGPT</strong>, responde las preguntas
-                  y luego descarga el JSON que te genere para subirlo aquí.
-                </Typography>
-
-                <Box sx={{ position: 'relative' }}>
-                  <Box
-                    component="pre"
-                    ref={promptRef}
-                    sx={{
-                      bgcolor: '#1e1e2e', color: '#cdd6f4',
-                      borderRadius: 1.5, p: 2, fontSize: '0.72rem',
-                      fontFamily: 'monospace', lineHeight: 1.6,
-                      whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                      maxHeight: 320, overflowY: 'auto',
-                      m: 0,
-                    }}
-                  >
-{`Necesito generar un itinerario de viaje en formato JSON. Primero hazme las siguientes preguntas una por una y luego genera el JSON:
-
-PREGUNTAS:
-1. ¿Cuál es el nombre del viaje y las fechas (fecha inicio – fecha fin)?
-2. ¿Cuántos días dura en total?
-3. ¿Desde qué ciudad/aeropuerto salís y a cuál llegás? (ej: SJO → YYZ)
-4. ¿Cuántas partes o etapas tiene el viaje? (ej: Parte 1: Montañas, Parte 2: Ciudad)
-5. Para cada parte: nombre, rango de días, emoji representativo y color preferido (#hex)
-6. Para cada día de cada parte: fecha, ciudad/lugar, subtítulo del día, transportes usados
-   (vuelos, drives, trenes, alojamiento), actividades (3–5 por día con duración estimada y
-   tips prácticos), consejos, advertencias, y actividades opcionales si sobra tiempo
-
-Una vez que respondas todo, generame el JSON con EXACTAMENTE esta estructura:
-
-{
-  "version": 1,
-  "title": "Nombre del Viaje",
-  "subtitle": "Sep 12 – Sep 30, 2026",
-  "stats": ["19 días", "3 regiones", "5 ciudades", "SJO → YYZ"],
-  "parts": [
-    {
-      "id": 1,
-      "emoji": "🏔️",
-      "title": "Nombre de la Parte",
-      "color": "#2E7D32",
-      "daysRange": "Días 1 – 7",
-      "days": [
-        {
-          "dayNumber": 1,
-          "date": "Sáb 12 Sep",
-          "location": "Ciudad",
-          "subtitle": "Descripción corta del día",
-          "logistics": [
-            { "type": "flight", "label": "Vuelo",       "value": "SJO → YYZ" },
-            { "type": "drive",  "label": "Drive",        "value": "Aeropuerto → Hotel: 30 min" },
-            { "type": "stay",   "label": "Alojamiento",  "value": "Nombre del hotel" },
-            { "type": "train",  "label": "Tren",         "value": "Ciudad A → Ciudad B" }
-          ],
-          "activities": [
-            "Descripción de actividad 1 — duración estimada y tip de reserva",
-            "Descripción de actividad 2"
-          ],
-          "tips":                  ["Consejo útil para el día"],
-          "warnings":              ["Advertencia importante"],
-          "links":                 [{ "label": "Nombre", "url": "https://..." }],
-          "optional_alternatives": ["Actividad opcional si sobra tiempo"],
-          "images": [
-            { "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/X/XX/Filename.jpg/1280px-Filename.jpg", "caption": "Descripción" }
-          ]
-        }
-      ]
-    }
-  ]
-}
-
-REGLAS GENERALES:
-- "type" en logistics solo puede ser: "flight", "drive", "stay" o "train"
-- Colores sugeridos: "#2E7D32" verde, "#0277BD" azul, "#AD1457" rosa, "#F57C00" naranja, "#7B1FA2" morado, "#00838F" teal
-- tips, warnings, links, images y optional_alternatives pueden ser arrays vacíos []
-- Devolveme SOLO el JSON, sin texto adicional antes ni después
-
-REGLAS DE IMÁGENES (crítico):
-- Usa solo imágenes de Wikimedia Commons
-- Antes de incluir cualquier imagen, consultá la API para obtener la URL correcta:
-  https://commons.wikimedia.org/w/api.php?action=query&titles=File:NOMBRE.jpg&prop=imageinfo&iiprop=url&iiurlwidth=1024&format=json
-- Usá el campo "thumburl" de la respuesta exactamente como viene (normalmente termina en /1280px-...)
-- Si la API devuelve una URL sin /thumb/ (imagen pequeña), usá esa URL directa
-- NUNCA construyas URLs de thumbnail manualmente ni uses tamaños arbitrarios como 1024px
-- Verificá que el archivo existe antes de incluirlo (nombre incorrecto → imagen rota para todos)
-- Ponele 2–3 imágenes por día, orientación horizontal preferida`}
-                  </Box>
-
-                  <Tooltip title={copied ? 'Copiado!' : 'Copiar prompt'}>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        navigator.clipboard.writeText(promptRef.current?.textContent ?? '')
-                        setCopied(true)
-                        setTimeout(() => setCopied(false), 2000)
-                      }}
-                      sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(255,255,255,0.1)', color: '#cdd6f4', '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' } }}
-                    >
-                      {copied ? <CheckIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-
-                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                  {t('noJsonNote')}
-                </Typography>
-              </Box>
-            </Collapse>
-          </Box>
-
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setAddTripFolder(null); setAddTripError(''); setShowAiPrompt(false); setPasteJson(''); setPasteError('') }}>{t('cancel')}</Button>
-          <Button variant="contained" onClick={confirmAddTrip}>{t('add')}</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ── Add Folder Dialog ── */}
-      <Dialog open={addFolderOpen} onClose={() => setAddFolderOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t('newDestination')}</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
-          <Stack direction="row" spacing={1}>
-            <TextField label={t('emojiLabel')} size="small" value={newFolderEmoji}
-              onChange={e => setNewFolderEmoji(e.target.value)} sx={{ width: 80 }} />
-            <TextField label={t('folderNamePlaceholder')} size="small" value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)} fullWidth autoFocus />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddFolderOpen(false)}>{t('cancel')}</Button>
-          <Button variant="contained" onClick={confirmAddFolder} disabled={!newFolderName.trim()}>{t('create')}</Button>
-        </DialogActions>
-      </Dialog>
+      <AddTripDialog
+        open={!!addTrip}
+        initialTab={addTrip?.initialTab}
+        onClose={() => setAddTrip(null)}
+        onCreate={handleCreateTrip}
+      />
 
       {/* ── Copy Trip Dialog ── */}
       {copyDialog && (
@@ -880,19 +750,6 @@ REGLAS DE IMÁGENES (crítico):
               fullWidth
               autoFocus
             />
-            <TextField
-              select
-              label={t('destinationFolder')}
-              value={copyFolder}
-              onChange={e => setCopyFolder(e.target.value)}
-              size="small"
-              fullWidth
-              SelectProps={{ native: true }}
-            >
-              {registry.map(f => (
-                <option key={f.id} value={f.id}>{f.emoji} {f.label}</option>
-              ))}
-            </TextField>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setCopyDialog(null)}>{t('cancel')}</Button>
@@ -912,6 +769,18 @@ REGLAS DE IMÁGENES (crítico):
         <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} currentUserEmail={user?.email} />
       )}
 
+      <UserProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} userEmail={user?.email} />
+
+      {shareDialog && (
+        <TripShareDialog
+          open
+          trip={shareDialog.trip}
+          authorEmail={shareDialog.trip.author ?? user.email}
+          onSave={viewers => saveViewers(shareDialog.folderId, shareDialog.trip.id, viewers)}
+          onClose={() => setShareDialog(null)}
+        />
+      )}
+
       {/* ── Mobile actions menu ── */}
       <Menu
         anchorEl={mobileMenu?.anchor}
@@ -929,6 +798,12 @@ REGLAS DE IMÁGENES (crítico):
               <MenuItem key="vis" onClick={e => { toggleHideTrip(folderId, trip.id, e); close() }}>
                 <ListItemIcon>{trip.hidden ? <VisibilityIcon fontSize="small" /> : <VisibilityOffIcon fontSize="small" />}</ListItemIcon>
                 <ListItemText>{trip.hidden ? t('showAction') : t('hideAction')}</ListItemText>
+              </MenuItem>
+            ),
+            (isMobAuthor || isAdmin) && (
+              <MenuItem key="share" onClick={() => { setShareDialog({ trip, folderId }); close() }}>
+                <ListItemIcon><GroupAddIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>{t('shareTripAction')}</ListItemText>
               </MenuItem>
             ),
             isMobAuthor && (
@@ -951,7 +826,7 @@ REGLAS DE IMÁGENES (crítico):
                 <ListItemText>{t('uploadJson')}</ListItemText>
               </MenuItem>
             ),
-            isMobAuthor && [
+            (isMobAuthor || isAdmin) && [
               <Divider key="div" />,
               <MenuItem key="del" onClick={e => { deleteTrip(folderId, trip.id, e); close() }} sx={{ color: 'error.main' }}>
                 <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>

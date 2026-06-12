@@ -1,7 +1,20 @@
-import React from 'react'
 import {
   Document, Page, Text, View, StyleSheet, Link, Image,
 } from '@react-pdf/renderer'
+
+// ── Section labels ──────────────────────────────────────────────────
+// react-pdf renders outside the React tree, so it can't use the i18n
+// context. Labels are passed in based on the app's active language.
+const PDF_LABELS = {
+  en: {
+    logistics: 'Logistics', activities: 'Activities', tips: 'Tips',
+    warnings: 'Warnings', links: 'Useful links', images: 'Reference photos',
+  },
+  es: {
+    logistics: 'Logística', activities: 'Actividades', tips: 'Tips',
+    warnings: 'Advertencias', links: 'Links útiles', images: 'Fotos de referencia',
+  },
+}
 
 // ── Helpers ─────────────────────────────────────────────────────────
 const logisticIcon = { flight: '✈  ', drive: '⬤  ', stay: '⌂  ', train: '⬤  ' }
@@ -142,7 +155,7 @@ function SectionLabel({ children }) {
   return <Text style={S.sLabel}>{children}</Text>
 }
 
-function DaySection({ day, partColor }) {
+function DaySection({ day, partColor, labels }) {
   const hasLogistics  = day.logistics?.length > 0
   const hasActivities = day.activities?.length > 0
   const hasTips       = day.tips?.length > 0
@@ -167,7 +180,7 @@ function DaySection({ day, partColor }) {
       {/* Logistics */}
       {hasLogistics && (
         <>
-          <SectionLabel>Logística</SectionLabel>
+          <SectionLabel>{labels.logistics}</SectionLabel>
           {day.logistics.map((l, i) => (
             <View key={i} style={S.logRow}>
               <Text style={S.logLabel}>{l.label}</Text>
@@ -180,7 +193,7 @@ function DaySection({ day, partColor }) {
       {/* Activities */}
       {hasActivities && (
         <>
-          <SectionLabel>Actividades</SectionLabel>
+          <SectionLabel>{labels.activities}</SectionLabel>
           {day.activities.map((a, i) => (
             <View key={i} style={S.actRow}>
               <View style={[S.actDot, { backgroundColor: partColor }]} />
@@ -193,7 +206,7 @@ function DaySection({ day, partColor }) {
       {/* Tips */}
       {hasTips && (
         <>
-          <SectionLabel>Tips</SectionLabel>
+          <SectionLabel>{labels.tips}</SectionLabel>
           {day.tips.map((t, i) => (
             <View key={i} style={S.tipBox}>
               <RichText text={t} style={S.tipText} />
@@ -205,7 +218,7 @@ function DaySection({ day, partColor }) {
       {/* Warnings */}
       {hasWarnings && (
         <>
-          <SectionLabel>Advertencias</SectionLabel>
+          <SectionLabel>{labels.warnings}</SectionLabel>
           {day.warnings.map((w, i) => (
             <View key={i} style={S.warnBox}>
               <RichText text={w} style={S.warnText} />
@@ -217,7 +230,7 @@ function DaySection({ day, partColor }) {
       {/* Links */}
       {hasLinks && (
         <>
-          <SectionLabel>Links útiles</SectionLabel>
+          <SectionLabel>{labels.links}</SectionLabel>
           {day.links.map((l, i) => (
             <Link key={i} src={l.url} style={S.linkText}>{l.label}</Link>
           ))}
@@ -227,7 +240,7 @@ function DaySection({ day, partColor }) {
       {/* Images */}
       {hasImages && (
         <>
-          <SectionLabel>Fotos de referencia</SectionLabel>
+          <SectionLabel>{labels.images}</SectionLabel>
           <View style={S.imagesGrid}>
             {day.images.map((img, i) => (
               <View
@@ -248,9 +261,10 @@ function DaySection({ day, partColor }) {
 }
 
 // ── Main Document ────────────────────────────────────────────────────
-export function ItinerarioPDF({ itinerary }) {
+export function ItinerarioPDF({ itinerary, lang = 'es' }) {
+  const labels = PDF_LABELS[lang] ?? PDF_LABELS.es
   return (
-    <Document title={itinerary.title} author="Mi Itinerario" language="es">
+    <Document title={itinerary.title} author="Mi Itinerario" language={lang}>
 
       {/* ── Cover page ── */}
       <Page size="A4" style={S.coverPage}>
@@ -280,7 +294,7 @@ export function ItinerarioPDF({ itinerary }) {
 
           {/* Days */}
           {part.days.map(day => (
-            <DaySection key={day.dayNumber} day={day} partColor={part.color} />
+            <DaySection key={day.dayNumber} day={day} partColor={part.color} labels={labels} />
           ))}
 
           <PageFooter title={itinerary.title} />

@@ -1,35 +1,26 @@
-import { tripsRegistry as defaultRegistry } from '../data/trips-registry'
-
 const tripModules = import.meta.glob('../data/**/*.json')
 
 const REGISTRY_KEY  = 'trips-registry'
 const FAVORITES_KEY = 'trip-favorites'
 const DATA_PREFIX   = 'trip-data-'
 
+// Registry is now a flat list of trips. Folders are computed at render
+// time based on user role (My Trips for everyone; My Trips + All Trips
+// for admin). Old folder-shaped data ([{id, label, trips: [...]}]) is
+// flattened on read for backward compatibility.
 export function getRegistry() {
   const s = localStorage.getItem(REGISTRY_KEY)
-  if (!s) return structuredClone(defaultRegistry)
-
-  const stored = JSON.parse(s)
-  let changed = false
-
-  for (const defaultFolder of defaultRegistry) {
-    const storedFolder = stored.find(f => f.id === defaultFolder.id)
-    if (!storedFolder) {
-      stored.push(structuredClone(defaultFolder))
-      changed = true
-    } else {
-      for (const defaultTrip of defaultFolder.trips) {
-        if (!storedFolder.trips.find(t => t.id === defaultTrip.id)) {
-          storedFolder.trips.push(structuredClone(defaultTrip))
-          changed = true
-        }
-      }
+  if (!s) return []
+  try {
+    const parsed = JSON.parse(s)
+    if (!Array.isArray(parsed)) return []
+    if (parsed.length > 0 && Array.isArray(parsed[0]?.trips)) {
+      return parsed.flatMap(f => f.trips || [])
     }
+    return parsed
+  } catch {
+    return []
   }
-
-  if (changed) localStorage.setItem(REGISTRY_KEY, JSON.stringify(stored))
-  return stored
 }
 
 export function saveRegistry(registry) {

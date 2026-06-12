@@ -17,22 +17,66 @@ service cloud.firestore {
       return isAllowed('canada-trip');
     }
 
+    // ── Demo mode (anonymous "try it" sandbox) ──────────────────────────
+    // Demo visitors sign in with Firebase Anonymous Auth. They live in the
+    // isolated `demo-gateway` namespace and can only touch trips whose id is
+    // scoped to their own uid (demo-{uid}-*). The real namespace is closed
+    // to anonymous users.
+    function isDemoUser() {
+      return request.auth != null &&
+             request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    // True for a trip id of the form `demo-{callerUid}-...` — i.e. owned by
+    // the current anonymous caller.
+    function ownsDemoTrip(tripId) {
+      return isDemoUser() &&
+             tripId.matches('^demo-' + request.auth.uid + '-.*');
+    }
+
+    function isDemoGateway(tripId) {
+      return tripId == 'demo-gateway';
+    }
+
+    // Per-demo-user AI quota counters — written only by the backend via the
+    // Admin SDK (which bypasses rules). No client may read or write them, so a
+    // demo visitor cannot reset their own count.
+    match /demo_quota/{uid} {
+      allow read, write: if false;
+    }
+
     // App-wide settings (language, etc.) — any auth'd user can read, only admin can write
     match /app-settings/{docId} {
       allow read: if request.auth != null;
       allow write: if isAdmin();
     }
 
+    // Per-user traveler profile — readable and writable only by the user themselves
+    match /users/{email} {
+      allow read, write: if request.auth != null
+                         && request.auth.token.email == email;
+    }
+
     // Estructura por viaje: trips/{tripId}/...
     match /trips/{tripId} {
       // Datos del itinerario — accesible por usuarios del gateway o del propio viaje
       match /data/{docId} {
-        allow read, write: if isAdmin() || isAllowed(tripId) || isGatewayUser();
+        // Demo: anyone signed in anonymously may read demo trips; only the
+        // owning anon user may write to their own demo-{uid}-* trip.
+        allow read:  if isAdmin() || isAllowed(tripId) || isGatewayUser()
+                     || (isDemoUser() && tripId.matches('^demo-.*'));
+        allow write: if isAdmin() || isAllowed(tripId) || isGatewayUser()
+                     || ownsDemoTrip(tripId);
       }
 
       // Registry del panel de viajes
       match /registry/{docId} {
-        allow read, write: if isAdmin() || isAllowed(tripId) || isGatewayUser();
+        // Demo gateway registry: any anon user reads it; any anon user may
+        // write it (their own trip list). Real registry stays gated.
+        allow read:  if isAdmin() || isAllowed(tripId) || isGatewayUser()
+                     || (isDemoUser() && isDemoGateway(tripId));
+        allow write: if isAdmin() || isAllowed(tripId) || isGatewayUser()
+                     || (isDemoUser() && isDemoGateway(tripId));
       }
 
       // Lista de invitados por viaje
@@ -42,30 +86,47 @@ service cloud.firestore {
 
       // Historial de versiones — lectura y escritura para usuarios con acceso al viaje
       match /versions/{versionId} {
-        allow read: if isAdmin() || isAllowed(tripId) || isGatewayUser();
-        allow write: if isAdmin() || isAllowed(tripId) || isGatewayUser();
+        allow read:  if isAdmin() || isAllowed(tripId) || isGatewayUser()
+                     || (isDemoUser() && tripId.matches('^demo-.*'));
+        allow write: if isAdmin() || isAllowed(tripId) || isGatewayUser()
+                     || ownsDemoTrip(tripId);
       }
 
       // Notas del grupo — cada usuario escribe y edita solo las suyas; admin puede borrar cualquiera
+      // Demo: notas viven en el gateway demo; el "email" es la identidad sintética demo:{uid}.
       match /notes/{noteId} {
-        allow read: if isAdmin() || isAllowed(tripId);
-        allow create: if (isAdmin() || isAllowed(tripId))
-                      && request.resource.data.authorEmail == request.auth.token.email;
-        allow update: if (isAdmin() || isAllowed(tripId))
-                      && resource.data.authorEmail == request.auth.token.email;
+        allow read: if isAdmin() || isAllowed(tripId)
+                    || (isDemoUser() && isDemoGateway(tripId));
+        allow create: if ((isAdmin() || isAllowed(tripId))
+                          && request.resource.data.authorEmail == request.auth.token.email)
+                      || (isDemoUser() && isDemoGateway(tripId)
+                          && request.resource.data.authorEmail == ('demo:' + request.auth.uid));
+        allow update: if ((isAdmin() || isAllowed(tripId))
+                          && resource.data.authorEmail == request.auth.token.email)
+                      || (isDemoUser() && isDemoGateway(tripId)
+                          && resource.data.authorEmail == ('demo:' + request.auth.uid));
         allow delete: if isAdmin()
-                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email);
+                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email)
+                      || (isDemoUser() && isDemoGateway(tripId)
+                          && resource.data.authorEmail == ('demo:' + request.auth.uid));
       }
 
       // Archivos del día — cada usuario puede subir los suyos; admin puede borrar cualquiera
       match /files/{fileId} {
-        allow read: if isAdmin() || isAllowed(tripId);
-        allow create: if (isAdmin() || isAllowed(tripId))
-                      && request.resource.data.authorEmail == request.auth.token.email;
+        allow read: if isAdmin() || isAllowed(tripId)
+                    || (isDemoUser() && isDemoGateway(tripId));
+        allow create: if ((isAdmin() || isAllowed(tripId))
+                          && request.resource.data.authorEmail == request.auth.token.email)
+                      || (isDemoUser() && isDemoGateway(tripId)
+                          && request.resource.data.authorEmail == ('demo:' + request.auth.uid));
         allow update: if isAdmin()
-                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email);
+                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email)
+                      || (isDemoUser() && isDemoGateway(tripId)
+                          && resource.data.authorEmail == ('demo:' + request.auth.uid));
         allow delete: if isAdmin()
-                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email);
+                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email)
+                      || (isDemoUser() && isDemoGateway(tripId)
+                          && resource.data.authorEmail == ('demo:' + request.auth.uid));
       }
     }
   }

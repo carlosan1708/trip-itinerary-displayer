@@ -19,6 +19,20 @@ async function getAuthHeader() {
   return { Authorization: `Bearer ${token}` }
 }
 
+// Sentinel the UI checks to show the "demo limit reached, contact me" message
+// instead of a raw server error. The backend returns 429 with a JSON body
+// { detail: { code: "demo_limit_reached" } } once a demo user is over quota.
+export const DEMO_LIMIT_ERROR = 'DEMO_LIMIT_REACHED'
+
+async function handleErrorResponse(res, onError) {
+  const text = await res.text()
+  if (res.status === 429 && text.includes('demo_limit_reached')) {
+    onError(DEMO_LIMIT_ERROR)
+    return
+  }
+  onError(`Server error ${res.status}: ${text}`)
+}
+
 /**
  * Stream a chat turn to the backend.
  *
@@ -42,8 +56,7 @@ export function streamChat(payload, onToken, onDone, onError) {
       })
 
       if (!res.ok) {
-        const text = await res.text()
-        onError(`Server error ${res.status}: ${text}`)
+        await handleErrorResponse(res, onError)
         return
       }
 
@@ -79,8 +92,7 @@ export function streamCreate(params, onProgress, onDone, onError) {
       })
 
       if (!res.ok) {
-        const text = await res.text()
-        onError(`Server error ${res.status}: ${text}`)
+        await handleErrorResponse(res, onError)
         return
       }
 

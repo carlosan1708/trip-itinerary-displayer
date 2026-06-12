@@ -10,7 +10,7 @@ test.describe('Login screen', () => {
   })
 
   test('shows the app title', async ({ page }) => {
-    await expect(page.getByText('My Trips')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /My Trips/i })).toBeVisible()
   })
 
   test('shows the subtitle', async ({ page }) => {

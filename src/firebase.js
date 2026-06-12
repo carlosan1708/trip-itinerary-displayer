@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider } from 'firebase/auth'
+import { getAuth, GoogleAuthProvider, signInAnonymously } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 
@@ -17,3 +17,9 @@ export const auth     = getAuth(app)
 export const db       = getFirestore(app)
 export const storage  = getStorage(app)
 export const googleProvider = new GoogleAuthProvider()
+
+// Demo mode: sign in as an anonymous Firebase user (called only after a
+// Cloudflare Turnstile challenge is verified server-side at /demo/start).
+export function signInAnonymouslyDemo() {
+  return signInAnonymously(auth)
+}

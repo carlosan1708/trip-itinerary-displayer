@@ -1,48 +1,97 @@
-# Trip Itinerary Displayer
+<div align="center">
 
-SPA para visualizar itinerarios de viaje compartidos. Autenticación con Google, datos sincronizados en Firestore y control de acceso por viaje.
+# ✈️ Trip Itinerary Displayer
 
-**Live:** https://mi-itinerario.web.app
+**Plan, share and collaborate on travel itineraries — with an AI trip planner built in.**
+
+A SPA for creating and sharing travel itineraries. Google sign-in, real-time Firestore sync, per-trip access control, and an AI agent that drafts itineraries from a single sentence.
+
+[**🌐 Live demo →  mi-itinerario.web.app**](https://mi-itinerario.web.app)
+
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
+![MUI](https://img.shields.io/badge/MUI-5-007FFF?logo=mui&logoColor=white)
+![Firebase](https://img.shields.io/badge/Firebase-12-FFCA28?logo=firebase&logoColor=black)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
+![Playwright](https://img.shields.io/badge/Tests-Playwright-2EAD33?logo=playwright&logoColor=white)
+
+</div>
 
 ---
 
-## Requisitos
+## ✨ Features
 
-- Node.js 18+ (`node --version`)
-- npm 9+ (`npm --version`)
-- Python 3.11+ (solo si corrés el backend local)
+|  | Feature | Description |
+|--|---------|-------------|
+| 🤖 | **AI trip planner** | Describe your trip in one sentence and the agent drafts a full day-by-day itinerary you can edit. |
+| 💬 | **In-trip AI assistant** | Ask questions or request changes; the agent proposes a diff you approve before applying. |
+| 👥 | **Role-based access** | Every user sees **My Trips**; admins also get **All Trips**. Per-trip viewer whitelists keep trips private. |
+| 📅 | **Editable day cards** | Accordion per day with flights, drives, stays, activities, tips, warnings, links and images. |
+| 📎 | **Files & notes per day** | Attach boarding passes / confirmations and leave shared notes on any day. |
+| 🕓 | **Version history** | Every publish snapshots the itinerary; admins can restore any version. |
+| 🧳 | **Traveler profile** | Private per-user profile (passport, insurance, emergency contact) stored only in your account. |
+| 📄 | **PDF export** | One-click export of the full itinerary to a print-ready PDF. |
+| 🌐 | **i18n (EN / ES)** | Every string is localized; language is per-user and remembered. |
 
 ---
 
-## Stack
+## 📸 Showcase
 
-| Capa | Tecnología |
-|------|-----------|
+### AI trip planner — from a few answers to a full itinerary
+The wizard asks a handful of questions, then the agent drafts a day-by-day plan you can edit.
+
+![AI trip planner](docs/media/ai-planner.gif)
+
+### In-trip AI assistant
+Open any trip, ask for a change, and the assistant replies with a proposed diff you can apply.
+
+![AI assistant](docs/media/ai-assistant.gif)
+
+### My Trips / All Trips (role-based dashboard)
+Regular users see only their own trips; admins also get an **All Trips** folder and can open any of them.
+
+![Dashboard](docs/media/dashboard.gif)
+
+### Day details — logistics, files & shared notes
+Each day expands into flights/drives/stays, activities, tips, attached files and group notes.
+
+![Day details](docs/media/edit-versions.gif)
+
+---
+
+## 🛠 Stack
+
+| Layer | Technology |
+|-------|-----------|
 | UI | React 18 + Material-UI v5 |
 | Build | Vite 5 |
 | Auth | Firebase Auth (Google Sign-In) |
-| Base de datos | Firestore |
+| Database | Firestore (real-time) |
+| Files | Firebase Storage |
 | Hosting | Firebase Hosting |
+| AI backend | Python (FastAPI) + Gemini API, on Cloud Run |
 | Sync script | Node.js + Firebase Admin SDK |
-| Backend AI | Python (FastAPI) + Gemini API |
+| Tests | Playwright (E2E) |
 
 ---
 
-## Setup
-
-### 1. Instalar dependencias
+## 🚀 Quick start
 
 ```bash
 npm install
+cp .env.example .env        # fill in the values (see below)
+npm run dev                 # → http://localhost:5173
 ```
 
-### 2. Variables de entorno
+> The AI agent needs the backend running. Without it, the rest of the app
+> (login, dashboard, editing, files) works just the same. See [Backend](#-backend-ai-agent).
 
-Copiá `.env.example` → `.env` y completá los valores:
+### Requirements
 
-```bash
-cp .env.example .env
-```
+- Node.js 18+ · npm 9+
+- Python 3.11+ (only for the AI backend)
+
+### Environment variables
 
 ```env
 VITE_FIREBASE_API_KEY=
@@ -51,148 +100,124 @@ VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
-VITE_ADMIN_EMAIL=tu@email.com
-VITE_TRIP_ID=canada-2026
+VITE_ADMIN_EMAIL=you@email.com
+VITE_TRIP_ID=canada-trip          # ID of the "gateway" trip in Firestore
+VITE_AGENT_URL=                   # AI backend URL in prod (empty in dev → proxied to :8000)
 
-# Sync script
-LOCAL_TRIP_FILE=src/data/canada/canada-trip.json
-GOOGLE_APPLICATION_CREDENTIALS=/ruta/absoluta/service-account.json
+# Sync script (Node + Admin SDK)
+GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/service-account.json
 ```
 
-Las credenciales Firebase están en **Firebase Console → Configuración del proyecto → General → Tus apps**.
+- Firebase credentials → **Firebase Console → Project settings → General → Your apps**.
+- `service-account.json` → **Project settings → Service accounts → Generate new private key** (keep it **out of the repo**).
 
-El `service-account.json` se descarga en **Firebase Console → Configuración → Cuentas de servicio → Generar nueva clave privada**. Guardalo fuera del repo.
+---
 
-### 3. Levantar en desarrollo
+## 📋 Commands
 
 ```bash
-npm run dev
-# → http://localhost:5173
+npm run dev           # Dev server (:5173)
+npm run dev:test      # Test mode with Firebase mocked (:5174)
+npm run build         # Production build → dist/
+npm run preview       # Preview the local build
+
+npm run sync:status   # Local version vs Firestore
+npm run sync:upload   # Push local if local version > cloud
+npm run sync:download # Pull cloud if cloud version > local
+
+npm run test:e2e      # E2E tests (Playwright)
+```
+
+Deploy: in Claude Code run `/deploy` (sync → build → `firebase deploy` + Cloud Run).
+
+---
+
+## 🧪 Tests
+
+E2E with **Playwright** in `e2e/`. In test mode, Firebase is replaced by mocks; auth and Firestore
+state is controlled via `window.__mockAuth` / `window.__mockFirestore` (see `e2e/helpers.js`).
+
+```bash
+npx playwright install        # browsers (first time only)
+npm run test:e2e              # all tests
+npx playwright test e2e/folders.spec.js   # a single file
+npx playwright show-report    # HTML report of the last run
 ```
 
 ---
 
-## Comandos
-
-```bash
-npm run dev           # Servidor de desarrollo
-npm run build         # Build de producción → dist/
-npm run preview       # Preview del build local
-
-npm run sync:status   # Muestra versión local vs Firestore
-npm run sync:upload   # Sube datos locales si versión local > cloud
-npm run sync:download # Baja datos de Firestore si versión cloud > local
-```
-
-Para deploy usar el comando `/deploy` en Claude Code, que ejecuta automáticamente sync → build → firebase deploy.
-
-```bash
-npm run test:e2e      # Ejecuta tests E2E con Playwright
-```
-
----
-
-## Tests
-
-Los tests E2E viven en `e2e/` y usan **Playwright**. En modo test, Firebase se reemplaza por mocks — el estado de auth y Firestore se controla via `window.__mockAuth` / `window.__mockFirestore` (ver `e2e/helpers.js`).
-
-```bash
-# Instalar browsers de Playwright (solo primera vez)
-npx playwright install
-
-# Correr todos los tests
-npm run test:e2e
-
-# Correr un test específico
-npx playwright test e2e/nombre-test.spec.js
-
-# Ver reporte HTML del último run
-npx playwright show-report
-```
-
----
-
-## Arquitectura
+## 🏗 Architecture
 
 ```
 src/
-  components/
-    AdminPanel.jsx          # Gestión de usuarios con acceso
-    DayCard.jsx             # Tarjeta por día (acordeón editable)
-    Header.jsx              # Encabezado con controles de admin
-    LoginScreen.jsx         # Pantalla de login con Google
-    PartSection.jsx         # Sección por parte del viaje
-    TripEditorModal.jsx     # Editor JSON completo
-    VersionHistoryModal.jsx # Historial de versiones (solo admin)
-  data/
-    canada/
-      canada-trip.json      # Itinerario ruta Calgary (GATEWAY_TRIP_ID)
-      canada-trip-2.json    # Itinerario ruta Vancouver
+  components/        # one component per file (no barrel index)
+    Dashboard.jsx           # Trip list; My Trips / All Trips folders by role
+    DayCard.jsx             # Per-day card (editable accordion)
+    DayFiles.jsx            # Per-day file attachments (Storage)
+    DayNotes.jsx            # Per-day shared notes
+    ItineraryAgent.jsx      # AI agent drawer (chat + diff)
+    TripPlannerWizard.jsx   # Step-by-step AI creation wizard
+    UserProfileDialog.jsx   # Traveler profile (private per user)
+    AdminPanel.jsx          # Access management
+    VersionHistoryModal.jsx # Version history (admin)
+    ...
   utils/
-    registry.js             # Gestión de viajes en localStorage
-  App.jsx                   # Raíz: auth, carga de datos, sync de versión
-  firebase.js               # Init Firebase
-  theme.js                  # Tema MUI (paleta verde/rojo)
-  main.jsx                  # Entry point
+    registry.js             # Flat trip list; folders computed by role
+    agentClient.js          # SSE client for the AI backend
+    itineraryPatch.js       # Apply / describe agent diffs
+    generatePdf.jsx         # PDF export
+  i18n/                # en.js / es.js + provider + useT()
+  App.jsx              # Root: auth, registry/trip routing, sync
+  firebase.js          # Firebase init
 
-scripts/
-  sync-data.mjs             # Sync local ↔ Firestore (Node.js + Admin SDK)
-
-firestore.rules             # Reglas de seguridad Firestore
+backend/             # FastAPI: chat.py, create.py, auth.py (Cloud Run)
+scripts/sync-data.mjs   # Local ↔ Firestore sync (Admin SDK)
+firestore.rules         # Security rules
 ```
 
 ---
 
-## Estructura Firestore
+## 🔐 Access control
+
+- Only users in `trips/{GATEWAY_TRIP_ID}/allowed_users/{email}` can sign in.
+- The admin (`VITE_ADMIN_EMAIL`) gets automatic access and manages users from the **Access** panel.
+- Each trip has a `viewers[]` list: a regular user only sees trips they created or where they're
+  listed in `viewers`. Admins see everything.
+- Firestore rules block any unauthorized access at the server level.
+
+---
+
+## 🗂 Firestore structure
 
 ```
 trips/{tripId}/
-  data/
-    itinerary               # Itinerario activo (JSON completo)
-  versions/
-    {auto-id}               # Snapshot por cada publicación
-      version: number
-      savedAt: timestamp
-      savedBy: email
-      source: "local_push" | "restore"
-      data: { ...itinerary }
-  allowed_users/
-    {email}                 # Usuarios con acceso al viaje
-      addedAt: timestamp
-      addedBy: email
+  data/itinerary            # Active itinerary (full JSON)
+  registry/main             # Flat { trips: [...] } list (only on the gateway trip)
+  versions/{auto-id}        # Snapshot per publish (version, savedAt, savedBy, source, data)
+  allowed_users/{email}     # Users with access to the trip
+  notes/{noteId}            # Per-day notes
+  files/{fileId}            # File attachment metadata
+users/{email}               # Traveler profile (private, self-only)
 ```
 
 ---
 
-## Sistema de versiones
+## 🔄 Versioning
 
-Cada JSON local tiene un campo `"version": N`. La regla es simple: **el número mayor gana**.
+Every JSON has `"version": N`. The rule is simple: **the higher number wins**.
 
-| Situación | Resultado |
-|-----------|-----------|
-| Local v5 > Cloud v4 | Se sube local a Firestore + snapshot |
-| Local v3 < Cloud v10 | Se usa Firestore, local se ignora |
-| Local v4 = Cloud v4 | Sin cambios |
+| Situation | Result |
+|-----------|--------|
+| Local v5 > Cloud v4 | Push local + snapshot |
+| Local v3 < Cloud v10 | Use Firestore, ignore local |
+| Local v4 = Cloud v4 | No change |
 
-**Para publicar cambios locales:** incrementar `"version"` en el JSON y correr `npm run sync:upload` (o `/deploy`).
-
-**Para bajar cambios del cloud:** `npm run sync:download`.
-
-Los admins pueden ver el historial completo y restaurar cualquier versión desde el botón **Versiones** en la app.
+Publish local: bump `"version"` and run `npm run sync:upload`. Pull cloud: `npm run sync:download`.
+Admins can restore any version from the **Versions** button.
 
 ---
 
-## Control de acceso
-
-- Solo usuarios en `allowed_users/{email}` pueden ver el itinerario
-- El admin (`VITE_ADMIN_EMAIL`) tiene acceso automático y puede agregar/quitar usuarios desde el panel **Accesos**
-- Las Firestore rules bloquean todo acceso no autorizado a nivel de servidor
-
----
-
-## Datos del itinerario
-
-Estructura del JSON:
+## 📐 Itinerary data
 
 ```json
 {
@@ -202,22 +227,14 @@ Estructura del JSON:
   "stats": ["19 días", "3 provincias", "5 ciudades", "SJO → YYZ"],
   "parts": [
     {
-      "id": 1,
-      "emoji": "🏔️",
-      "title": "Las Rocosas",
-      "color": "#2E7D32",
-      "daysRange": "Días 1 – 7",
+      "id": 1, "emoji": "🏔️", "title": "Las Rocosas",
+      "color": "#2E7D32", "daysRange": "Días 1 – 7",
       "days": [
         {
-          "dayNumber": 1,
-          "date": "Sáb 12 Sep",
-          "location": "Calgary",
-          "subtitle": "Llegada",
+          "dayNumber": 1, "date": "Sáb 12 Sep", "location": "Calgary", "subtitle": "Llegada",
           "logistics": [{ "type": "flight", "label": "Vuelo", "value": "SJO → YYC" }],
-          "activities": ["..."],
-          "tips": ["..."],
-          "warnings": ["..."],
-          "links": [{ "label": "Nombre", "url": "https://..." }],
+          "activities": ["..."], "tips": ["..."], "warnings": ["..."],
+          "links": [{ "label": "Name", "url": "https://..." }],
           "images": [{ "url": "https://...", "caption": "..." }]
         }
       ]
@@ -226,44 +243,44 @@ Estructura del JSON:
 }
 ```
 
-Los tipos de logística válidos: `flight`, `drive`, `stay`, `train`.
+> The JSON above keeps Spanish field values because itinerary content is user-authored in any
+> language. Only the structural keys are fixed. Valid logistics types: `flight`, `drive`, `stay`, `train`.
 
 ---
 
-## Backend (Agente IA)
+## 🤖 Backend (AI agent)
 
-El backend es un servicio Python (FastAPI) que expone endpoints para generar y editar itinerarios usando Gemini.
+A Python (FastAPI) service that generates and edits itineraries with Gemini. In production it runs on Cloud Run.
 
 ```
 backend/
-  main.py          # Entry point FastAPI
-  chat.py          # Endpoint /agent/chat — agente de itinerarios
-  create.py        # Endpoint /agent/create — creación desde cero
-  auth.py          # Verificación de tokens Firebase
-  config.py        # Configuración desde variables de entorno
-  requirements.txt # Dependencias Python
-  Dockerfile       # Para Cloud Run
+  main.py          # FastAPI entry point + CORS / origin guard
+  chat.py          # /agent/chat   — in-trip assistant (proposes diffs)
+  create.py        # /agent/create — from-scratch creation (SSE streaming)
+  auth.py          # Firebase token verification + admin claim
+  requirements.txt # Dependencies
+  Dockerfile       # Cloud Run build
 ```
 
-### Correr el backend localmente
+### Run it locally
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
+python -m venv venv && source venv/bin/activate    # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env            # Completar las variables
-uvicorn main:app --reload       # → http://localhost:8000
+cp .env.example .env                                # fill in the variables
+uvicorn main:app --reload                           # → http://localhost:8000
 ```
 
-El frontend (Vite) ya proxea `/agent/**`, `/auth/**` y `/health` hacia `localhost:8000` en modo dev.
+The frontend (Vite) proxies `/agent/**`, `/auth/**` and `/health` to `localhost:8000` in dev.
 
 ---
 
-## Firebase rules
+## 🔥 Firebase rules
 
-Después de modificar `firestore.rules`, deployar por separado:
+After editing `firestore.rules` or `storage.rules`, deploy them separately:
 
 ```bash
 firebase deploy --only firestore:rules
+firebase deploy --only storage
 ```
