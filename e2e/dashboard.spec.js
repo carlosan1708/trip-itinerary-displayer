@@ -13,11 +13,11 @@ test.describe('Dashboard — allowed user', () => {
     await expect(page.getByRole('heading', { name: /My Trips/i })).toBeVisible({ timeout: 5000 })
   })
 
-  test('shows the Canada folder', async ({ page }) => {
+  test('shows the My Trips folder', async ({ page }) => {
     await expect(page.getByTestId('folder-my')).toBeVisible({ timeout: 5000 })
   })
 
-  test('shows trips inside the folder', async ({ page }) => {
+  test('shows trips inside the My Trips folder', async ({ page }) => {
     await expect(page.getByText('Ruta Este')).toBeVisible({ timeout: 5000 })
   })
 

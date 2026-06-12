@@ -1,4 +1,4 @@
-import { Box, Button, Chip, Divider, Stack, Typography } from '@mui/material'
+import { Box, Button, Chip, Stack, Typography } from '@mui/material'
 import EditNoteIcon from '@mui/icons-material/EditNote'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import CloseIcon from '@mui/icons-material/Close'
@@ -81,7 +81,7 @@ export default function ItineraryAgentDiff({ changes, canEdit, onApply, onDuplic
                   fontWeight: 700, color: '#fff',
                   bgcolor: 'rgba(255,255,255,0.1)', px: 1, py: 0.25, borderRadius: 1, fontSize: 11,
                 }}>
-                  Día {c.dayNumber}
+                  {t('agentDiffDayLabel', { n: c.dayNumber })}
                 </Typography>
               )}
               {!c.dayNumber && (

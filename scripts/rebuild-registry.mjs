@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // scripts/rebuild-registry.mjs — Scan all trips/<id>/data/itinerary docs and
-// rebuild trips/<gateway>/registry/main from them. Use when the gateway
-// registry has been wiped but the actual trip data is still in Firestore.
-//
-// Grouping heuristic: split the trip id on the first '-' (e.g. "canada-foo"
-// → folder "canada"). Falls back to a "my-trips" folder for ids with no '-'.
+// rebuild the flat trips/<gateway>/registry/main { trips: [...] } from them.
+// Use when the gateway registry has been wiped but the actual trip data is
+// still in Firestore. Each rebuilt trip gets viewers: [author] so it stays
+// private to its author (admins see everything anyway). The gateway trip
+// itself is skipped.
 //
 // Usage: node scripts/rebuild-registry.mjs
 

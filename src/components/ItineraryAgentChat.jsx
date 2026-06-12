@@ -218,7 +218,7 @@ export default function ItineraryAgentChat({
           </Tooltip>
         </Stack>
         <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.2)', fontSize: 10, mt: 0.5, display: 'block', textAlign: 'center' }}>
-          Shift+Enter para nueva línea · los cambios siempre requieren confirmación
+          {t('agentInputHint')}
         </Typography>
       </Box>
     </Stack>

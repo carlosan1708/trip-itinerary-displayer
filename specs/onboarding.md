@@ -1,7 +1,11 @@
 # Spec: Onboarding & New Trip Creation
 
 ## Status
-In progress — covers three onboarding gaps: a conversational AI trip builder, bundled starter templates, and a structured first-run experience for new users.
+Partially shipped. The conversational AI trip builder (`TripPlannerWizard`) and the structured
+first-run `EmptyDashboard` are live. **Starter templates were removed** after shipping — the skeletons
+were too empty to be useful (see git history; `TemplateGrid.jsx` and `src/data/templates/` deleted).
+The sections below mentioning templates are retained for historical context only and do not reflect
+the current UI.
 
 ## Context
 
