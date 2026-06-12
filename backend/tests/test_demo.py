@@ -1,4 +1,4 @@
-"""Tests for demo mode: Turnstile verification + per-uid AI quota."""
+"""Tests for demo mode: reCAPTCHA Enterprise verification + per-uid AI quota."""
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -28,22 +28,66 @@ def test_is_demo_user_false_for_google():
     assert demo.is_demo_user(_google_token()) is False
 
 
+def _recaptcha_configured():
+    """Patch the three required reCAPTCHA settings to non-empty values."""
+    return (
+        patch.object(demo, "_RECAPTCHA_PROJECT", "proj"),
+        patch.object(demo, "_RECAPTCHA_API_KEY", "key"),
+        patch.object(demo, "_RECAPTCHA_SITE_KEY", "site"),
+    )
+
+
 @pytest.mark.asyncio
-async def test_verify_turnstile_success():
+async def test_verify_recaptcha_success():
     resp = MagicMock()
-    resp.json.return_value = {"success": True}
+    resp.json.return_value = {
+        "tokenProperties": {"valid": True, "action": "demo_start"},
+        "riskAnalysis": {"score": 0.9},
+    }
     client = AsyncMock()
     client.post.return_value = resp
-    with patch.object(demo, "_TURNSTILE_SECRET", "secret"), \
+    p1, p2, p3 = _recaptcha_configured()
+    with p1, p2, p3, patch.object(demo, "_RECAPTCHA_MIN_SCORE", 0.5), \
          patch("demo.httpx.AsyncClient") as ac:
         ac.return_value.__aenter__.return_value = client
-        assert await demo.verify_turnstile("tok") is True
+        assert await demo.verify_recaptcha("tok") is True
 
 
 @pytest.mark.asyncio
-async def test_verify_turnstile_fails_closed_without_secret():
-    with patch.object(demo, "_TURNSTILE_SECRET", ""):
-        assert await demo.verify_turnstile("tok") is False
+async def test_verify_recaptcha_rejects_low_score():
+    resp = MagicMock()
+    resp.json.return_value = {
+        "tokenProperties": {"valid": True, "action": "demo_start"},
+        "riskAnalysis": {"score": 0.1},
+    }
+    client = AsyncMock()
+    client.post.return_value = resp
+    p1, p2, p3 = _recaptcha_configured()
+    with p1, p2, p3, patch.object(demo, "_RECAPTCHA_MIN_SCORE", 0.5), \
+         patch("demo.httpx.AsyncClient") as ac:
+        ac.return_value.__aenter__.return_value = client
+        assert await demo.verify_recaptcha("tok") is False
+
+
+@pytest.mark.asyncio
+async def test_verify_recaptcha_rejects_action_mismatch():
+    resp = MagicMock()
+    resp.json.return_value = {
+        "tokenProperties": {"valid": True, "action": "something_else"},
+        "riskAnalysis": {"score": 0.9},
+    }
+    client = AsyncMock()
+    client.post.return_value = resp
+    p1, p2, p3 = _recaptcha_configured()
+    with p1, p2, p3, patch("demo.httpx.AsyncClient") as ac:
+        ac.return_value.__aenter__.return_value = client
+        assert await demo.verify_recaptcha("tok") is False
+
+
+@pytest.mark.asyncio
+async def test_verify_recaptcha_fails_closed_without_config():
+    with patch.object(demo, "_RECAPTCHA_API_KEY", ""):
+        assert await demo.verify_recaptcha("tok") is False
 
 
 @pytest.mark.asyncio

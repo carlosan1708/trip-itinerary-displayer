@@ -38,10 +38,11 @@ an inline itinerary editor, an AI agent for itinerary generation, and a multi-tr
 
 **How it works**
 
-- `LoginScreen.jsx` offers a **"Try the demo"** button. Clicking it renders a
-  **Cloudflare Turnstile** widget (`TurnstileWidget.jsx`). On a valid token the
-  client calls `POST /demo/start` (backend verifies the token with Cloudflare's
-  siteverify), then `signInAnonymouslyDemo()` (Firebase Anonymous Auth).
+- `LoginScreen.jsx` offers a **"Try the demo"** button. Clicking it runs an
+  invisible **reCAPTCHA Enterprise** gate (`RecaptchaGate.jsx`, score-based,
+  action `demo_start`). On a token the client calls `POST /demo/start` (backend
+  creates a reCAPTCHA Enterprise assessment and checks validity + action +
+  score), then `signInAnonymouslyDemo()` (Firebase Anonymous Auth).
 - Anonymous users have `email === null`. `App.jsx` gives them a **synthetic
   identity** `demo:{uid}` (set as `user.email`) so all author/viewer/notes logic
   keyed on email works unchanged, plus `isDemo: true`. They skip the admin-claim
@@ -59,15 +60,15 @@ an inline itinerary editor, an AI agent for itinerary generation, and a multi-tr
     `demo_quota/{uid}` in Firestore. Over the cap → HTTP 429
     `{ code: "demo_limit_reached" }`, which `agentClient.js` turns into the
     `demoAiLimit` "contact me" message.
-- **Bot defense**: Turnstile gates the door (each demo entry costs one solved
-  challenge); the AI cap bounds cost per identity; `demo_quota` is Admin-SDK-only
-  so a visitor can't reset their own count.
+- **Bot defense**: reCAPTCHA Enterprise scores each demo entry (low scores are
+  rejected at `/demo/start`); the AI cap bounds cost per identity; `demo_quota`
+  is Admin-SDK-only so a visitor can't reset their own count.
 - The Dashboard shows a **demo banner** stating the limits and a single
   "My Trips" folder that includes the seeded sample trip plus the user's own.
 
 **Relevant files**
 
-- `src/components/LoginScreen.jsx`, `src/components/TurnstileWidget.jsx`
+- `src/components/LoginScreen.jsx`, `src/components/RecaptchaGate.jsx`
 - `src/App.jsx` — `isDemo` detection, synthetic identity, gateway selection
 - `src/components/Dashboard.jsx` — demo banner, trip cap, demo folder
 - `src/utils/agentClient.js` — `DEMO_LIMIT_ERROR` handling
@@ -373,9 +374,10 @@ trips/{tripId}/
 | `VITE_ADMIN_EMAIL` | Email that receives admin claim |
 | `VITE_TRIP_ID` | Firestore key for the gateway/main trip |
 | `VITE_DEMO_TRIP_ID` | Firestore key for the isolated demo gateway/registry |
-| `VITE_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (public) |
+| `VITE_RECAPTCHA_SITE_KEY` | reCAPTCHA Enterprise site key (public) |
 | `VITE_DEMO_MAX_TRIPS` / `VITE_DEMO_MAX_AI_CALLS` | Demo caps (client UX) |
-| `TURNSTILE_SECRET_KEY` | Turnstile secret (backend siteverify) |
+| `RECAPTCHA_PROJECT_ID` / `RECAPTCHA_API_KEY` / `RECAPTCHA_SITE_KEY` | Backend reCAPTCHA assessment config |
+| `RECAPTCHA_MIN_SCORE` | Minimum passing risk score (default 0.5) |
 | `DEMO_TRIP_ID` / `DEMO_MAX_AI_CALLS` | Backend demo namespace + AI cap |
 
 ---

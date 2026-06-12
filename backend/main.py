@@ -14,7 +14,7 @@ from slowapi.util import get_remote_address
 from auth import verify_token, set_admin_claim
 from chat import run_conversation
 from create import run_creation
-from demo import require_user_or_demo_quota, verify_turnstile
+from demo import require_user_or_demo_quota, verify_recaptcha
 
 logger = logging.getLogger(__name__)
 
@@ -147,13 +147,13 @@ async def create(request: Request, req: CreateRequest, user: dict = Depends(requ
 @limiter.limit("10/minute")
 async def demo_start(request: Request, req: DemoStartRequest):
     """
-    Gate the demo: verify the Cloudflare Turnstile token. The client only
-    calls signInAnonymously() after this returns ok, so bots can't mint
-    anonymous identities at scale without solving a challenge each time.
+    Gate the demo: verify the reCAPTCHA Enterprise token (score-based). The
+    client only calls signInAnonymously() after this returns ok, so bots can't
+    mint anonymous identities at scale without a passing risk score.
     """
     client_ip = request.client.host if request.client else None
-    if not await verify_turnstile(req.token, client_ip):
-        raise HTTPException(status_code=403, detail="turnstile_failed")
+    if not await verify_recaptcha(req.token, client_ip):
+        raise HTTPException(status_code=403, detail="recaptcha_failed")
     return {"ok": True}
 
 

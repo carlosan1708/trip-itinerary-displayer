@@ -245,8 +245,8 @@ export async function setupUserWithOthersTrips(page) {
 
 /**
  * Demo mode: start unauthenticated (LoginScreen). The demo namespace
- * (demo-gateway) is pre-seeded with one sample trip. Turnstile is bypassed
- * via window.__turnstileBypassToken and /demo/start is mocked to succeed, so
+ * (demo-gateway) is pre-seeded with one sample trip. reCAPTCHA is bypassed
+ * via window.__recaptchaBypassToken and /demo/start is mocked to succeed, so
  * clicking "Try the demo" signs the visitor in anonymously and lands them on
  * the demo dashboard.
  */
@@ -254,7 +254,7 @@ export async function setupDemoEntry(page) {
   const demoGateway = 'demo-gateway'
   const itinerary = MOCK_ITINERARY
 
-  // Mock the backend Turnstile verification endpoint.
+  // Mock the backend reCAPTCHA verification endpoint.
   await page.route('**/demo/start', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) })
   )
@@ -269,8 +269,8 @@ export async function setupDemoEntry(page) {
         getIdToken: () => Promise.resolve('mock-anon-token'),
         getIdTokenResult: () => Promise.resolve({ claims: {} }),
       }
-      // Skip the real Cloudflare widget in tests.
-      window.__turnstileBypassToken = 'test-token'
+      // Skip the real reCAPTCHA widget in tests.
+      window.__recaptchaBypassToken = 'test-token'
       window.__mockFirestore = {
         docs: {
           [`trips/demo-sample/data/itinerary`]: { ...itinerary, title: 'Sample Trip', author: 'demo-sample' },

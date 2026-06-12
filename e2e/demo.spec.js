@@ -16,7 +16,7 @@ test.describe('Demo mode', () => {
   test('passing the challenge signs in anonymously and lands on the demo dashboard', async ({ page }) => {
     await page.getByTestId('try-demo-btn').click()
 
-    // Turnstile is bypassed → /demo/start mocked → signInAnonymously fires.
+    // reCAPTCHA is bypassed → /demo/start mocked → signInAnonymously fires.
     // Demo banner and the seeded sample trip should appear.
     await expect(page.getByTestId('demo-banner')).toBeVisible({ timeout: 5000 })
     await expect(page.getByText('Sample Trip')).toBeVisible({ timeout: 5000 })

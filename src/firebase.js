@@ -19,7 +19,7 @@ export const storage  = getStorage(app)
 export const googleProvider = new GoogleAuthProvider()
 
 // Demo mode: sign in as an anonymous Firebase user (called only after a
-// Cloudflare Turnstile challenge is verified server-side at /demo/start).
+// reCAPTCHA Enterprise assessment is verified server-side at /demo/start).
 export function signInAnonymouslyDemo() {
   return signInAnonymously(auth)
 }

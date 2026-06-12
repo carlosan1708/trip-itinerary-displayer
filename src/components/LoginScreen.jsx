@@ -7,7 +7,7 @@ import {
 import GoogleIcon from '@mui/icons-material/Google'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined'
-import TurnstileWidget from './TurnstileWidget'
+import RecaptchaGate from './RecaptchaGate'
 import { useT } from '../i18n'
 
 const DEMO_START_URL = (import.meta.env.VITE_AGENT_URL?.replace(/\/$/, '') ?? '') + '/demo/start'
@@ -47,10 +47,10 @@ export default function LoginScreen() {
     }
   }
 
-  // Demo: reveal the Turnstile challenge. On pass, verify server-side then
-  // sign in anonymously. Only after /demo/start succeeds do we create an
-  // anonymous identity, so bots can't mint demo users without solving it.
-  const handleDemoTurnstile = useCallback(async (token) => {
+  // Demo: run the invisible reCAPTCHA gate. On a token, verify server-side
+  // then sign in anonymously. Only after /demo/start succeeds do we create an
+  // anonymous identity, so bots can't mint demo users without a valid score.
+  const handleDemoVerify = useCallback(async (token) => {
     setDemoStage('verifying')
     setError(null)
     try {
@@ -206,7 +206,7 @@ export default function LoginScreen() {
                 <Typography variant="body2" color="text.secondary">{t('demoStarting')}</Typography>
               </Box>
             ) : (
-              <TurnstileWidget onVerify={handleDemoTurnstile} onError={() => { setError(t('demoError')); setDemoStage('idle') }} />
+              <RecaptchaGate onVerify={handleDemoVerify} onError={() => { setError(t('demoError')); setDemoStage('idle') }} />
             )}
           </Box>
         )}
