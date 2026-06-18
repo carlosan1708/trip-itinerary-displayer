@@ -1,10 +1,18 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // Anonymous (demo) users may read files but never write them — this keeps
+    // the shared bucket from filling with throwaway demo uploads. Real
+    // (Google) users keep full access.
+    function isAnonymous() {
+      return request.auth != null
+             && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
     match /trips/{tripId}/files/{allPaths=**} {
       allow read:   if request.auth != null;
-      allow create: if request.auth != null;
-      allow delete: if request.auth != null;
+      allow create: if request.auth != null && !isAnonymous();
+      allow delete: if request.auth != null && !isAnonymous();
     }
   }
 }

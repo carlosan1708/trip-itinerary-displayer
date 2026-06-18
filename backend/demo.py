@@ -7,6 +7,7 @@ reCAPTCHA Enterprise REST API). Their AI interactions are capped server-side
 in Firestore so bots cannot bypass the limit with a client patch.
 """
 import asyncio
+import logging
 import os
 
 import httpx
@@ -14,6 +15,8 @@ from fastapi import Depends, HTTPException
 from firebase_admin import firestore
 
 from auth import verify_token
+
+logger = logging.getLogger(__name__)
 
 # reCAPTCHA Enterprise config. Verification calls the createAssessment REST API
 # authenticated with an API key (RECAPTCHA_API_KEY) scoped to reCAPTCHA only.
@@ -59,16 +62,32 @@ async def verify_recaptcha(token: str, remote_ip: str | None = None) -> bool:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.post(url, json={"event": event})
         body = resp.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("recaptcha: request failed: %s", exc)
+        return False
+
+    if "error" in body:
+        logger.warning("recaptcha: API error: %s", body.get("error"))
         return False
 
     token_props = body.get("tokenProperties", {})
+    score = body.get("riskAnalysis", {}).get("score", 0.0)
     if not token_props.get("valid"):
+        logger.warning(
+            "recaptcha: invalid token (reason=%s, action=%s)",
+            token_props.get("invalidReason"), token_props.get("action"),
+        )
         return False
     if token_props.get("action") != _RECAPTCHA_ACTION:
+        logger.warning(
+            "recaptcha: action mismatch (got=%s, expected=%s)",
+            token_props.get("action"), _RECAPTCHA_ACTION,
+        )
         return False
-    score = body.get("riskAnalysis", {}).get("score", 0.0)
-    return float(score) >= _RECAPTCHA_MIN_SCORE
+    if float(score) < _RECAPTCHA_MIN_SCORE:
+        logger.warning("recaptcha: low score %.2f < %.2f", float(score), _RECAPTCHA_MIN_SCORE)
+        return False
+    return True
 
 
 def _quota_doc(uid: str):

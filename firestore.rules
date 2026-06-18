@@ -111,22 +111,18 @@ service cloud.firestore {
                           && resource.data.authorEmail == ('demo:' + request.auth.uid));
       }
 
-      // Archivos del día — cada usuario puede subir los suyos; admin puede borrar cualquiera
+      // Archivos del día — cada usuario puede subir los suyos; admin puede borrar cualquiera.
+      // Demo (anonymous) users may READ files but never write them — file uploads
+      // are disabled in demo mode (matches storage.rules), so no orphaned metadata.
       match /files/{fileId} {
         allow read: if isAdmin() || isAllowed(tripId)
                     || (isDemoUser() && isDemoGateway(tripId));
-        allow create: if ((isAdmin() || isAllowed(tripId))
-                          && request.resource.data.authorEmail == request.auth.token.email)
-                      || (isDemoUser() && isDemoGateway(tripId)
-                          && request.resource.data.authorEmail == ('demo:' + request.auth.uid));
+        allow create: if (isAdmin() || isAllowed(tripId))
+                      && request.resource.data.authorEmail == request.auth.token.email;
         allow update: if isAdmin()
-                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email)
-                      || (isDemoUser() && isDemoGateway(tripId)
-                          && resource.data.authorEmail == ('demo:' + request.auth.uid));
+                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email);
         allow delete: if isAdmin()
-                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email)
-                      || (isDemoUser() && isDemoGateway(tripId)
-                          && resource.data.authorEmail == ('demo:' + request.auth.uid));
+                      || (isAllowed(tripId) && resource.data.authorEmail == request.auth.token.email);
       }
     }
   }

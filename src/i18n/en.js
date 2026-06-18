@@ -8,7 +8,7 @@ export default {
   tryDemo: 'Try the demo',
   demoStarting: 'Starting your demo…',
   demoError: 'Could not start the demo. Please try again.',
-  demoBanner: 'Demo mode — you can create up to {maxTrips} trips and use the AI assistant {maxAi} times. Changes here are sandboxed.',
+  demoBanner: 'Demo mode — you can create up to {maxTrips} trips and use the AI assistant {maxAi} times. Nothing is saved: your changes reset when you sign out or close the tab.',
   demoTripLimit: 'Demo limit reached: you can create up to {max} trips. Sign in for full access or get in touch.',
   demoAiLimit: "You've reached the demo limit for the AI assistant. Reach out to the owner for full access.",
 
@@ -160,6 +160,7 @@ export default {
   maxFileSizeHint: 'Maximum {size} per file',
   uploadingBtn: 'Uploading...',
   uploadFileAction: 'Upload file',
+  uploadDisabledDemo: 'File uploads are disabled in demo mode.',
   confirmUpload: 'Upload',
   noFilesMsg: 'No files uploaded for this day.',
   noFilesMatchFilter: 'No files match the selected filter.',

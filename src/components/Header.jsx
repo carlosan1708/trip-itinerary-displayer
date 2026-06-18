@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react'
-import { signOut } from 'firebase/auth'
-import { auth } from '../firebase'
+import { signOutWithCleanup } from '../firebase'
 import { Box, Typography, Chip, Button, IconButton, Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material'
 import ArrowBackIcon    from '@mui/icons-material/ArrowBack'
 import AttachFileIcon   from '@mui/icons-material/AttachFile'
@@ -99,7 +98,7 @@ export default function Header({ title, subtitle, stats, user, isAdmin, author, 
       key: 'logout',
       icon: <LogoutIcon fontSize="small" />,
       label: t('logout'),
-      onClick: () => signOut(auth),
+      onClick: () => signOutWithCleanup(),
       dividerBefore: true,
     },
   ].filter(Boolean)

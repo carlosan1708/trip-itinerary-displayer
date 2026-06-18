@@ -63,4 +63,20 @@ export function signOut() {
   return Promise.resolve()
 }
 
+export function deleteUser() {
+  // Demo cleanup path: deleting the anonymous user clears the session, same
+  // observable effect as signOut for the app.
+  if (typeof window !== 'undefined') {
+    window.__mockAuth = { ...(window.__mockAuth || {}), currentUser: null }
+    _notify()
+  }
+  return Promise.resolve()
+}
+
+export function setPersistence() {
+  return Promise.resolve()
+}
+
+export const browserSessionPersistence = { type: 'SESSION' }
+
 export class GoogleAuthProvider {}
