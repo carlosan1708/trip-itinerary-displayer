@@ -40,8 +40,14 @@ class _RateLimitExceeded(Exception):
 _slowapi_errors = MagicMock()
 _slowapi_errors.RateLimitExceeded = _RateLimitExceeded
 
+# limiter.limit(...) must return an identity decorator, otherwise the route
+# handler is replaced by a MagicMock with a (*args, **kwargs) signature and
+# FastAPI reports spurious 422s for "missing args/kwargs" query params.
+_limiter_instance = MagicMock()
+_limiter_instance.limit.return_value = lambda fn: fn
+
 _slowapi = MagicMock()
-_slowapi.Limiter.return_value = MagicMock()
+_slowapi.Limiter.return_value = _limiter_instance
 _slowapi._rate_limit_exceeded_handler = MagicMock()
 sys.modules.setdefault("slowapi", _slowapi)
 sys.modules.setdefault("slowapi.errors", _slowapi_errors)

@@ -125,6 +125,8 @@ npm run sync:status   # Local version vs Firestore
 npm run sync:upload   # Push local if local version > cloud
 npm run sync:download # Pull cloud if cloud version > local
 
+npm run test          # Unit tests (Vitest)
+npm run test:coverage # Unit tests with coverage report
 npm run test:e2e      # E2E tests (Playwright)
 ```
 
@@ -134,14 +136,26 @@ Deploy: in Claude Code run `/deploy` (sync → build → `firebase deploy` + Clo
 
 ## 🧪 Tests
 
-E2E with **Playwright** in `e2e/`. In test mode, Firebase is replaced by mocks; auth and Firestore
-state is controlled via `window.__mockAuth` / `window.__mockFirestore` (see `e2e/helpers.js`).
+Three layers:
+
+- **Unit (Vitest)** — pure logic in `src/utils/` and `src/i18n/` (`*.test.{js,jsx}`), run in jsdom with Firebase aliased to the in-repo mocks. Fast, no browser.
+- **E2E (Playwright)** in `e2e/` — full user flows. In test mode, Firebase is replaced by mocks; auth and Firestore state is controlled via `window.__mockAuth` / `window.__mockFirestore` (see `e2e/helpers.js`).
+- **Backend (pytest)** in `backend/tests/` — request validation, auth, demo quota, and the AI runners with Gemini patched out.
 
 ```bash
+# Unit
+npm run test                  # all unit tests
+npm run test:watch            # watch mode
+npm run test:coverage         # with coverage
+
+# E2E
 npx playwright install        # browsers (first time only)
 npm run test:e2e              # all tests
 npx playwright test e2e/folders.spec.js   # a single file
 npx playwright show-report    # HTML report of the last run
+
+# Backend
+cd backend && python -m pytest -q
 ```
 
 ---

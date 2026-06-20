@@ -1,11 +1,13 @@
 """
-Demo mode: Cloudflare Turnstile verification + per-user AI quota.
+Demo mode: reCAPTCHA Enterprise verification + per-user AI quota.
 
-Demo visitors sign in with Firebase Anonymous Auth after passing a Turnstile
-challenge (verified here in /demo/start). Their AI interactions are capped
-server-side in Firestore so bots cannot bypass the limit with a client patch.
+Demo visitors sign in with Firebase Anonymous Auth after passing an invisible
+reCAPTCHA Enterprise assessment (verified here in /demo/start via the
+reCAPTCHA Enterprise REST API). Their AI interactions are capped server-side
+in Firestore so bots cannot bypass the limit with a client patch.
 """
 import asyncio
+import logging
 import os
 
 import httpx
@@ -14,8 +16,19 @@ from firebase_admin import firestore
 
 from auth import verify_token
 
-_TURNSTILE_SECRET = os.environ.get("TURNSTILE_SECRET_KEY", "")
-_TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+logger = logging.getLogger(__name__)
+
+# reCAPTCHA Enterprise config. Verification calls the createAssessment REST API
+# authenticated with an API key (RECAPTCHA_API_KEY) scoped to reCAPTCHA only.
+_RECAPTCHA_PROJECT = (
+    os.environ.get("RECAPTCHA_PROJECT_ID")
+    or os.environ.get("FIREBASE_PROJECT_ID")
+    or os.environ.get("GOOGLE_CLOUD_PROJECT", "")
+)
+_RECAPTCHA_API_KEY = os.environ.get("RECAPTCHA_API_KEY", "")
+_RECAPTCHA_SITE_KEY = os.environ.get("RECAPTCHA_SITE_KEY", "")
+_RECAPTCHA_ACTION = "demo_start"
+_RECAPTCHA_MIN_SCORE = float(os.environ.get("RECAPTCHA_MIN_SCORE", "0.5"))
 _MAX_AI_CALLS = int(os.environ.get("DEMO_MAX_AI_CALLS", "100"))
 
 # Firestore path for per-anon-uid quota counters.
@@ -27,20 +40,54 @@ def is_demo_user(decoded: dict) -> bool:
     return decoded.get("firebase", {}).get("sign_in_provider") == "anonymous"
 
 
-async def verify_turnstile(token: str, remote_ip: str | None = None) -> bool:
-    """Verify a Turnstile token against Cloudflare's siteverify endpoint."""
-    if not _TURNSTILE_SECRET:
+async def verify_recaptcha(token: str, remote_ip: str | None = None) -> bool:
+    """
+    Verify a reCAPTCHA Enterprise token by creating an assessment.
+    Returns True only when the token is valid, the action matches, and the
+    risk score is at or above the configured threshold.
+    """
+    if not (_RECAPTCHA_PROJECT and _RECAPTCHA_API_KEY and _RECAPTCHA_SITE_KEY):
         # Misconfiguration — fail closed rather than letting bots in.
         return False
-    data = {"secret": _TURNSTILE_SECRET, "response": token}
+
+    url = (
+        f"https://recaptchaenterprise.googleapis.com/v1/"
+        f"projects/{_RECAPTCHA_PROJECT}/assessments?key={_RECAPTCHA_API_KEY}"
+    )
+    event = {"token": token, "siteKey": _RECAPTCHA_SITE_KEY, "expectedAction": _RECAPTCHA_ACTION}
     if remote_ip:
-        data["remoteip"] = remote_ip
+        event["userIpAddress"] = remote_ip
+
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(_TURNSTILE_VERIFY_URL, data=data)
-        return bool(resp.json().get("success"))
-    except (httpx.HTTPError, ValueError):
+            resp = await client.post(url, json={"event": event})
+        body = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.warning("recaptcha: request failed: %s", exc)
         return False
+
+    if "error" in body:
+        logger.warning("recaptcha: API error: %s", body.get("error"))
+        return False
+
+    token_props = body.get("tokenProperties", {})
+    score = body.get("riskAnalysis", {}).get("score", 0.0)
+    if not token_props.get("valid"):
+        logger.warning(
+            "recaptcha: invalid token (reason=%s, action=%s)",
+            token_props.get("invalidReason"), token_props.get("action"),
+        )
+        return False
+    if token_props.get("action") != _RECAPTCHA_ACTION:
+        logger.warning(
+            "recaptcha: action mismatch (got=%s, expected=%s)",
+            token_props.get("action"), _RECAPTCHA_ACTION,
+        )
+        return False
+    if float(score) < _RECAPTCHA_MIN_SCORE:
+        logger.warning("recaptcha: low score %.2f < %.2f", float(score), _RECAPTCHA_MIN_SCORE)
+        return False
+    return True
 
 
 def _quota_doc(uid: str):

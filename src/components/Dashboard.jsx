@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { signOut } from 'firebase/auth'
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { db, signOutWithCleanup } from '../firebase'
 
 const DEMO_MAX_TRIPS = Number(import.meta.env.VITE_DEMO_MAX_TRIPS || 2)
 import {
@@ -387,7 +386,7 @@ export default function Dashboard({ user, isAdmin, isDemo, gatewayTripId, onSele
           </Tooltip>
           <Tooltip title={t('signOutTooltip', { email: user.email })}>
             <Button size="small" startIcon={<LogoutIcon sx={{ fontSize: 16 }} />}
-              onClick={() => signOut(auth)}
+              onClick={() => signOutWithCleanup()}
               sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', textTransform: 'none', minWidth: 0, '&:hover': { color: '#fff' } }}>
               {t('logout')}
             </Button>

@@ -1,5 +1,8 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider, signInAnonymously } from 'firebase/auth'
+import {
+  getAuth, GoogleAuthProvider, signInAnonymously, signOut, deleteUser,
+  setPersistence, browserSessionPersistence,
+} from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 
@@ -19,7 +22,28 @@ export const storage  = getStorage(app)
 export const googleProvider = new GoogleAuthProvider()
 
 // Demo mode: sign in as an anonymous Firebase user (called only after a
-// Cloudflare Turnstile challenge is verified server-side at /demo/start).
-export function signInAnonymouslyDemo() {
+// reCAPTCHA Enterprise assessment is verified server-side at /demo/start).
+// Uses SESSION persistence so the demo identity is scoped to the tab — closing
+// or "exiting" the tab clears it, and a fresh visit starts a brand-new demo.
+export async function signInAnonymouslyDemo() {
+  await setPersistence(auth, browserSessionPersistence)
   return signInAnonymously(auth)
+}
+
+// Sign out, with demo cleanup. For an anonymous (demo) user we DELETE the
+// account so the next visit starts fresh with a brand-new uid — no carried-
+// over demo trips or AI quota. Their demo trips/quota are keyed on the uid,
+// so a new uid means a clean slate. Falls back to a plain signOut if delete
+// isn't possible (e.g. token already gone).
+export async function signOutWithCleanup() {
+  const current = auth.currentUser
+  if (current?.isAnonymous) {
+    try {
+      await deleteUser(current)   // also ends the session
+      return
+    } catch {
+      // fall through to signOut
+    }
+  }
+  await signOut(auth)
 }

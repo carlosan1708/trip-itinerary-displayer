@@ -133,3 +133,116 @@ class TestChatEndpoint:
         client = TestClient(app, raise_server_exceptions=False)
         resp = client.post("/agent/chat", headers=_ORIGIN_HEADERS, json={"messages": []})
         assert resp.status_code == 422
+
+    def test_rejects_invalid_role(self):
+        app.dependency_overrides[verify_token] = lambda: {"uid": "x", "email": "x@x.com"}
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/agent/chat", headers=_ORIGIN_HEADERS, json={
+            "messages": [{"role": "system", "content": "hi"}],
+        })
+        assert resp.status_code == 422
+
+    def test_rejects_bad_language_pattern(self):
+        app.dependency_overrides[verify_token] = lambda: {"uid": "x", "email": "x@x.com"}
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/agent/chat", headers=_ORIGIN_HEADERS, json={
+            "messages": [{"role": "user", "content": "hi"}],
+            "language": "english",
+        })
+        assert resp.status_code == 422
+
+
+class TestCreateEndpointValidation:
+    _user = {"uid": "x", "email": "x@x.com"}
+
+    def setup_method(self):
+        app.dependency_overrides[verify_token] = lambda: self._user
+
+    def teardown_method(self):
+        app.dependency_overrides.clear()
+
+    def _payload(self, **overrides):
+        base = {
+            "destination": "Canada", "dates": "Sep 2026", "num_days": 10,
+            "travelers": 2, "interests": ["food"], "budget": "mid", "pace": "moderate",
+        }
+        base.update(overrides)
+        return base
+
+    def test_rejects_missing_origin(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/agent/create", json=self._payload())
+        assert resp.status_code == 403
+
+    def test_rejects_num_days_over_max(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/agent/create", headers=_ORIGIN_HEADERS, json=self._payload(num_days=61))
+        assert resp.status_code == 422
+
+    def test_rejects_num_days_under_min(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/agent/create", headers=_ORIGIN_HEADERS, json=self._payload(num_days=0))
+        assert resp.status_code == 422
+
+    def test_rejects_travelers_over_max(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/agent/create", headers=_ORIGIN_HEADERS, json=self._payload(travelers=21))
+        assert resp.status_code == 422
+
+    def test_rejects_invalid_budget(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/agent/create", headers=_ORIGIN_HEADERS, json=self._payload(budget="cheap"))
+        assert resp.status_code == 422
+
+    def test_rejects_invalid_pace(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/agent/create", headers=_ORIGIN_HEADERS, json=self._payload(pace="fast"))
+        assert resp.status_code == 422
+
+
+class TestDemoStartEndpoint:
+    def teardown_method(self):
+        app.dependency_overrides.clear()
+
+    def test_rejects_missing_origin(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/demo/start", json={"token": "abc"})
+        assert resp.status_code == 403
+
+    def test_rejects_empty_token(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        resp = client.post("/demo/start", headers=_ORIGIN_HEADERS, json={"token": ""})
+        assert resp.status_code == 422
+
+    def test_returns_403_when_recaptcha_fails(self):
+        with patch("main.verify_recaptcha", new_callable=AsyncMock, return_value=False):
+            client = TestClient(app, raise_server_exceptions=False)
+            resp = client.post("/demo/start", headers=_ORIGIN_HEADERS, json={"token": "tok"})
+        assert resp.status_code == 403
+
+    def test_returns_ok_when_recaptcha_passes(self):
+        with patch("main.verify_recaptcha", new_callable=AsyncMock, return_value=True):
+            client = TestClient(app)
+            resp = client.post("/demo/start", headers=_ORIGIN_HEADERS, json={"token": "tok"})
+        assert resp.status_code == 200
+        assert resp.json() == {"ok": True}
+
+
+class TestIdentityAndSseHelpers:
+    def test_identity_prefers_email(self):
+        from main import _identity
+        assert _identity({"uid": "u1", "email": "a@b.com"}) == "a@b.com"
+
+    def test_identity_falls_back_to_demo_uid(self):
+        from main import _identity
+        assert _identity({"uid": "anon-1"}) == "demo:anon-1"
+
+    def test_sse_formats_event_and_data(self):
+        from main import _sse
+        out = _sse("token", {"text": "hi"})
+        assert out == 'event: token\ndata: {"text": "hi"}\n\n'
+
+    def test_sse_preserves_unicode(self):
+        from main import _sse
+        out = _sse("progress", {"text": "Días"})
+        assert "Días" in out  # ensure_ascii=False keeps accents readable

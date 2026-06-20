@@ -3,9 +3,17 @@ Unit tests for chat.py — pure Python logic, no external calls.
 """
 import sys
 import os
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from chat import _detect_intent, _build_contents, _extract_sources
+from chat import (
+    _detect_intent, _build_contents, _extract_sources,
+    _empty_response_reason, _build_systems, _COPY_RESPONSE, run_conversation,
+)
 
 
 class TestDetectIntent:
@@ -75,8 +83,110 @@ class TestBuildContents:
         assert "Trip" not in contents[1]["parts"][0]["text"]
 
     def test_extract_sources_no_grounding(self):
-        from unittest.mock import MagicMock
         response = MagicMock()
         response.candidates = []
         sources = _extract_sources(response)
         assert sources == []
+
+
+class TestExtractSources:
+    def _response_with_chunks(self, chunks):
+        web_chunks = []
+        for c in chunks:
+            web = SimpleNamespace(**c) if c is not None else None
+            web_chunks.append(SimpleNamespace(web=web))
+        meta = SimpleNamespace(grounding_chunks=web_chunks)
+        candidate = SimpleNamespace(grounding_metadata=meta)
+        return SimpleNamespace(candidates=[candidate])
+
+    def test_extracts_title_and_url(self):
+        resp = self._response_with_chunks([{"title": "Banff", "uri": "https://banff.ca"}])
+        assert _extract_sources(resp) == [{"title": "Banff", "url": "https://banff.ca"}]
+
+    def test_falls_back_to_uri_when_title_missing(self):
+        resp = self._response_with_chunks([{"title": "", "uri": "https://x.com"}])
+        assert _extract_sources(resp) == [{"title": "https://x.com", "url": "https://x.com"}]
+
+    def test_skips_chunks_without_a_uri(self):
+        resp = self._response_with_chunks([{"title": "No link", "uri": ""}])
+        assert _extract_sources(resp) == []
+
+    def test_skips_chunks_without_web(self):
+        resp = self._response_with_chunks([None])
+        assert _extract_sources(resp) == []
+
+    def test_tolerates_none_grounding_chunks(self):
+        meta = SimpleNamespace(grounding_chunks=None)
+        candidate = SimpleNamespace(grounding_metadata=meta)
+        resp = SimpleNamespace(candidates=[candidate])
+        assert _extract_sources(resp) == []
+
+
+class TestEmptyResponseReason:
+    def _chunk(self, reason_name):
+        finish = SimpleNamespace(name=reason_name)
+        return SimpleNamespace(candidates=[SimpleNamespace(finish_reason=finish)])
+
+    def test_none_chunk(self):
+        assert "network" in _empty_response_reason(None).lower()
+
+    def test_safety_block(self):
+        assert "safety" in _empty_response_reason(self._chunk("SAFETY")).lower()
+
+    def test_max_tokens(self):
+        assert "token limit" in _empty_response_reason(self._chunk("MAX_TOKENS")).lower()
+
+    def test_unexpected_reason(self):
+        msg = _empty_response_reason(self._chunk("RECITATION"))
+        assert "RECITATION" in msg
+
+    def test_normal_stop_is_generic_empty(self):
+        assert _empty_response_reason(self._chunk("STOP")) == "Empty response from model."
+
+    def test_malformed_chunk_is_generic_empty(self):
+        assert _empty_response_reason(object()) == "Empty response from model."
+
+
+class TestBuildSystems:
+    def test_english_label(self):
+        qa, edit = _build_systems("en")
+        assert "English" in qa
+        assert "English" in edit
+
+    def test_spanish_label(self):
+        qa, edit = _build_systems("es")
+        assert "Spanish" in qa
+        assert "Spanish" in edit
+
+    def test_unknown_language_defaults_to_english(self):
+        qa, _ = _build_systems("xx")
+        assert "English" in qa
+
+
+@pytest.mark.asyncio
+class TestRunConversationCopy:
+    async def _collect(self, **kwargs):
+        return [evt async for evt in run_conversation(**kwargs)]
+
+    async def test_copy_intent_returns_instant_done_without_api(self):
+        events = await self._collect(
+            messages=[{"role": "user", "content": "make a copy"}],
+            itinerary={"title": "X"},
+            mode="explore",
+            user_email="u@test.com",
+            language="en",
+        )
+        assert len(events) == 1
+        assert events[0]["event"] == "done"
+        assert events[0]["data"]["response"] == _COPY_RESPONSE["en"]
+        assert events[0]["data"]["patch"] == {}
+
+    async def test_copy_intent_uses_spanish_response(self):
+        events = await self._collect(
+            messages=[{"role": "user", "content": "quiero una copia"}],
+            itinerary=None,
+            mode="explore",
+            user_email="u@test.com",
+            language="es",
+        )
+        assert events[0]["data"]["response"] == _COPY_RESPONSE["es"]

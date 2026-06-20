@@ -125,6 +125,9 @@ function TagInput({ tags, onChange, suggestions }) {
 
 export default function DayFiles({ tripId, gatewayTripId, dayNumber, user, isAdmin, files }) {
   const t = useT()
+  // Demo (anonymous) users can browse/download but not upload — keeps the
+  // shared Storage bucket from filling with throwaway demo files.
+  const isDemo = user?.isDemo === true
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
   const [pendingFile, setPendingFile] = useState(null)
@@ -253,15 +256,31 @@ export default function DayFiles({ tripId, gatewayTripId, dayNumber, user, isAdm
             {helperText}
           </Typography>
         </Box>
-        <Button
-          size="small"
-          variant="outlined"
-          startIcon={<UploadFileIcon fontSize="small" />}
-          onClick={promptUpload}
-          disabled={uploading || !!pendingFile}
-        >
-          {t('uploadFileAction')}
-        </Button>
+        {isDemo ? (
+          <Tooltip title={t('uploadDisabledDemo')}>
+            {/* span wrapper so the tooltip works on a disabled button */}
+            <span>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<UploadFileIcon fontSize="small" />}
+                disabled
+              >
+                {t('uploadFileAction')}
+              </Button>
+            </span>
+          </Tooltip>
+        ) : (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<UploadFileIcon fontSize="small" />}
+            onClick={promptUpload}
+            disabled={uploading || !!pendingFile}
+          >
+            {t('uploadFileAction')}
+          </Button>
+        )}
       </Box>
 
       <input ref={fileRef} type="file" hidden onChange={handleFileChange} />

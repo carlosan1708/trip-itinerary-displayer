@@ -83,6 +83,8 @@ Project-specific (`.claude/skills/`):
 - `/ship-feature` — sync docs after a spec is implemented (update `as-built.md`, flip Status to Shipped, move from Pending to Shipped in `roadmap.md`)
 
 ## Testing
+- **Unit (Vitest)** in `src/**/*.test.{js,jsx}` — `npm run test`. Pure logic in `src/utils/` + `src/i18n/`, jsdom env, Firebase aliased to `src/__mocks__/` (config: `vitest.config.js`, `vitest.setup.js`). Add a unit test for any new pure helper.
+- **Backend (pytest)** in `backend/tests/` — `cd backend && python -m pytest -q`. Gemini/Firebase/slowapi patched in `tests/conftest.py`.
 - Playwright E2E in `e2e/` — `npm run test:e2e`
 - **When adding/modifying a feature in `src/`, you MUST add or update E2E tests in `e2e/` as part of the same task. A feature is not done until it has tests.**
 - Tests passing = task done. If a change breaks a test (including `e2e/` or config files), fix it — do not delete tests.

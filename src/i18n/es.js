@@ -8,7 +8,7 @@ export default {
   tryDemo: 'Probar la demo',
   demoStarting: 'Iniciando tu demo…',
   demoError: 'No se pudo iniciar la demo. Inténtalo de nuevo.',
-  demoBanner: 'Modo demo — puedes crear hasta {maxTrips} viajes y usar el asistente de IA {maxAi} veces. Los cambios aquí son temporales.',
+  demoBanner: 'Modo demo — puedes crear hasta {maxTrips} viajes y usar el asistente de IA {maxAi} veces. Nada se guarda: tus cambios se borran al cerrar sesión o cerrar la pestaña.',
   demoTripLimit: 'Límite de demo alcanzado: puedes crear hasta {max} viajes. Inicia sesión para acceso completo o ponte en contacto.',
   demoAiLimit: 'Alcanzaste el límite de demo del asistente de IA. Contacta al propietario para acceso completo.',
 
@@ -160,6 +160,7 @@ export default {
   maxFileSizeHint: 'Máximo {size} por archivo',
   uploadingBtn: 'Subiendo...',
   uploadFileAction: 'Subir archivo',
+  uploadDisabledDemo: 'La subida de archivos está deshabilitada en el modo demo.',
   confirmUpload: 'Subir',
   noFilesMsg: 'No hay archivos cargados para este día.',
   noFilesMatchFilter: 'Ningún archivo coincide con el filtro seleccionado.',

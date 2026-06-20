@@ -16,7 +16,7 @@ test.describe('Demo mode', () => {
   test('passing the challenge signs in anonymously and lands on the demo dashboard', async ({ page }) => {
     await page.getByTestId('try-demo-btn').click()
 
-    // Turnstile is bypassed → /demo/start mocked → signInAnonymously fires.
+    // reCAPTCHA is bypassed → /demo/start mocked → signInAnonymously fires.
     // Demo banner and the seeded sample trip should appear.
     await expect(page.getByTestId('demo-banner')).toBeVisible({ timeout: 5000 })
     await expect(page.getByText('Sample Trip')).toBeVisible({ timeout: 5000 })
@@ -33,5 +33,19 @@ test.describe('Demo mode', () => {
     const banner = page.getByTestId('demo-banner')
     await expect(banner).toBeVisible({ timeout: 5000 })
     await expect(banner).toContainText(/Demo mode/i)
+  })
+
+  test('demo user cannot upload files (upload button disabled)', async ({ page }) => {
+    await page.getByTestId('try-demo-btn').click()
+    await expect(page.getByTestId('demo-banner')).toBeVisible({ timeout: 5000 })
+
+    // Open the sample trip and expand a day so DayFiles renders.
+    await page.getByText('Sample Trip').click()
+    await page.getByText('Llegada Nocturna').waitFor({ timeout: 8000 })
+    await page.getByText('Llegada Nocturna').click()
+
+    // The upload button is present but disabled for demo users.
+    await expect(page.getByText(/Day files/i).first()).toBeVisible({ timeout: 5000 })
+    await expect(page.getByRole('button', { name: /Upload file/i })).toBeDisabled()
   })
 })
