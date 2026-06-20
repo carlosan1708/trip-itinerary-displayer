@@ -117,6 +117,10 @@ async function _readSSE(body, handlers) {
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  // `event` must persist across reads: an SSE event's `event:` and `data:`
+  // lines can land in different network chunks, and the type set by an earlier
+  // chunk has to survive until its `data:` line arrives.
+  let event = null
 
   while (true) {
     const { done, value } = await reader.read()
@@ -126,7 +130,6 @@ async function _readSSE(body, handlers) {
     const lines = buffer.split('\n')
     buffer = lines.pop()  // keep incomplete last line
 
-    let event = null
     for (const line of lines) {
       if (line.startsWith('event: ')) {
         event = line.slice(7).trim()

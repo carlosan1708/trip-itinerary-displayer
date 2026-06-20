@@ -309,3 +309,39 @@ export async function setupUnauthorizedAuth(page) {
     { email, gatewayTripId }
   )
 }
+
+/**
+ * Allowed user with pre-seeded day notes in the gateway trip's `notes`
+ * collection. Each note carries tripId + dayNumber so DayNotes can filter
+ * client-side. `createdAt` is omitted (the mock can't carry a Firestore
+ * Timestamp with toMillis()); DayNotes guards for that and still renders.
+ */
+export async function setupUserWithNotes(page, notes) {
+  const userEmail = USER_EMAIL
+  const gatewayTripId = GATEWAY_TRIP_ID
+  const itinerary = MOCK_ITINERARY
+  const registry = MOCK_REGISTRY_TRIPS
+
+  await page.addInitScript(
+    ({ userEmail, gatewayTripId, itinerary, registry, notes }) => {
+      window.__mockAuth = {
+        currentUser: {
+          email: userEmail, uid: 'user-uid', displayName: 'Regular User',
+          getIdToken: () => Promise.resolve('mock-id-token'),
+          getIdTokenResult: () => Promise.resolve({ claims: {} }),
+        },
+      }
+      window.__mockFirestore = {
+        docs: {
+          [`trips/${gatewayTripId}/allowed_users/${userEmail}`]: { email: userEmail },
+          [`trips/${gatewayTripId}/data/itinerary`]: itinerary,
+          [`trips/${gatewayTripId}/registry/main`]: { trips: registry },
+        },
+        collections: {
+          [`trips/${gatewayTripId}/notes`]: notes,
+        },
+      }
+    },
+    { userEmail, gatewayTripId, itinerary, registry, notes }
+  )
+}

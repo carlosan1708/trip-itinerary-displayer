@@ -264,7 +264,6 @@ export default function App() {
   }
 
   async function handleAgentDuplicate(newTripId, duplicateItinerary) {
-    const { getRegistry, saveRegistry } = await import('./utils/registry')
     const reg = getRegistry()
 
     // Demo users are capped at DEMO_MAX_TRIPS. The backend/Firestore rules are
