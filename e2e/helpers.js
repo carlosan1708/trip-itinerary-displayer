@@ -345,3 +345,188 @@ export async function setupUserWithNotes(page, notes) {
     { userEmail, gatewayTripId, itinerary, registry, notes }
   )
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// English fixtures + recorder helpers
+//
+// The Spanish fixtures above are asserted on by the E2E suite and must stay
+// Spanish. The README showcase GIFs, however, should read fully in English, so
+// the recorder (scripts/record-demos.spec.js) uses these English variants and
+// forces the UI language to English via localStorage('lang').
+// ─────────────────────────────────────────────────────────────────────────────
+
+const EN_ITINERARY = {
+  version: 999,
+  author: ADMIN_EMAIL,
+  title: 'Canada Itinerary',
+  subtitle: 'Sep 12 – Sep 30, 2026',
+  stats: ['19 days', '3 provinces', '5 cities', 'SJO → YYZ'],
+  parts: [
+    {
+      id: 1,
+      emoji: '🏔️',
+      title: 'The Rockies',
+      color: '#2E7D32',
+      daysRange: 'Days 1 – 2',
+      days: [
+        {
+          dayNumber: 1,
+          date: 'Sat Sep 12',
+          location: 'Calgary',
+          subtitle: 'Overnight Arrival',
+          logistics: [
+            { type: 'flight', label: 'Flight', value: 'SJO → YYC' },
+            { type: 'stay', label: 'Stay', value: 'Downtown Calgary Hotel' },
+          ],
+          activities: ['Land at YYC', 'Check in and rest'],
+          tips: ['Remember the voltage adapter'],
+          warnings: [],
+          links: [{ label: 'Calgary Tower', url: 'https://example.com' }],
+        },
+        {
+          dayNumber: 2,
+          date: 'Sun Sep 13',
+          location: 'Banff',
+          subtitle: 'First Exploration',
+          logistics: [
+            { type: 'drive', label: 'Drive', value: 'Calgary → Banff: 130 km' },
+            { type: 'stay', label: 'Stay', value: 'Banff Hotel' },
+          ],
+          activities: ['Visit Bow Falls', 'Stroll down Banff Avenue'],
+          tips: [],
+          warnings: ['Bring warm clothing'],
+          links: [],
+        },
+      ],
+    },
+  ],
+}
+
+const EN_REGISTRY_TRIPS = [
+  {
+    id: 'canada-trip', label: 'Eastern Route',
+    subtitle: 'SJO → YYZ · Toronto, Ottawa, Montreal',
+    dates: 'Sep 12–30, 2026', duration: '19 days',
+    author: USER_EMAIL, viewers: [USER_EMAIL],
+  },
+  {
+    id: 'canada-trip-2', label: 'Western Route',
+    subtitle: 'SJO → YVR · Vancouver, Victoria',
+    dates: 'Sep 12–30, 2026', duration: '19 days',
+    author: USER_EMAIL, viewers: [USER_EMAIL],
+  },
+]
+
+const EN_MIXED_REGISTRY_TRIPS = [
+  {
+    id: 'canada-trip', label: 'Eastern Route',
+    subtitle: 'Mine', dates: 'Sep 12–30, 2026', duration: '19 days',
+    author: ADMIN_EMAIL, viewers: [ADMIN_EMAIL],
+  },
+  {
+    id: 'other-trip-1', label: 'Japan Adventure',
+    subtitle: 'Someone else', dates: 'Oct 2026', duration: '10 days',
+    author: 'someone@test.com', viewers: ['someone@test.com'],
+  },
+  {
+    id: 'other-trip-2', label: 'Patagonia Trek',
+    subtitle: 'Another', dates: 'Nov 2026', duration: '14 days',
+    author: 'another@test.com', viewers: ['another@test.com'],
+  },
+]
+
+/** Force the UI into English regardless of any persisted preference. */
+async function forceEnglish(page) {
+  await page.addInitScript(() => {
+    try { localStorage.setItem('lang', 'en') } catch { /* ignore */ }
+  })
+}
+
+/** English equivalent of setupAllowedUserAuth, for the showcase recorder. */
+export async function setupAllowedUserAuthEn(page) {
+  await forceEnglish(page)
+  const userEmail = USER_EMAIL
+  const gatewayTripId = GATEWAY_TRIP_ID
+  const itinerary = EN_ITINERARY
+  const registry = EN_REGISTRY_TRIPS
+
+  await page.addInitScript(
+    ({ userEmail, gatewayTripId, itinerary, registry }) => {
+      window.__mockAuth = {
+        currentUser: {
+          email: userEmail, uid: 'user-uid', displayName: 'Regular User',
+          getIdToken: () => Promise.resolve('mock-id-token'),
+          getIdTokenResult: () => Promise.resolve({ claims: {} }),
+        },
+      }
+      window.__mockFirestore = {
+        docs: {
+          [`trips/${gatewayTripId}/allowed_users/${userEmail}`]: { email: userEmail },
+          [`trips/${gatewayTripId}/data/itinerary`]: itinerary,
+          [`trips/${gatewayTripId}/registry/main`]: { trips: registry },
+        },
+      }
+    },
+    { userEmail, gatewayTripId, itinerary, registry }
+  )
+}
+
+/** English equivalent of setupAdminAuth, for the showcase recorder. */
+export async function setupAdminAuthEn(page) {
+  await forceEnglish(page)
+  const adminEmail = ADMIN_EMAIL
+  const gatewayTripId = GATEWAY_TRIP_ID
+  const itinerary = EN_ITINERARY
+  const registry = EN_REGISTRY_TRIPS
+
+  await page.addInitScript(
+    ({ adminEmail, gatewayTripId, itinerary, registry }) => {
+      window.__mockAuth = {
+        currentUser: {
+          email: adminEmail, uid: 'admin-uid', displayName: 'Admin User',
+          getIdToken: () => Promise.resolve('mock-id-token'),
+          getIdTokenResult: () => Promise.resolve({ claims: { admin: true } }),
+        },
+      }
+      window.__mockFirestore = {
+        docs: {
+          [`trips/${gatewayTripId}/allowed_users/${adminEmail}`]: { email: adminEmail },
+          [`trips/${gatewayTripId}/data/itinerary`]: itinerary,
+          [`trips/${gatewayTripId}/registry/main`]: { trips: registry },
+        },
+      }
+    },
+    { adminEmail, gatewayTripId, itinerary, registry }
+  )
+}
+
+/** English equivalent of setupAdminWithMixedTrips, for the showcase recorder. */
+export async function setupAdminWithMixedTripsEn(page) {
+  await forceEnglish(page)
+  const adminEmail = ADMIN_EMAIL
+  const gatewayTripId = GATEWAY_TRIP_ID
+  const itinerary = EN_ITINERARY
+  const registry = EN_MIXED_REGISTRY_TRIPS
+
+  await page.addInitScript(
+    ({ adminEmail, gatewayTripId, itinerary, registry }) => {
+      window.__mockAuth = {
+        currentUser: {
+          email: adminEmail, uid: 'admin-uid', displayName: 'Admin User',
+          getIdToken: () => Promise.resolve('mock-id-token'),
+          getIdTokenResult: () => Promise.resolve({ claims: { admin: true } }),
+        },
+      }
+      window.__mockFirestore = {
+        docs: {
+          [`trips/${gatewayTripId}/allowed_users/${adminEmail}`]: { email: adminEmail },
+          [`trips/${gatewayTripId}/data/itinerary`]: itinerary,
+          [`trips/${gatewayTripId}/registry/main`]: { trips: registry },
+          [`trips/other-trip-1/data/itinerary`]: { ...itinerary, title: 'Japan Adventure', author: 'someone@test.com' },
+          [`trips/other-trip-2/data/itinerary`]: { ...itinerary, title: 'Patagonia Trek', author: 'another@test.com' },
+        },
+      }
+    },
+    { adminEmail, gatewayTripId, itinerary, registry }
+  )
+}

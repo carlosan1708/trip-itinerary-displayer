@@ -9,7 +9,7 @@
 // docs/media/*.gif with ffmpeg.
 
 import { test, expect } from '@playwright/test'
-import { setupAdminAuth, setupAdminWithMixedTrips, setupAllowedUserAuth } from '../e2e/helpers.js'
+import { setupAdminAuthEn, setupAdminWithMixedTripsEn, setupAllowedUserAuthEn } from '../e2e/helpers.js'
 
 // A realistic generated itinerary the mocked /agent/create returns.
 const GENERATED = {
@@ -49,7 +49,7 @@ async function settle(page, ms = 700) { await page.waitForTimeout(ms) }
 
 // ── 1. AI trip planner ───────────────────────────────────────────────────────
 test('demo: ai-planner', async ({ page }) => {
-  await setupAllowedUserAuth(page)
+  await setupAllowedUserAuthEn(page)
 
   // Mock the AI backend with a short streamed "thinking" then the itinerary.
   await page.route('**/agent/create', async (route) => {
@@ -123,17 +123,17 @@ test('demo: ai-planner', async ({ page }) => {
 
 // ── 2. In-trip AI assistant (propose + apply a change) ───────────────────────
 test('demo: ai-assistant', async ({ page }) => {
-  await setupAllowedUserAuth(page)
+  await setupAllowedUserAuthEn(page)
 
   // Mock /agent/chat to stream a reply + a patch the user can apply.
   await page.route('**/agent/chat', async (route) => {
     await page.waitForTimeout(900)
     const response = 'Done — I added a coffee-plantation tour to Day 2 in Banff.'
     // Patch shape matches itineraryPatch.describePatch: { parts: [{ id, days: [...] }] }.
-    // The mock itinerary "Itinerario Canadá" has part id 1 with days 1 and 2.
+    // The mock itinerary "Canada Itinerary" has part id 1 with days 1 and 2.
     const patch = {
       parts: [
-        { id: 1, days: [{ dayNumber: 2, activities: ['Visita Bow Falls', 'Paseo por Banff Avenue', 'Coffee plantation tour (2h)'] }] },
+        { id: 1, days: [{ dayNumber: 2, activities: ['Visit Bow Falls', 'Stroll down Banff Avenue', 'Coffee plantation tour (2h)'] }] },
       ],
     }
     const body =
@@ -144,10 +144,10 @@ test('demo: ai-assistant', async ({ page }) => {
   })
 
   await page.goto('/')
-  await page.getByText('Ruta Este').waitFor({ timeout: 8000 })
+  await page.getByText('Eastern Route').waitFor({ timeout: 8000 })
   await settle(page)
-  await page.getByText('Ruta Este').click()
-  await page.getByText('Itinerario Canadá').waitFor({ timeout: 8000 })
+  await page.getByText('Eastern Route').click()
+  await page.getByText('Canada Itinerary').waitFor({ timeout: 8000 })
   await settle(page, 900)
 
   // Open the agent drawer
@@ -168,7 +168,7 @@ test('demo: ai-assistant', async ({ page }) => {
 
 // ── 3. Dashboard: My Trips + All Trips (admin) ───────────────────────────────
 test('demo: dashboard', async ({ page }) => {
-  await setupAdminWithMixedTrips(page)
+  await setupAdminWithMixedTripsEn(page)
   await page.goto('/')
   await page.getByTestId('folder-my').waitFor({ timeout: 8000 })
   await settle(page, 1200)
@@ -189,17 +189,17 @@ test('demo: dashboard', async ({ page }) => {
 
 // ── 4. Edit a day + version history ──────────────────────────────────────────
 test('demo: edit-versions', async ({ page }) => {
-  await setupAdminAuth(page)
+  await setupAdminAuthEn(page)
   await page.goto('/')
-  await page.getByText('Ruta Este').waitFor({ timeout: 8000 })
+  await page.getByText('Eastern Route').waitFor({ timeout: 8000 })
   await settle(page, 800)
-  await page.getByText('Ruta Este').click()
-  await page.getByText('Itinerario Canadá').waitFor({ timeout: 8000 })
+  await page.getByText('Eastern Route').click()
+  await page.getByText('Canada Itinerary').waitFor({ timeout: 8000 })
   await settle(page, 900)
 
   // Expand a day card to show details
-  await page.getByText('Llegada Nocturna').click()
+  await page.getByText('Overnight Arrival').click()
   await settle(page, 1400)
-  await page.getByText('Exploración Inicial').click()
+  await page.getByText('First Exploration').click()
   await settle(page, 1600)
 })
