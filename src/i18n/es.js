@@ -319,6 +319,7 @@ export default {
   // Revisión de IA en línea (en las tarjetas de día + barra de revisión)
   agentInlineProposed: 'Cambio propuesto por IA',
   agentInlineBadge: 'Propuesto',
+  agentInlineRemoved: 'Este día se eliminará',
   agentInlineAccept: 'Aceptar',
   agentInlineReject: 'Rechazar',
   agentReviewTitle: 'La IA propone cambios',

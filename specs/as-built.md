@@ -324,6 +324,23 @@ Each note document:
   Save / Discard** bar. **Save** persists via the existing `onAgentDuplicate`
   path (registry + Firestore, demo-cap aware) and opens the new trip; **Discard**
   drops it. The chat shows a "review your new itinerary" hint.
+  - `onAgentDuplicate` returns the trip id actually used (demo saves get a
+    uid-scoped id); `handleSavePreview` navigates to that returned id and clears
+    the preview only after the save resolves — otherwise demo users landed on a
+    non-existent id and got stuck on a blank loading screen.
+- **Refining a pending preview**: while a `NewTripPreview` is shown (before
+  Save), the assistant is wired with the preview as its editable itinerary
+  (`canEdit` true). A chat edit produces a patch that is applied straight into
+  the preview (`handleRefinePreview`) — the preview itself is the review surface
+  — so refinements update the UI in place instead of answering with prose.
+- **Patch add/remove semantics** (`applyPatch` in `utils/itineraryPatch.js`):
+  the agent patch is an RFC-7396-style merge-patch matched by part `id` / day
+  `dayNumber`. A day/part with a *new* id/dayNumber is **added**; one flagged
+  `{ "_delete": true }` is **removed**. After a removal, days are renumbered
+  sequentially (no gaps), so "make it 2 days" on a 3-day trip yields Days 1–2.
+  `describePatch`/`diffPatch` flag entries as `added`/`removed` so the review UI
+  (and `DayCardDiff`) renders them; the backend edit prompt documents the
+  `_delete` marker.
 - Accepts a `language` prop to match the current UI language.
 
 ---

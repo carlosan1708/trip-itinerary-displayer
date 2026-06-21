@@ -319,6 +319,7 @@ export default {
   // Inline AI review (on day cards + review bar)
   agentInlineProposed: 'AI proposed change',
   agentInlineBadge: 'Proposed',
+  agentInlineRemoved: 'This day will be removed',
   agentInlineAccept: 'Accept',
   agentInlineReject: 'Reject',
   agentReviewTitle: 'AI proposed changes',

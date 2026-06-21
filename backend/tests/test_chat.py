@@ -72,6 +72,22 @@ class TestDetectIntent:
     def test_copy_beats_edit_marker(self):
         assert _detect_intent("quiero una copia del itinerario", "edit") == "copy"
 
+    # Reduce / shorten phrasings must register as edits (they map to day removals).
+    def test_i_asked_for_n_days_edit_mode(self):
+        assert _detect_intent("I asked for 2 day", "edit") == "edit"
+
+    def test_make_it_n_days_edit_mode(self):
+        assert _detect_intent("make it 2 days", "edit") == "edit"
+
+    def test_drop_last_day_edit_mode(self):
+        assert _detect_intent("drop the last day", "edit") == "edit"
+
+    def test_only_n_days_edit_mode(self):
+        assert _detect_intent("only 2 days please", "edit") == "edit"
+
+    def test_reduce_blocked_in_explore_mode(self):
+        assert _detect_intent("make it 2 days", "explore") == "qa"
+
 
 class TestBuildContents:
     def test_injects_itinerary_into_first_user_turn(self):

@@ -7,6 +7,10 @@
  *
  * Returns a new itinerary object (does not mutate the original).
  */
+// Marker an agent patch sets on a part/day object to request its removal,
+// e.g. { id: 1, days: [{ dayNumber: 3, _delete: true }] } drops Day 3.
+export const DELETE_MARKER = '_delete'
+
 export function applyPatch(itinerary, patch) {
   const result = structuredClone(itinerary)
 
@@ -21,12 +25,21 @@ export function applyPatch(itinerary, patch) {
   return result
 }
 
+function _isDelete(obj) {
+  return obj && obj[DELETE_MARKER] === true
+}
+
 function _mergeParts(existingParts, patchParts) {
   const partMap = new Map(existingParts.map(p => [p.id, structuredClone(p)]))
+  const removed = new Set()
   const appended = []
 
   for (const patchPart of patchParts) {
     const existing = partMap.get(patchPart.id)
+    if (_isDelete(patchPart)) {
+      if (existing) removed.add(patchPart.id)
+      continue
+    }
     if (!existing) {
       // A part not present in the itinerary is an addition — keep it whole.
       appended.push(structuredClone(patchPart))
@@ -43,15 +56,23 @@ function _mergeParts(existingParts, patchParts) {
     partMap.set(patchPart.id, existing)
   }
 
-  return [...existingParts.map(p => partMap.get(p.id) || p), ...appended]
+  return [
+    ...existingParts.filter(p => !removed.has(p.id)).map(p => partMap.get(p.id) || p),
+    ...appended,
+  ]
 }
 
 function _mergeDays(existingDays, patchDays) {
   const dayMap = new Map(existingDays.map(d => [d.dayNumber, structuredClone(d)]))
+  const removed = new Set()
   const appended = []
 
   for (const patchDay of patchDays) {
     const existing = dayMap.get(patchDay.dayNumber)
+    if (_isDelete(patchDay)) {
+      if (existing) removed.add(patchDay.dayNumber)
+      continue
+    }
     if (!existing) {
       // A day with a new dayNumber is an addition — keep it whole.
       appended.push(structuredClone(patchDay))
@@ -66,10 +87,20 @@ function _mergeDays(existingDays, patchDays) {
     dayMap.set(patchDay.dayNumber, existing)
   }
 
-  // Merge existing (preserving order) with appended, then sort by dayNumber so
-  // an inserted day lands in the right place rather than always at the end.
-  const merged = [...existingDays.map(d => dayMap.get(d.dayNumber) || d), ...appended]
-  return merged.sort((a, b) => (a.dayNumber ?? 0) - (b.dayNumber ?? 0))
+  // Merge existing (minus removed, preserving order) with appended, then sort by
+  // dayNumber so an inserted day lands in the right place.
+  const merged = [
+    ...existingDays.filter(d => !removed.has(d.dayNumber)).map(d => dayMap.get(d.dayNumber) || d),
+    ...appended,
+  ].sort((a, b) => (a.dayNumber ?? 0) - (b.dayNumber ?? 0))
+
+  // Renumber sequentially after a removal so there are no gaps (3→2 days yields
+  // Days 1–2, not Days 1 & 3). Only when something was actually removed, to keep
+  // pure edits/additions untouched.
+  if (removed.size > 0) {
+    merged.forEach((d, i) => { d.dayNumber = i + 1 })
+  }
+  return merged
 }
 
 /**
@@ -84,6 +115,12 @@ export function describePatch(itinerary, patch) {
 
   for (const patchPart of patch.parts || []) {
     const part = partMap.get(patchPart.id)
+
+    // A part flagged for deletion.
+    if (_isDelete(patchPart)) {
+      if (part) changes.push({ partTitle: part.title, dayNumber: null, changedFields: [], removed: true })
+      continue
+    }
 
     // A part not in the itinerary is a whole new part being added.
     if (!part) {
@@ -108,6 +145,19 @@ export function describePatch(itinerary, patch) {
 
     for (const patchDay of patchPart.days || []) {
       const day = dayMap.get(patchDay.dayNumber)
+      if (_isDelete(patchDay)) {
+        if (day) {
+          changes.push({
+            partTitle: part.title,
+            dayNumber: patchDay.dayNumber,
+            date: day.date || '',
+            location: day.location || '',
+            changedFields: [],
+            removed: true,
+          })
+        }
+        continue
+      }
       const changedFields = Object.keys(patchDay).filter(k => k !== 'dayNumber')
       changes.push({
         partTitle: part.title,
@@ -152,6 +202,20 @@ export function diffPatch(itinerary, patch) {
   for (const patchPart of patch?.parts || []) {
     const part = partMap.get(patchPart.id)
 
+    // Part flagged for deletion: surface each of its days as removed.
+    if (_isDelete(patchPart)) {
+      if (part) {
+        for (const day of part.days || []) {
+          days.push({
+            partId: part.id, dayNumber: day.dayNumber,
+            date: day.date || '', location: day.location ?? '',
+            fields: [], removed: true,
+          })
+        }
+      }
+      continue
+    }
+
     // Whole new part being added: every day in it is an addition.
     if (!part) {
       for (const patchDay of patchPart.days || []) {
@@ -174,6 +238,17 @@ export function diffPatch(itinerary, patch) {
 
     for (const patchDay of patchPart.days || []) {
       const day = dayMap.get(patchDay.dayNumber)
+      // Day flagged for deletion.
+      if (_isDelete(patchDay)) {
+        if (day) {
+          days.push({
+            partId: part.id, dayNumber: patchDay.dayNumber,
+            date: day.date || '', location: day.location ?? '',
+            fields: [], removed: true,
+          })
+        }
+        continue
+      }
       // New day added to an existing part.
       if (!day) {
         const fields = Object.entries(patchDay)

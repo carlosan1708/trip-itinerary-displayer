@@ -202,6 +202,30 @@ test.describe('AI Agent — create from chat', () => {
     await expect(page.getByTestId('new-trip-preview')).toBeVisible()
   })
 
+  test('"make it shorter" removes a day from a pending preview', async ({ page }) => {
+    // Reducing the trip length deletes the highest day(s) via a _delete patch;
+    // the preview must drop that day, not keep it or dump prose.
+    await page.route('**/agent/chat', async (route) => {
+      // GENERATED has Days 1-2; pretend the preview is a 2-day trip the user
+      // wants down to 1 day → delete day 2.
+      const patch = { parts: [{ id: 1, days: [{ dayNumber: 2, _delete: true }] }] }
+      await route.fulfill({ status: 200, contentType: 'text/event-stream',
+        body: `event: done\ndata: ${JSON.stringify({ response: 'Removed day 2.', patch })}\n\n` })
+    })
+    await mockCreate(page)
+    await openAgentAndCreate(page)
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Georgian Bath')).toBeVisible()  // day 2 subtitle
+
+    await page.getByTestId('agent-input').fill('make it 1 day, I asked for shorter')
+    await page.getByTestId('agent-send-btn').click()
+
+    // Day 2 (Georgian Bath) is gone; day 1 remains; preview still shown.
+    await expect(page.getByText('Georgian Bath')).not.toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Roman heritage')).toBeVisible()  // day 1 subtitle
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible()
+  })
+
   test('a plain question does NOT trigger the create preview', async ({ page }) => {
     let chatHit = false
     await page.route('**/agent/chat', async (route) => {

@@ -30,6 +30,9 @@ Rules:
 - Omit fields that should remain unchanged
 - logistics.type must be one of: flight, drive, stay, train
 - For new or changed images, use only URLs already present in the itinerary or set "url": "NEEDS_IMAGE"
+- To ADD a day, include a day with a new "dayNumber" and its full content
+- To REMOVE a day, include {{"dayNumber": N, "_delete": true}} — the app renumbers the remaining days. To shorten a trip from M to N days, delete the highest-numbered days
+- To REMOVE a whole part, include {{"id": N, "_delete": true}}
 - Use the full conversation history to understand context — if rejected before, propose something different
 - The "explanation" field must be written in {language_instruction}
 - Respond with ONLY a JSON object (no markdown):
@@ -64,6 +67,10 @@ _EDIT_MARKERS = {
     "include", "i want", "i'd like", "i would like", "make it", "make one",
     "instead of", "turn", "set", "should be", "can you add", "can you change",
     "spend", "visit", "go to",
+    # Reduce / shorten phrasings — "I asked for 2 days", "make it 2 days",
+    # "drop the last day", "only 2 days"
+    "i asked for", "i said", "drop", "reduce", "fewer", "less days",
+    "only", "just", "too many", "too long", "cut",
 }
 _COPY_MARKERS = {
     "copia", "duplicar", "mi versión", "mi version", "fork",

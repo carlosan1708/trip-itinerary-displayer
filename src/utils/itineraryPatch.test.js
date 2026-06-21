@@ -131,6 +131,40 @@ describe('applyPatch', () => {
     const original = baseItinerary()
     expect(applyPatch(original, {})).toEqual(original)
   })
+
+  it('removes a day flagged with _delete and renumbers the rest', () => {
+    const itin = { parts: [{ id: 1, days: [
+      { dayNumber: 1, location: 'A' }, { dayNumber: 2, location: 'B' }, { dayNumber: 3, location: 'C' },
+    ] }] }
+    const result = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 3, _delete: true }] }] })
+    expect(result.parts[0].days.map(d => d.dayNumber)).toEqual([1, 2])
+    expect(result.parts[0].days.map(d => d.location)).toEqual(['A', 'B'])
+  })
+
+  it('removes a middle day and renumbers sequentially (no gaps)', () => {
+    const itin = { parts: [{ id: 1, days: [
+      { dayNumber: 1, location: 'A' }, { dayNumber: 2, location: 'B' }, { dayNumber: 3, location: 'C' },
+    ] }] }
+    const result = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 2, _delete: true }] }] })
+    expect(result.parts[0].days.map(d => d.dayNumber)).toEqual([1, 2])
+    expect(result.parts[0].days.map(d => d.location)).toEqual(['A', 'C'])
+  })
+
+  it('removes a whole part flagged with _delete', () => {
+    const result = applyPatch(baseItinerary(), { parts: [{ id: 2, _delete: true }] })
+    expect(result.parts.map(p => p.id)).toEqual([1])
+  })
+
+  it('does not renumber days when nothing was removed', () => {
+    const itin = { parts: [{ id: 1, days: [{ dayNumber: 5, location: 'A' }, { dayNumber: 9, location: 'B' }] }] }
+    const result = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 5, location: 'X' }] }] })
+    expect(result.parts[0].days.map(d => d.dayNumber)).toEqual([5, 9])
+  })
+
+  it('ignores a _delete for a day that does not exist', () => {
+    const result = applyPatch(baseItinerary(), { parts: [{ id: 1, days: [{ dayNumber: 99, _delete: true }] }] })
+    expect(result.parts[0].days.map(d => d.dayNumber)).toEqual([1, 2])
+  })
 })
 
 describe('describePatch', () => {
@@ -210,6 +244,18 @@ describe('describePatch', () => {
     expect(changes).toHaveLength(1)
     expect(changes[0].changedFields).toEqual(['emoji'])
   })
+
+  it('describes a removed day', () => {
+    const changes = describePatch(baseItinerary(), { parts: [{ id: 1, days: [{ dayNumber: 2, _delete: true }] }] })
+    expect(changes).toHaveLength(1)
+    expect(changes[0]).toMatchObject({ dayNumber: 2, location: 'Whistler', removed: true })
+  })
+
+  it('describes a removed part', () => {
+    const changes = describePatch(baseItinerary(), { parts: [{ id: 2, _delete: true }] })
+    expect(changes).toHaveLength(1)
+    expect(changes[0]).toMatchObject({ partTitle: 'Alberta', removed: true })
+  })
 })
 
 describe('diffPatch', () => {
@@ -286,6 +332,19 @@ describe('diffPatch', () => {
 
   it('tolerates a null itinerary', () => {
     expect(diffPatch(null, { parts: [{ id: 1, title: 'X' }] }).total).toBe(0)
+  })
+
+  it('records a removed day', () => {
+    const d = diffPatch(baseItinerary(), { parts: [{ id: 1, days: [{ dayNumber: 2, _delete: true }] }] })
+    expect(d.dayCount).toBe(1)
+    expect(d.days[0]).toMatchObject({ partId: 1, dayNumber: 2, removed: true })
+  })
+
+  it('records all days of a removed part', () => {
+    const d = diffPatch(baseItinerary(), { parts: [{ id: 1, _delete: true }] })
+    // part 1 has 2 days
+    expect(d.dayCount).toBe(2)
+    expect(d.days.every(x => x.removed)).toBe(true)
   })
 })
 

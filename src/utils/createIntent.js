@@ -107,11 +107,20 @@ export function parseCreateRequest(message, language = 'en') {
   // Day count: "2 day", "5-day", "for 3 days", "3 días", "5 nights" (nights+1)
   const dayMatch = text.match(/(\d+)\s*[- ]?\s*(day|days|día|días|dia|dias)\b/i)
   const nightMatch = text.match(/(\d+)\s*[- ]?\s*(night|nights|noche|noches)\b/i)
+  // Bare leading count: "2 random trip in X", "3 trip to Y" — the number is the
+  // day count even when not adjacent to "day". Only when a trip noun is present
+  // and there's no explicit day/night phrase. Skip a number that's immediately a
+  // traveler count ("for 2 people", "2 adults") so it isn't misread as days.
+  const bareCountMatch = text.match(/(?:^|\b)(\d+)\b(?!\s*(?:people|persons?|person|travel\w*|adults?|pax|personas?|viajeros?|adultos?))/i)
+  const hasTripWord = TRIP_NOUNS.some(n => text.toLowerCase().includes(n)) ||
+    CREATE_MARKERS.some(m => text.toLowerCase().includes(m))
   const numDays = dayMatch
     ? clamp(parseInt(dayMatch[1], 10), 1, 60)
     : nightMatch
       ? clamp(parseInt(nightMatch[1], 10) + 1, 1, 60)  // N nights ≈ N+1 days
-      : 3
+      : (bareCountMatch && hasTripWord)
+        ? clamp(parseInt(bareCountMatch[1], 10), 1, 60)
+        : 3
 
   // Traveler count: "for 2 people", "2 travelers", "pareja", "solo"
   let travelers = 2
@@ -172,12 +181,28 @@ function extractDestination(text) {
 }
 
 function cleanPlace(s) {
-  const words = s
+  // Protect multiword place names whose tokens would otherwise be stripped as
+  // stopwords/articles (e.g. "el" in "El Salvador").
+  let protectedText = s
+  for (const [phrase, token] of Object.entries(PROTECTED_PLACES)) {
+    protectedText = protectedText.replace(new RegExp(phrase, 'gi'), token)
+  }
+  const words = protectedText
     .replace(/[^A-Za-zÀ-ÿ'’.\- ]/g, ' ')
     .split(/\s+/)
     .filter(Boolean)
     .filter(w => !STOPWORDS.has(w.toLowerCase()))
+    .map(w => PROTECTED_RESTORE[w.toLowerCase()] || w)
   return words.join(' ').trim()
+}
+
+// Place names containing article/stopword tokens. Mapped to a placeholder token
+// while stopwords are filtered, then restored. Keyed by a regex-safe phrase.
+const PROTECTED_PLACES = {
+  'el\\s+salvador': 'elsalvador',
+}
+const PROTECTED_RESTORE = {
+  elsalvador: 'El Salvador',
 }
 
 function clamp(n, lo, hi) {

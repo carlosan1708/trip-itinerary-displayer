@@ -139,6 +139,33 @@ describe('parseCreateRequest', () => {
     expect(p.destination).toBe('tokyo')
     expect(p.num_days).toBe(6)
   })
+
+  // Regression: "2 random trip in el salvador" produced a 3-day trip because the
+  // bare "2" was not adjacent to "day". A leading bare count beside a trip noun
+  // is the day count.
+  it('reads a bare leading count as the day count when beside a trip noun', () => {
+    expect(parseCreateRequest('2 random trip in el salvador').num_days).toBe(2)
+    expect(parseCreateRequest('3 trip to japan').num_days).toBe(3)
+  })
+
+  it('does not treat a traveler count as the day count', () => {
+    // "for 2 people" must set travelers, not days; days falls back to default.
+    const p = parseCreateRequest('plan a trip to el salvador for 2 people')
+    expect(p.travelers).toBe(2)
+    expect(p.num_days).toBe(3)
+  })
+
+  it('does not treat a bare number as days without a trip noun', () => {
+    // No trip/marker word → the bare-count rule must not fire.
+    expect(parseCreateRequest('plan something with 2 in mind').num_days).toBe(3)
+  })
+
+  // Regression: "el salvador" lost its article and resolved to Salvador, Brazil.
+  // The country name must survive stopword filtering.
+  it('preserves "El Salvador" as the destination (not stripped to "salvador")', () => {
+    expect(parseCreateRequest('2 random trip in el salvador').destination).toBe('El Salvador')
+    expect(parseCreateRequest('create 2 day trip to el salvador').destination).toBe('El Salvador')
+  })
 })
 
 // Guard: every parsed request must satisfy the backend CreateRequest schema

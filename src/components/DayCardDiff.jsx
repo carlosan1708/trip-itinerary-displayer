@@ -42,7 +42,8 @@ function itemText(item) {
  */
 export default function DayCardDiff({ dayDiff, onAccept, onReject }) {
   const t = useT()
-  if (!dayDiff?.fields?.length) return null
+  // A removal has no field diffs but must still render its banner.
+  if (!dayDiff?.fields?.length && !dayDiff?.removed) return null
 
   return (
     <Box
@@ -65,7 +66,15 @@ export default function DayCardDiff({ dayDiff, onAccept, onReject }) {
 
       {/* Field-by-field before/after */}
       <Box sx={{ px: 1.75, py: 1.25 }}>
-        {dayDiff.fields.map((f, i) => (
+        {dayDiff.removed && (
+          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: dayDiff.fields?.length ? 1.5 : 0 }}>
+            <RemoveIcon sx={{ fontSize: 16, color: '#c62828', flexShrink: 0 }} />
+            <Typography variant="body2" fontWeight={600} sx={{ fontSize: 13, color: '#c62828' }}>
+              {t('agentInlineRemoved')}
+            </Typography>
+          </Stack>
+        )}
+        {(dayDiff.fields || []).map((f, i) => (
           <Box key={f.field} sx={{ mb: i < dayDiff.fields.length - 1 ? 1.5 : 0 }}>
             <Typography variant="caption" fontWeight={700}
               sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5, fontSize: 10 }}>
