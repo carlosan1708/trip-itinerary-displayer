@@ -11,6 +11,15 @@
 // e.g. { id: 1, days: [{ dayNumber: 3, _delete: true }] } drops Day 3.
 export const DELETE_MARKER = '_delete'
 
+/**
+ * The real day count, derived from the itinerary structure (all days across all
+ * parts). Use this for the "N days" UI chip instead of the model-authored
+ * `stats[0]`, which drifts out of sync across agent edits.
+ */
+export function countDays(itinerary) {
+  return (itinerary?.parts || []).reduce((n, p) => n + (p.days?.length || 0), 0)
+}
+
 export function applyPatch(itinerary, patch) {
   const result = structuredClone(itinerary)
 

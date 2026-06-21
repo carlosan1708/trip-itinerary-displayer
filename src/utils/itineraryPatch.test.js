@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyPatch, describePatch, diffPatch, diffList, patchForDay, removeDayFromPatch } from './itineraryPatch'
+import { applyPatch, describePatch, diffPatch, diffList, patchForDay, removeDayFromPatch, countDays } from './itineraryPatch'
 
 // A small but representative itinerary used across the patch tests.
 function baseItinerary() {
@@ -27,6 +27,30 @@ function baseItinerary() {
     ],
   }
 }
+
+describe('countDays', () => {
+  it('counts all days across all parts', () => {
+    expect(countDays(baseItinerary())).toBe(3) // 2 in BC + 1 in Alberta
+  })
+
+  it('reflects structure after an add (not stale stats)', () => {
+    const itin = { stats: ['2 days'], parts: [{ id: 1, days: [{ dayNumber: 1 }, { dayNumber: 2 }] }] }
+    const grown = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 3 }] }] })
+    expect(countDays(grown)).toBe(3) // even though stats[0] still says "2 days"
+  })
+
+  it('reflects structure after a removal', () => {
+    const itin = { parts: [{ id: 1, days: [{ dayNumber: 1 }, { dayNumber: 2 }, { dayNumber: 3 }] }] }
+    const shrunk = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 3, _delete: true }] }] })
+    expect(countDays(shrunk)).toBe(2)
+  })
+
+  it('tolerates missing/empty itinerary', () => {
+    expect(countDays(null)).toBe(0)
+    expect(countDays({})).toBe(0)
+    expect(countDays({ parts: [] })).toBe(0)
+  })
+})
 
 describe('applyPatch', () => {
   it('does not mutate the original itinerary', () => {

@@ -104,7 +104,7 @@ export default function ItineraryAgent({
     const abort = streamChat(
       { messages: newMessages, itinerary: itinerary || undefined, mode, language },
       (chunk) => updateLastAssistant(msg => ({ content: msg.content + chunk })),
-      ({ response, patch, sources }) => {
+      ({ response, patch, sources, warning }) => {
         setLoading(false)
         // An edit-mode patch with real changes is surfaced inline on the
         // itinerary (review bar + day cards), not as a chat diff card. Other
@@ -118,6 +118,7 @@ export default function ItineraryAgent({
           patch: inlineReview ? null : (patch || null),
           changes: inlineReview ? null : changes,
           proposedInline: inlineReview,
+          warning: warning || null,
           sources: sources || [],
         }))
       },

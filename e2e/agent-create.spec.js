@@ -64,7 +64,7 @@ test.describe('AI Agent — create from chat', () => {
     await mockCreate(page)
     await openAgentAndCreate(page)
     await expect(page.getByTestId('new-trip-preview')).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText('England — 2 days')).toBeVisible()
+    await expect(page.getByText('England — 2 days').first()).toBeVisible()
     await expect(page.getByText('WALL OF TEXT')).not.toBeVisible()
   })
 
@@ -224,6 +224,34 @@ test.describe('AI Agent — create from chat', () => {
     await expect(page.getByText('Georgian Bath')).not.toBeVisible({ timeout: 10000 })
     await expect(page.getByText('Roman heritage')).toBeVisible()  // day 1 subtitle
     await expect(page.getByTestId('new-trip-preview')).toBeVisible()
+  })
+
+  test('an implausible edit applies the patch but shows a warning in chat', async ({ page }) => {
+    // The agent should not silently produce a nonsensical itinerary: it applies
+    // the best-effort patch AND surfaces a warning (e.g. adding another continent).
+    await page.route('**/agent/chat', async (route) => {
+      const patch = { parts: [{ id: 1, days: [
+        { dayNumber: 3, date: 'Day 3', location: 'Beijing', subtitle: 'Great Wall',
+          logistics: [], activities: ['Great Wall'], tips: [], warnings: [], links: [], images: [] },
+      ] }] }
+      await route.fulfill({ status: 200, contentType: 'text/event-stream',
+        body: `event: done\ndata: ${JSON.stringify({
+          response: 'Added a day in Beijing.',
+          patch,
+          warning: 'Beijing is on another continent — you would need an international flight and extra travel days.',
+        })}\n\n` })
+    })
+    await mockCreate(page)
+    await openAgentAndCreate(page)
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible({ timeout: 10000 })
+
+    await page.getByTestId('agent-input').fill('add one day in china')
+    await page.getByTestId('agent-send-btn').click()
+
+    // Warning is shown, and the patch still applied (Beijing day appears).
+    await expect(page.getByTestId('agent-warning')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByTestId('agent-warning')).toContainText(/another continent/i)
+    await expect(page.getByText('Great Wall')).toBeVisible()
   })
 
   test('a plain question does NOT trigger the create preview', async ({ page }) => {

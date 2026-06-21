@@ -34,9 +34,15 @@ Rules:
 - To REMOVE a day, include {{"dayNumber": N, "_delete": true}} — the app renumbers the remaining days. To shorten a trip from M to N days, delete the highest-numbered days
 - To REMOVE a whole part, include {{"id": N, "_delete": true}}
 - Use the full conversation history to understand context — if rejected before, propose something different
-- The "explanation" field must be written in {language_instruction}
+- If the request is geographically or logistically implausible for this trip
+  (e.g. adding a day on another continent with no time to travel there, or a
+  change that contradicts the trip's destination/dates), STILL produce the
+  best-effort patch, but set a short "warning" describing the problem and what
+  the traveler should consider (flights, extra days, visas). Leave "warning"
+  out or empty when the change is coherent.
+- The "explanation" and "warning" fields must be written in {language_instruction}
 - Respond with ONLY a JSON object (no markdown):
-  {{"patch": {{...merge-patch...}}, "explanation": "<brief plain-text summary>"}}"""
+  {{"patch": {{...merge-patch...}}, "explanation": "<brief plain-text summary>", "warning": "<concern or empty>"}}"""
 
 _LANGUAGE_LABELS = {"en": "English", "es": "Spanish"}
 
@@ -103,6 +109,27 @@ def _build_contents(messages: list[dict], itinerary: dict | None) -> list[dict]:
             )
         contents.append({"role": role, "parts": [{"text": text}]})
     return contents
+
+
+def _parse_edit_response(raw_text: str | None) -> dict:
+    """Parse the model's edit JSON into a done-payload (pure, sync-testable).
+
+    Returns { response, patch, warning } — warning is None when absent/empty.
+    Falls back to an empty patch + error explanation on malformed JSON.
+    """
+    try:
+        text = (raw_text or "").strip()
+        text = text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        result = json.loads(text)
+    except (json.JSONDecodeError, ValueError) as e:
+        return {"patch": {}, "response": f"Error processing suggestion: {e}", "warning": None}
+
+    warning = (result.get("warning") or "").strip()
+    return {
+        "response": result.get("explanation", "Change proposed."),
+        "patch": result.get("patch"),
+        "warning": warning or None,
+    }
 
 
 def _extract_sources(response) -> list[dict]:
@@ -224,16 +251,11 @@ async def run_conversation(
                 ),
             )
 
-            try:
-                text = (response.text or "").strip()
-                text = text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-                result = json.loads(text)
-            except (json.JSONDecodeError, ValueError) as e:
-                result = {"patch": {}, "explanation": f"Error processing suggestion: {e}"}
-
+            done = _parse_edit_response(response.text)
             yield {"event": "done", "data": {
-                "response": result.get("explanation", "Change proposed."),
-                "patch": result.get("patch"),
+                "response": done["response"],
+                "patch": done["patch"],
+                "warning": done["warning"],
                 "sources": [],
             }}
 

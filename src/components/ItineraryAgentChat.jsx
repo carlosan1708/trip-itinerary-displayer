@@ -6,6 +6,7 @@ import SendIcon from '@mui/icons-material/Send'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LanguageIcon from '@mui/icons-material/Language'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import ItineraryAgentDiff from './ItineraryAgentDiff'
 import ItineraryAgentProgress from './ItineraryAgentProgress'
 import { useT } from '../i18n'
@@ -124,6 +125,23 @@ export default function ItineraryAgentChat({
                       }}
                     />
                   ))}
+                </Stack>
+              </Box>
+            )}
+
+            {/* Warning: the agent flagged the change as implausible but applied it */}
+            {msg.warning && (
+              <Box sx={{ ml: 4.5, mt: 0.75 }} data-testid="agent-warning">
+                <Stack direction="row" spacing={1} alignItems="flex-start"
+                  sx={{
+                    p: 1, borderRadius: 1.5,
+                    bgcolor: 'rgba(245,124,0,0.14)',
+                    border: '1px solid rgba(245,124,0,0.4)',
+                  }}>
+                  <WarningAmberIcon sx={{ fontSize: 16, color: '#ffb74d', mt: '1px', flexShrink: 0 }} />
+                  <Typography variant="body2" sx={{ fontSize: 12.5, lineHeight: 1.4, color: '#ffcc80' }}>
+                    {msg.warning}
+                  </Typography>
                 </Stack>
               </Box>
             )}

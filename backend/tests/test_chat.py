@@ -13,7 +13,38 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from chat import (
     _detect_intent, _build_contents, _extract_sources,
     _empty_response_reason, _build_systems, _COPY_RESPONSE, run_conversation,
+    _parse_edit_response,
 )
+import json as _json
+
+
+class TestParseEditResponse:
+    def test_extracts_patch_explanation_and_warning(self):
+        raw = _json.dumps({"patch": {"a": 1}, "explanation": "ok", "warning": "Beijing is far"})
+        out = _parse_edit_response(raw)
+        assert out == {"response": "ok", "patch": {"a": 1}, "warning": "Beijing is far"}
+
+    def test_warning_absent_is_none(self):
+        out = _parse_edit_response(_json.dumps({"patch": {}, "explanation": "ok"}))
+        assert out["warning"] is None
+
+    def test_empty_warning_is_none(self):
+        out = _parse_edit_response(_json.dumps({"patch": {}, "explanation": "ok", "warning": "  "}))
+        assert out["warning"] is None
+
+    def test_strips_code_fences(self):
+        out = _parse_edit_response('```json\n{"patch":{},"explanation":"x"}\n```')
+        assert out["response"] == "x"
+
+    def test_malformed_json_falls_back(self):
+        out = _parse_edit_response("not json")
+        assert out["patch"] == {}
+        assert out["warning"] is None
+        assert "Error processing suggestion" in out["response"]
+
+    def test_none_input_falls_back(self):
+        out = _parse_edit_response(None)
+        assert out["patch"] == {}
 
 
 class TestDetectIntent:
@@ -200,6 +231,15 @@ class TestBuildSystems:
     def test_unknown_language_defaults_to_english(self):
         qa, _ = _build_systems("xx")
         assert "English" in qa
+
+    def test_edit_prompt_documents_delete_marker(self):
+        _, edit = _build_systems("en")
+        assert "_delete" in edit
+
+    def test_edit_prompt_asks_for_warning_on_implausible_requests(self):
+        _, edit = _build_systems("en")
+        assert "warning" in edit
+        assert "implausible" in edit.lower()
 
 
 @pytest.mark.asyncio

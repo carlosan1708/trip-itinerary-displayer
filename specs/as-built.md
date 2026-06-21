@@ -341,6 +341,16 @@ Each note document:
   `describePatch`/`diffPatch` flag entries as `added`/`removed` so the review UI
   (and `DayCardDiff`) renders them; the backend edit prompt documents the
   `_delete` marker.
+- **Implausible-edit warning**: the edit prompt instructs the model to still
+  produce a best-effort patch for geographically/logistically incoherent
+  requests (e.g. adding a day on another continent) but return a `warning`. The
+  backend parses it via `_parse_edit_response` into the done payload; the chat
+  renders it as an amber callout (`data-testid="agent-warning"`) so the change
+  is applied *and* the concern is voiced rather than silently accepted.
+- **Day-count chip is derived, not model-authored**: `NewTripPreview` shows the
+  real day count via `countDays(itinerary)` (sum of days across parts) instead
+  of `stats[0]`, which drifted out of sync after add/remove-day edits. The other
+  stat chips (countries, cities) remain model-authored.
 - Accepts a `language` prop to match the current UI language.
 
 ---
