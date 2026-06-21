@@ -18,12 +18,29 @@ describe('detectCreateIntent', () => {
     expect(detectCreateIntent('build me 5 days in Rome')).toBe(true)
   })
 
-  it('does not match a plain question', () => {
+  it('matches phrasings with a day count but no verb or trip noun', () => {
+    // Real user phrasing that previously fell through to chat.
+    expect(detectCreateIntent('2 day random costa rica')).toBe(true)
+    expect(detectCreateIntent('costa rica 2 days')).toBe(true)
+    expect(detectCreateIntent('tokyo 5 nights')).toBe(true)
+  })
+
+  it('matches a bare "trip <place>" or "<verb> <place>"', () => {
+    expect(detectCreateIntent('trip costa rica')).toBe(true)
+    expect(detectCreateIntent('plan japan')).toBe(true)
+    expect(detectCreateIntent('weekend in lisbon')).toBe(true)
+  })
+
+  it('does not match a plain question even with a trip noun', () => {
     expect(detectCreateIntent('what should I pack for Bath?')).toBe(false)
+    expect(detectCreateIntent('is june a good time for a trip to peru?')).toBe(false)
+    expect(detectCreateIntent('how many days in tokyo do I need?')).toBe(false)
+    expect(detectCreateIntent('tell me about tokyo')).toBe(false)
   })
 
   it('does not match a bare verb with no trip context', () => {
     expect(detectCreateIntent('make it shorter')).toBe(false)
+    expect(detectCreateIntent('hello there')).toBe(false)
   })
 
   it('returns false for empty input', () => {
@@ -110,6 +127,18 @@ describe('parseCreateRequest', () => {
     expect(parseCreateRequest('plan a trip to Rome June 1-7').dates).toMatch(/jun/i)
     expect(parseCreateRequest('trip to Lima next week').dates).toMatch(/next week/i)
   })
+
+  it('parses verbless phrasings and strips day/night words from the place', () => {
+    expect(parseCreateRequest('2 day random costa rica')).toMatchObject({ destination: 'costa rica', num_days: 2 })
+    expect(parseCreateRequest('costa rica 2 days')).toMatchObject({ destination: 'costa rica', num_days: 2 })
+    expect(parseCreateRequest('trip costa rica').destination).toBe('costa rica')
+  })
+
+  it('converts nights to days (N nights ≈ N+1 days)', () => {
+    const p = parseCreateRequest('tokyo 5 nights')
+    expect(p.destination).toBe('tokyo')
+    expect(p.num_days).toBe(6)
+  })
 })
 
 // Guard: every parsed request must satisfy the backend CreateRequest schema
@@ -137,13 +166,18 @@ describe('parseCreateRequest satisfies the backend CreateRequest schema', () => 
   }
 
   const MESSAGES = [
-    'random 3 day trip costa rica',           // the exact failing message
+    'random 3 day trip costa rica',           // earlier failing message
+    '2 day random costa rica',                // the latest failing message
+    'costa rica 2 days',
+    'trip costa rica',
+    'tokyo 5 nights',
     'create a random 2 day trip in England',
     'create random itinerary on england',
     'plan a trip to Peru',
     'make me an itinerary for Japan',
     'plan a 4 day trip to New Zealand',
     'plan a solo trip to Iceland',
+    'plan japan',
     'crea un viaje de 3 días en Japón',
     'create a trip',                          // no destination, no dates, no days
     'plan something',

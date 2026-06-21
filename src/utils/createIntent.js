@@ -4,33 +4,80 @@
 // When matched, the agent runs the real generator (/agent/create) and shows a
 // full preview behind a Save/Discard bar — instead of answering with prose.
 
+// Phrase markers that strongly imply "build a trip" on their own. Bare create
+// verbs (make/plan/build/…) are intentionally NOT here — they're handled by the
+// CREATE_VERBS path below, which requires a place and filters edit fillers.
 const CREATE_MARKERS = [
   // English
-  'create', 'plan', 'build', 'make', 'generate', 'design',
-  'trip to', 'itinerary', 'days in', 'day trip', 'weekend in', 'vacation', 'holiday',
+  'trip to', 'itinerary', 'days in', 'day trip', 'weekend in', 'getaway to',
   // Spanish
-  'crea', 'crear', 'planifica', 'planea', 'planear', 'arma', 'armar', 'genera',
-  'haz un', 'itinerario', 'viaje a', 'viaje de', 'días en', 'escapada', 'vacaciones',
+  'itinerario', 'viaje a', 'viaje de', 'días en', 'escapada a',
 ]
 
-// Words that signal an *edit/question* on an existing trip — if no itinerary is
-// loaded these don't apply, but we still avoid false positives on bare verbs.
 const TRIP_NOUNS = ['trip', 'itinerary', 'viaje', 'itinerario', 'escapada', 'vacation', 'holiday', 'vacaciones', 'getaway', 'tour']
+
+// Pure-question / informational openers. When a message clearly reads as a
+// question (and has no create verb), we keep it on the chat/QA path instead of
+// generating a trip.
+const QUESTION_OPENERS = [
+  'what', 'whats', "what's", 'how', 'when', 'where', 'why', 'which', 'who',
+  'is ', 'are ', 'do ', 'does ', 'can ', 'should ', 'tell me', 'explain',
+  'qué', 'que ', 'cómo', 'como ', 'cuándo', 'cuando', 'dónde', 'donde',
+  'por qué', 'porque', 'cuál', 'cual', 'cuánto', 'cuanto',
+]
 
 /**
  * True when the message reads as a request to build a brand-new itinerary.
- * Requires a create verb/marker AND some trip noun or a "<n> day(s)" pattern,
- * so plain questions ("what to do in Bath?") don't trigger generation.
+ *
+ * This runs ONLY when no itinerary is loaded (dashboard), where "make me a
+ * trip" is the dominant intent — so we're permissive: a create verb, a trip
+ * noun, OR a day-count phrase all qualify. We only bail out for messages that
+ * clearly read as a standalone question with no create signal.
  */
+// Strong create verbs: only count as a create signal when paired with a place
+// or trip/day signal — "make"/"plan" alone ("make it shorter") shouldn't fire.
+const CREATE_VERBS = ['create', 'plan', 'build', 'generate', 'design', 'make',
+  'crea', 'crear', 'planifica', 'planea', 'planear', 'arma', 'armar', 'genera', 'haz']
+
 export function detectCreateIntent(message) {
   if (!message) return false
-  const lower = message.toLowerCase()
-  const hasMarker = CREATE_MARKERS.some(m => lower.includes(m))
-  if (!hasMarker) return false
+  const lower = message.toLowerCase().trim()
+  if (!lower) return false
+
+  // A clear question is never a create request, regardless of other signals.
+  const isQuestion = lower.endsWith('?') || QUESTION_OPENERS.some(q => lower.startsWith(q))
+  if (isQuestion) return false
+
+  const hasMarker   = CREATE_MARKERS.some(m => lower.includes(m))
   const hasTripNoun = TRIP_NOUNS.some(n => lower.includes(n))
-  const hasDayCount = /\b\d+\s*(day|days|día|días|dia|dias)\b/.test(lower)
-  return hasTripNoun || hasDayCount
+  const hasDayCount = /\b\d+\s*(day|days|día|días|dia|dias|noche|noches|night|nights)\b/.test(lower)
+  const hasVerb     = CREATE_VERBS.some(v => new RegExp(`\\b${v}\\b`).test(lower))
+
+  // Trip noun or a day/night count is a create signal on the dashboard.
+  if (hasTripNoun || hasDayCount) return true
+
+  // A marker phrase like "trip to" / "weekend in" / "viaje a" is enough.
+  if (hasMarker) return true
+
+  // A bare create verb needs a place to act on — at least one remaining word
+  // that isn't the verb, a stopword, or an edit-target filler (so "plan japan"
+  // → place "japan" fires, but "make it shorter" does not).
+  if (hasVerb) {
+    const rest = lower.replace(new RegExp(`\\b(${CREATE_VERBS.join('|')})\\b`, 'g'), ' ')
+    const words = rest.split(/\s+/).filter(w => w && !STOPWORDS.has(w) && !EDIT_FILLER.has(w))
+    return words.length > 0
+  }
+
+  return false
 }
+
+// Words that are edit/modify targets, not destinations — block a bare create
+// verb from firing on commands like "make it shorter / longer / better".
+const EDIT_FILLER = new Set([
+  'it', 'this', 'that', 'shorter', 'longer', 'better', 'cheaper', 'bigger',
+  'smaller', 'simpler', 'faster', 'slower', 'sense', 'esto', 'eso', 'más', 'mas',
+  'menos', 'corto', 'corta', 'largo', 'larga', 'mejor', 'barato',
+])
 
 const STOPWORDS = new Set([
   'a', 'an', 'the', 'to', 'in', 'on', 'at', 'of', 'for', 'and', 'random', 'please',
@@ -38,6 +85,7 @@ const STOPWORDS = new Set([
   'solo', 'alone', 'couple', 'honeymoon', 'family', 'friends', 'people', 'travelers', 'traveller', 'travellers',
   'pareja', 'solos', 'familia', 'amigos', 'personas', 'viajeros',
   'create', 'plan', 'build', 'make', 'generate', 'design', 'trip', 'day', 'days',
+  'night', 'nights', 'noche', 'noches',
   'itinerary', 'weekend', 'vacation', 'holiday', 'getaway', 'tour',
   'crea', 'crear', 'un', 'una', 'el', 'la', 'de', 'en', 'para', 'por', 'aleatorio',
   'planifica', 'planea', 'arma', 'genera', 'haz', 'hazme', 'viaje', 'día', 'días', 'dia', 'dias',
@@ -56,9 +104,14 @@ const STOPWORDS = new Set([
 export function parseCreateRequest(message, language = 'en') {
   const text = String(message || '')
 
-  // Day count: "2 day", "5-day", "for 3 days", "3 días"
+  // Day count: "2 day", "5-day", "for 3 days", "3 días", "5 nights" (nights+1)
   const dayMatch = text.match(/(\d+)\s*[- ]?\s*(day|days|día|días|dia|dias)\b/i)
-  const numDays = dayMatch ? clamp(parseInt(dayMatch[1], 10), 1, 60) : 3
+  const nightMatch = text.match(/(\d+)\s*[- ]?\s*(night|nights|noche|noches)\b/i)
+  const numDays = dayMatch
+    ? clamp(parseInt(dayMatch[1], 10), 1, 60)
+    : nightMatch
+      ? clamp(parseInt(nightMatch[1], 10) + 1, 1, 60)  // N nights ≈ N+1 days
+      : 3
 
   // Traveler count: "for 2 people", "2 travelers", "pareja", "solo"
   let travelers = 2
@@ -113,8 +166,8 @@ function extractDestination(text) {
     const cleaned = cleanPlace(prep[1])
     if (cleaned) return cleaned
   }
-  // Fallback: drop day phrases + stopwords, keep the rest.
-  const withoutDays = text.replace(/\b\d+\s*[- ]?\s*(day|days|día|días|dia|dias)\b/gi, ' ')
+  // Fallback: drop day/night phrases + stopwords, keep the rest.
+  const withoutDays = text.replace(/\b\d+\s*[- ]?\s*(day|days|día|días|dia|dias|night|nights|noche|noches)\b/gi, ' ')
   return cleanPlace(withoutDays)
 }
 

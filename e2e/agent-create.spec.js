@@ -68,6 +68,14 @@ test.describe('AI Agent — create from chat', () => {
     await expect(page.getByText('WALL OF TEXT')).not.toBeVisible()
   })
 
+  test('a verbless phrasing ("2 day random costa rica") also triggers the preview', async ({ page }) => {
+    await failIfChat(page)
+    await mockCreate(page)
+    await openAgentAndCreate(page, '2 day random costa rica')
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('WALL OF TEXT')).not.toBeVisible()
+  })
+
   test('the preview renders the generated day cards', async ({ page }) => {
     await mockCreate(page)
     await openAgentAndCreate(page)
