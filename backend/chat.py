@@ -57,8 +57,13 @@ _COPY_RESPONSE = {
 _EDIT_MARKERS = {
     "cambia", "añade", "agrega", "elimina", "quita", "modifica", "actualiza", "reemplaza",
     "mueve", "extiende", "acorta", "borra", "pon", "cambiemos", "agreguemos",
+    "incluye", "incluir", "quiero", "quisiera", "me gustaría", "haz que", "que incluya",
+    "en lugar de", "sustituye", "reorganiza", "ajusta",
     "change", "add", "remove", "update", "modify", "replace", "edit", "delete",
     "swap", "move", "rearrange", "extend", "shorten", "let's add", "let's change",
+    "include", "i want", "i'd like", "i would like", "make it", "make one",
+    "instead of", "turn", "set", "should be", "can you add", "can you change",
+    "spend", "visit", "go to",
 }
 _COPY_MARKERS = {
     "copia", "duplicar", "mi versión", "mi version", "fork",

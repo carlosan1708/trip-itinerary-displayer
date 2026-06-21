@@ -144,6 +144,36 @@ test.describe('AI Agent — create from chat', () => {
     expect(res.status()).not.toBe(422)
   })
 
+  test('refining a pending preview applies the change in the UI, not as prose', async ({ page }) => {
+    // Regression: while a preview is pending (no trip saved yet), an edit
+    // request ("I want one day to include Guanacaste") must patch the preview
+    // inline. Previously it fell through to QA and dumped a wall of text.
+    let chatPayload = null
+    await page.route('**/agent/chat', async (route) => {
+      chatPayload = route.request().postDataJSON()
+      // Backend returns a merge-patch that changes day 2's location.
+      const patch = { parts: [{ id: 1, days: [{ dayNumber: 2, location: 'Guanacaste' }] }] }
+      await route.fulfill({ status: 200, contentType: 'text/event-stream',
+        body: `event: done\ndata: ${JSON.stringify({ response: 'Updated day 2.', patch })}\n\n` })
+    })
+    await mockCreate(page)
+    await openAgentAndCreate(page)
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Georgian Bath')).toBeVisible()
+
+    // Now refine the pending preview.
+    await page.getByTestId('agent-input').fill('I want one day to include Guanacaste')
+    await page.getByTestId('agent-send-btn').click()
+
+    // The preview updates in place (day 2 now in Guanacaste); still no wall of text.
+    // Target the day-card heading, not the user's chat message which echoes the word.
+    await expect(page.getByRole('heading', { name: 'Guanacaste' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible()
+    // The edit went through the chat endpoint in edit mode against the preview.
+    expect(chatPayload.mode).toBe('edit')
+    expect(chatPayload.itinerary).toBeTruthy()
+  })
+
   test('a plain question does NOT trigger the create preview', async ({ page }) => {
     let chatHit = false
     await page.route('**/agent/chat', async (route) => {

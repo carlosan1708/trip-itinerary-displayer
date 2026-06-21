@@ -49,6 +49,29 @@ class TestDetectIntent:
     def test_add_marker_explore_mode(self):
         assert _detect_intent("añade una visita al CN Tower", "explore") == "qa"
 
+    # Verbless / "I want ... to include ..." phrasings must register as edits
+    # in edit mode — these previously fell through to QA and dumped prose
+    # instead of producing a patch (regression: preview refinement).
+    def test_want_include_phrasing_edit_mode(self):
+        assert _detect_intent("I want one day to include Guanacaste", "edit") == "edit"
+
+    def test_include_phrasing_edit_mode(self):
+        assert _detect_intent("include a beach day in the trip", "edit") == "edit"
+
+    def test_id_like_phrasing_edit_mode(self):
+        assert _detect_intent("I'd like to spend day 2 in Montreal", "edit") == "edit"
+
+    def test_spanish_quiero_incluya_edit_mode(self):
+        assert _detect_intent("quiero que el día 1 incluya Guanacaste", "edit") == "edit"
+
+    def test_want_include_blocked_in_explore_mode(self):
+        # still downgrades to qa for non-authors
+        assert _detect_intent("I want one day to include Guanacaste", "explore") == "qa"
+
+    # Copy detection still wins even though "quiero" is now an edit marker.
+    def test_copy_beats_edit_marker(self):
+        assert _detect_intent("quiero una copia del itinerario", "edit") == "copy"
+
 
 class TestBuildContents:
     def test_injects_itinerary_into_first_user_turn(self):

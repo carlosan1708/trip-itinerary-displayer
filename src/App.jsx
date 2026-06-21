@@ -387,6 +387,18 @@ function AppContent({
 
   const handleDiscardPreview = useCallback(() => setPreviewTrip(null), [])
 
+  // Refining a not-yet-saved preview: a chat edit produces a patch that we
+  // apply straight to the preview (the preview IS the review surface — whole
+  // trip is reviewed via Save/Discard), so edits stay in the UI, not in prose.
+  const handleRefinePreview = useCallback((patch) => {
+    setPreviewTrip(prev => {
+      if (!prev) return prev
+      const updated = applyPatch(prev, patch)
+      updated.version = (prev.version || 1) + 1
+      return updated
+    })
+  }, [])
+
   const handleSavePreview = useCallback(async () => {
     if (!previewTrip) return
     const base = previewTrip.label || previewTrip.title || 'trip'
@@ -475,9 +487,11 @@ function AppContent({
           />
         )}
         <ItineraryAgent
-          itinerary={null}
+          itinerary={previewTrip}
           user={user}
-          canEdit={false}
+          canEdit={!!previewTrip}
+          onItineraryChange={(updated) => setPreviewTrip(updated)}
+          onProposePatch={handleRefinePreview}
           onProposeNewTrip={handleProposeNewTrip}
           onDuplicateCreated={onAgentDuplicate}
           open={agentOpen}
