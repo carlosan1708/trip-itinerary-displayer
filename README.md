@@ -2,9 +2,11 @@
 
 # ✈️ Trip Itinerary Displayer
 
-**Plan, share and collaborate on travel itineraries — with an AI trip planner built in.**
+**An AI-powered travel itinerary platform — generate, edit and collaborate on trips with an LLM agent.**
 
-A SPA for creating and sharing travel itineraries. Google sign-in, real-time Firestore sync, per-trip access control, and an AI agent that drafts itineraries from a single sentence.
+A full-stack SPA where an LLM agent drafts and edits day-by-day itineraries via **structured output** and a **human-in-the-loop review** flow — on top of Google auth, real-time Firestore sync and per-trip access control.
+
+*A portfolio build by [Carlos Rodríguez](https://github.com/carlosan1708) demonstrating production AI-feature engineering: structured LLM output, human-in-the-loop review, streaming, and abuse/cost controls.*
 
 [**🌐 Live demo →  mi-itinerario.web.app**](https://mi-itinerario.web.app)
 
@@ -16,6 +18,33 @@ A SPA for creating and sharing travel itineraries. Google sign-in, real-time Fir
 ![Playwright](https://img.shields.io/badge/Tests-Playwright-2EAD33?logo=playwright&logoColor=white)
 
 </div>
+
+---
+
+## 🧠 AI engineering highlights
+
+The interesting engineering here is the AI system, not the CRUD. Highlights:
+
+- **Two purpose-built LLM pipelines** — `create` (from-scratch itinerary generation) and `chat` (in-trip edit / Q&A), each with its own system prompt and output contract ([`backend/create.py`](backend/create.py), [`backend/chat.py`](backend/chat.py)).
+- **Structured-output edit protocol** — the model never edits prose. It returns an **RFC 7396-style merge-patch** that's applied deterministically client-side ([`src/utils/itineraryPatch.js`](src/utils/itineraryPatch.js)): add / remove / modify days and parts, with `_delete` markers and automatic day renumbering.
+- **Human-in-the-loop review** — every AI change is a *proposed* diff surfaced inline on the itinerary (sticky review bar + per-day accept / reject) before it touches stored data. No silent writes.
+- **Zero-extra-call intent routing** — a heuristic classifier routes each turn to *edit / Q&A / copy* without a separate LLM classification call; edit mode defaults to editing unless the message is clearly a question, so natural phrasings ("make it 2 days", "start from Costa Rica") produce a patch instead of a wall of prose.
+- **Output hardening & guardrails** — `normalizeItinerary` repairs malformed model output (missing ids/colors, empty placeholder days) so a bad generation can't break the UI; an implausibility guardrail makes the model **warn** (e.g. "adding Beijing to a Rio trip needs an international flight") instead of silently producing nonsense.
+- **End-to-end streaming** — Server-Sent Events from FastAPI through a custom SSE client ([`src/utils/agentClient.js`](src/utils/agentClient.js)), with a direct Cloud Run URL in prod to bypass CDN response buffering.
+- **Abuse & cost controls for a public demo** — a reCAPTCHA Enterprise gate plus a per-user AI-call quota guard *before* any anonymous LLM usage, so the public demo can't be turned into a free Gemini proxy.
+
+**How an AI edit flows:**
+
+```
+user message
+  → intent route (edit / QA / copy, no extra LLM call)
+  → Gemini (structured JSON: { patch, explanation, warning? })
+  → applyPatch + normalizeItinerary   (deterministic, hardened)
+  → inline diff review (accept / reject per day)
+  → versioned write to Firestore
+```
+
+The model is Gemini, called through the FastAPI proxy so keys stay server-side and the provider is swappable.
 
 ---
 
