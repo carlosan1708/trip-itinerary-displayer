@@ -4,7 +4,7 @@ export default {
   footer: '¡Buen viaje!',
 
   // Modo demo
-  orTryDemo: 'o',
+  orDivider: 'o',
   tryDemo: 'Probar la demo',
   demoStarting: 'Iniciando tu demo…',
   demoError: 'No se pudo iniciar la demo. Inténtalo de nuevo.',
@@ -43,7 +43,6 @@ export default {
   signingIn: 'Entrando...',
   continueGoogle: 'Continuar con Google',
   loginError: 'No se pudo iniciar sesión. Intenta de nuevo.',
-  orSignInWith: 'o',
   signInWithEmail: 'Iniciar sesión con email',
   hideEmailForm: 'Ocultar inicio por email',
   emailLabel: 'Email',

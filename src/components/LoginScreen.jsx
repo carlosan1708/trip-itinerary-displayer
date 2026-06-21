@@ -2,11 +2,12 @@ import { useState, useCallback } from 'react'
 import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth'
 import { auth, googleProvider, signInAnonymouslyDemo } from '../firebase'
 import {
-  Box, Button, Typography, Paper, CircularProgress, TextField, Divider, Collapse, Link,
+  Box, Button, Typography, Paper, CircularProgress, TextField, Divider, Collapse,
 } from '@mui/material'
 import GoogleIcon from '@mui/icons-material/Google'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined'
+import MailOutlineIcon from '@mui/icons-material/MailOutline'
 import RecaptchaGate from './RecaptchaGate'
 import { useT } from '../i18n'
 
@@ -133,20 +134,23 @@ export default function LoginScreen() {
         </Button>
 
         <Divider sx={{ my: 2 }}>
-          <Typography variant="caption" color="text.secondary">{t('orSignInWith')}</Typography>
+          <Typography variant="caption" color="text.secondary">{t('orDivider')}</Typography>
         </Divider>
 
-        <Link
-          component="button"
-          variant="body2"
+        <Button
+          fullWidth
+          variant="outlined"
+          size="large"
+          startIcon={<MailOutlineIcon />}
           onClick={() => setShowEmail(s => !s)}
-          sx={{ mb: 1, display: 'block', textAlign: 'center' }}
+          data-testid="show-email-btn"
+          sx={{ borderRadius: 2, py: 1.25, textTransform: 'none', fontWeight: 600 }}
         >
           {showEmail ? t('hideEmailForm') : t('signInWithEmail')}
-        </Link>
+        </Button>
 
         <Collapse in={showEmail}>
-          <Box component="form" onSubmit={handleEmailLogin} sx={{ mt: 1, textAlign: 'left' }}>
+          <Box component="form" onSubmit={handleEmailLogin} sx={{ mt: 2, textAlign: 'left' }}>
             <TextField
               label={t('emailLabel')}
               type="email"
@@ -181,18 +185,14 @@ export default function LoginScreen() {
           </Box>
         </Collapse>
 
-        <Divider sx={{ my: 2 }}>
-          <Typography variant="caption" color="text.secondary">{t('orTryDemo')}</Typography>
-        </Divider>
-
         {demoStage === 'idle' && (
           <Button
             fullWidth
-            variant="outlined"
+            variant="text"
             startIcon={<ExploreOutlinedIcon />}
             onClick={() => setDemoStage('challenge')}
             data-testid="try-demo-btn"
-            sx={{ borderRadius: 2, py: 1.25, textTransform: 'none', fontWeight: 600 }}
+            sx={{ mt: 1.5, borderRadius: 2, py: 1.25, textTransform: 'none', fontWeight: 600, color: 'text.secondary' }}
           >
             {t('tryDemo')}
           </Button>

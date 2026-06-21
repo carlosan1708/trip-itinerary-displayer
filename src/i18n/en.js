@@ -4,7 +4,7 @@ export default {
   footer: 'Have a great trip!',
 
   // Demo mode
-  orTryDemo: 'or',
+  orDivider: 'or',
   tryDemo: 'Try the demo',
   demoStarting: 'Starting your demo…',
   demoError: 'Could not start the demo. Please try again.',
@@ -43,7 +43,6 @@ export default {
   signingIn: 'Signing in...',
   continueGoogle: 'Continue with Google',
   loginError: 'Could not sign in. Please try again.',
-  orSignInWith: 'or',
   signInWithEmail: 'Sign in with email',
   hideEmailForm: 'Hide email sign-in',
   emailLabel: 'Email',
