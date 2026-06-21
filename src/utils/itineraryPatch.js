@@ -34,6 +34,76 @@ export function applyPatch(itinerary, patch) {
   return result
 }
 
+// Fallback palette for parts the model added without a color (matches the
+// travel palette used by the generator: blues, greens, oranges, purples).
+const PART_COLORS = ['#1565C0', '#2E7D32', '#E65100', '#6A1B9A', '#00838F', '#AD1457', '#4527A0']
+
+/**
+ * Make an agent-edited itinerary structurally safe to render. Conservative —
+ * only repairs what would break the UI, leaves valid data alone:
+ *  - drops completely-empty placeholder days (the "blank card" bug) and any
+ *    part left with no days (the "PART UNDEFINED" bug)
+ *  - fills a missing part id (next free), color, title, and emoji
+ *  - recomputes each part's daysRange from its actual days
+ * dayNumbers are preserved as-is (applyPatch already keeps them coherent).
+ * Pure; returns a new object. Apply at the edit/preview boundary, not inside
+ * applyPatch (which must stay a faithful merge).
+ */
+export function normalizeItinerary(itinerary) {
+  if (!itinerary || !Array.isArray(itinerary.parts)) return itinerary
+
+  const result = structuredClone(itinerary)
+  const usedIds = new Set(
+    result.parts.map(p => p?.id).filter(id => id !== undefined && id !== null),
+  )
+  let nextId = 1
+  const freshId = () => {
+    while (usedIds.has(nextId)) nextId++
+    usedIds.add(nextId)
+    return nextId
+  }
+
+  const parts = []
+  result.parts.forEach((part, idx) => {
+    if (!part || typeof part !== 'object') return
+
+    // Drop only truly-empty placeholder days; keep sparse-but-real ones.
+    const days = (part.days || []).filter(_dayHasContent)
+    if (days.length === 0) return  // drop an empty part entirely
+
+    const id = (part.id === undefined || part.id === null) ? freshId() : part.id
+    const nums = days.map(d => d.dayNumber).filter(n => typeof n === 'number')
+    const lo = nums.length ? Math.min(...nums) : null
+    const hi = nums.length ? Math.max(...nums) : null
+    const daysRange = lo == null ? (part.daysRange || '')
+      : lo === hi ? `Day ${lo}` : `Days ${lo} – ${hi}`
+
+    parts.push({
+      ...part,
+      id,
+      color: part.color || PART_COLORS[idx % PART_COLORS.length],
+      title: part.title || `Part ${id}`,
+      emoji: part.emoji || '📍',
+      daysRange,
+      days,
+    })
+  })
+
+  result.parts = parts
+  return result
+}
+
+// A day is dropped only when it carries no content at all (an empty placeholder
+// the model emitted). A bare dayNumber alone does NOT count as content.
+function _dayHasContent(day) {
+  if (!day || typeof day !== 'object') return false
+  return Object.entries(day).some(([k, v]) => {
+    if (k === 'dayNumber' || k === DELETE_MARKER) return false
+    if (Array.isArray(v)) return v.length > 0
+    return v != null && v.toString().trim() !== ''
+  })
+}
+
 function _isDelete(obj) {
   return obj && obj[DELETE_MARKER] === true
 }

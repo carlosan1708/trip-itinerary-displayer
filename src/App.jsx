@@ -6,7 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { findTripData, saveTripData, getRegistry, saveRegistry, slugify } from './utils/registry'
-import { applyPatch, diffPatch, patchForDay, removeDayFromPatch } from './utils/itineraryPatch'
+import { applyPatch, diffPatch, patchForDay, removeDayFromPatch, normalizeItinerary } from './utils/itineraryPatch'
 
 import theme from './theme'
 import { I18nProvider, useT, translate } from './i18n'
@@ -396,7 +396,7 @@ function AppContent({
   const handleRefinePreview = useCallback((patch) => {
     setPreviewTrip(prev => {
       if (!prev) return prev
-      const updated = applyPatch(prev, patch)
+      const updated = normalizeItinerary(applyPatch(prev, patch))
       updated.version = (prev.version || 1) + 1
       return updated
     })
@@ -440,7 +440,7 @@ function AppContent({
 
   const handleAcceptAll = useCallback(() => {
     if (!pendingPatch || !itinerary) return
-    const updated = applyPatch(itinerary, pendingPatch)
+    const updated = normalizeItinerary(applyPatch(itinerary, pendingPatch))
     updated.version = (itinerary.version || 1) + 1
     onAgentEdit?.(updated, { source: 'agent_edit' })
     setPendingPatch(null)
@@ -451,7 +451,7 @@ function AppContent({
   const handleAcceptDay = useCallback((partId, dayNumber) => {
     if (!pendingPatch || !itinerary) return
     const slice = patchForDay(pendingPatch, partId, dayNumber)
-    const updated = applyPatch(itinerary, slice)
+    const updated = normalizeItinerary(applyPatch(itinerary, slice))
     updated.version = (itinerary.version || 1) + 1
     onAgentEdit?.(updated, { source: 'agent_edit' })
     setPendingPatch(prev => removeDayFromPatch(prev, partId, dayNumber))

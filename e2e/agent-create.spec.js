@@ -278,6 +278,32 @@ test.describe('AI Agent — create from chat', () => {
     await expect(page.getByText('Departure from Costa Rica')).toBeVisible({ timeout: 10000 })
   })
 
+  test('a malformed added part/day is normalized away (no PART UNDEFINED / blank card)', async ({ page }) => {
+    // Regression: the agent returned an extra part with no id/title/color and an
+    // empty day, which rendered as "PART UNDEFINED" + a blank card. Normalization
+    // must drop the empty placeholder and never show that.
+    await page.route('**/agent/chat', async (route) => {
+      const patch = { parts: [
+        { id: 1, days: [{ dayNumber: 2, subtitle: 'Updated day 2' }] },
+        // malformed: no id, only an empty placeholder day
+        { days: [{ dayNumber: 3 }] },
+      ] }
+      await route.fulfill({ status: 200, contentType: 'text/event-stream',
+        body: `event: done\ndata: ${JSON.stringify({ response: 'Done.', patch })}\n\n` })
+    })
+    await mockCreate(page)
+    await openAgentAndCreate(page)
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible({ timeout: 10000 })
+
+    await page.getByTestId('agent-input').fill('tweak day 2')
+    await page.getByTestId('agent-send-btn').click()
+
+    await expect(page.getByText('Updated day 2')).toBeVisible({ timeout: 10000 })
+    // The malformed part/day must not render.
+    await expect(page.getByText(/PART UNDEFINED/i)).not.toBeVisible()
+    await expect(page.getByText('Day 3')).not.toBeVisible()
+  })
+
   test('a plain question does NOT trigger the create preview', async ({ page }) => {
     let chatHit = false
     await page.route('**/agent/chat', async (route) => {

@@ -8,7 +8,7 @@ import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 
 import ItineraryAgentChat from './ItineraryAgentChat'
 import { streamChat, streamCreate, DEMO_LIMIT_ERROR } from '../utils/agentClient'
-import { applyPatch, describePatch } from '../utils/itineraryPatch'
+import { applyPatch, describePatch, normalizeItinerary } from '../utils/itineraryPatch'
 import { detectCreateIntent, parseCreateRequest } from '../utils/createIntent'
 import { useT } from '../i18n'
 
@@ -133,7 +133,7 @@ export default function ItineraryAgent({
 
   const handleApplyPatch = useCallback((patch) => {
     if (!itinerary || !canEdit) return
-    const updated = applyPatch(itinerary, patch)
+    const updated = normalizeItinerary(applyPatch(itinerary, patch))
     updated.version = (itinerary.version || 1) + 1
     onItineraryChange?.(updated, { source: 'agent_edit' })
     setMessages(prev => prev.map(m => m.patch === patch ? { ...m, patch: null, changes: null } : m))
@@ -141,7 +141,7 @@ export default function ItineraryAgent({
 
   const handleDuplicateWithPatch = useCallback((patch) => {
     if (!user) return
-    const base = itinerary ? applyPatch(itinerary, patch) : {}
+    const base = itinerary ? normalizeItinerary(applyPatch(itinerary, patch)) : {}
     const username = user.email.split('@')[0]
     const newId = `${_tripId(itinerary)}-${username}-copy`
     const fallback = t('agentDuplicateFallbackName')

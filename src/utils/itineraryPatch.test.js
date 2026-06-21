@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyPatch, describePatch, diffPatch, diffList, patchForDay, removeDayFromPatch, countDays } from './itineraryPatch'
+import { applyPatch, describePatch, diffPatch, diffList, patchForDay, removeDayFromPatch, countDays, normalizeItinerary } from './itineraryPatch'
 
 // A small but representative itinerary used across the patch tests.
 function baseItinerary() {
@@ -49,6 +49,64 @@ describe('countDays', () => {
     expect(countDays(null)).toBe(0)
     expect(countDays({})).toBe(0)
     expect(countDays({ parts: [] })).toBe(0)
+  })
+})
+
+describe('normalizeItinerary', () => {
+  it('drops an empty placeholder day (the blank-card bug)', () => {
+    const itin = { parts: [{ id: 1, title: 'P', color: '#000', days: [
+      { dayNumber: 1, location: 'A' }, { dayNumber: 2 },  // 2nd is empty
+    ] }] }
+    const out = normalizeItinerary(itin)
+    expect(out.parts[0].days).toHaveLength(1)
+    expect(out.parts[0].days[0].location).toBe('A')
+  })
+
+  it('drops a part left with no real days (the PART UNDEFINED bug)', () => {
+    const itin = { parts: [
+      { id: 1, title: 'P', color: '#000', days: [{ dayNumber: 1, location: 'A' }] },
+      { days: [{ dayNumber: 2 }] },  // no id, only an empty day
+    ] }
+    const out = normalizeItinerary(itin)
+    expect(out.parts).toHaveLength(1)
+    expect(out.parts[0].id).toBe(1)
+  })
+
+  it('fills a missing part id, color, title, and emoji on an added part', () => {
+    const itin = { parts: [
+      { id: 1, title: 'Moscow', color: '#1565C0', days: [{ dayNumber: 1, location: 'Moscow' }] },
+      { days: [{ dayNumber: 2, location: 'Kazan', subtitle: 'Kremlin' }] },  // malformed add
+    ] }
+    const out = normalizeItinerary(itin)
+    expect(out.parts).toHaveLength(2)
+    const added = out.parts[1]
+    expect(added.id).toBe(2)            // next free id
+    expect(added.color).toBeTruthy()    // got a palette color
+    expect(added.title).toBeTruthy()
+    expect(added.emoji).toBeTruthy()
+  })
+
+  it('recomputes daysRange from the actual days', () => {
+    const itin = { parts: [{ id: 1, title: 'P', color: '#000', daysRange: 'WRONG', days: [
+      { dayNumber: 3, location: 'A' }, { dayNumber: 4, location: 'B' },
+    ] }] }
+    expect(normalizeItinerary(itin).parts[0].daysRange).toBe('Days 3 – 4')
+  })
+
+  it('uses singular "Day N" for a one-day part', () => {
+    const itin = { parts: [{ id: 1, title: 'P', color: '#000', days: [{ dayNumber: 5, location: 'A' }] }] }
+    expect(normalizeItinerary(itin).parts[0].daysRange).toBe('Day 5')
+  })
+
+  it('keeps sparse-but-real days (a bare location counts as content)', () => {
+    const itin = { parts: [{ id: 1, title: 'P', color: '#000', days: [{ dayNumber: 1, location: 'A' }] }] }
+    expect(normalizeItinerary(itin).parts[0].days).toHaveLength(1)
+  })
+
+  it('tolerates a missing/empty itinerary', () => {
+    expect(normalizeItinerary(null)).toBe(null)
+    expect(normalizeItinerary({}).parts).toBeUndefined()
+    expect(normalizeItinerary({ parts: [] }).parts).toEqual([])
   })
 })
 
