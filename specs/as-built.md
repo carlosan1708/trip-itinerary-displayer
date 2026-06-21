@@ -315,6 +315,15 @@ Each note document:
 - **Explore / non-editors**: patches still render as the in-chat `ItineraryAgentDiff`
   card with a **My version** action that duplicates the trip with the patch
   applied (`onDuplicateCreated`).
+- **Create from chat (no itinerary loaded)**: when the message reads as "build a
+  trip" (`detectCreateIntent` in `utils/createIntent.js`), the agent runs the
+  real generator (`/agent/create`, params from `parseCreateRequest`) instead of
+  answering with prose. On completion it calls `onProposeNewTrip`, and
+  `AppContent` renders `NewTripPreview` — the full generated itinerary
+  (read-only `PartSection` + `DayCard`) behind a sticky **New AI itinerary ·
+  Save / Discard** bar. **Save** persists via the existing `onAgentDuplicate`
+  path (registry + Firestore, demo-cap aware) and opens the new trip; **Discard**
+  drops it. The chat shows a "review your new itinerary" hint.
 - Accepts a `language` prop to match the current UI language.
 
 ---

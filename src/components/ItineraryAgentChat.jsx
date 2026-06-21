@@ -128,6 +128,25 @@ export default function ItineraryAgentChat({
               </Box>
             )}
 
+            {/* New-trip hint: a generated itinerary is shown for review */}
+            {msg.proposedNewTrip && (
+              <Box sx={{ ml: 4.5, mt: 0.75 }}>
+                <Chip
+                  data-testid="agent-newtrip-hint"
+                  icon={<AutoAwesomeIcon sx={{ fontSize: '13px !important' }} />}
+                  label={t('agentCreateHint')}
+                  size="small"
+                  sx={{
+                    fontSize: 11, height: 24,
+                    bgcolor: 'rgba(46,125,50,0.18)',
+                    color: '#a5d6a7',
+                    border: '1px solid rgba(46,125,50,0.4)',
+                    '& .MuiChip-icon': { color: '#81c784' },
+                  }}
+                />
+              </Box>
+            )}
+
             {/* Inline-review hint: changes were surfaced on the itinerary */}
             {msg.proposedInline && (
               <Box sx={{ ml: 4.5, mt: 0.75 }}>

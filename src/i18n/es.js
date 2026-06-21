@@ -331,6 +331,14 @@ export default {
   agentReviewPartCount: '{count} sección',
   agentReviewPartCountPlural: '{count} secciones',
 
+  // Crear desde el chat (vista previa de nuevo viaje)
+  agentCreateBuilding: 'Creando tu itinerario…',
+  agentCreateReady: 'Aquí tienes tu itinerario — revísalo y guárdalo si te gusta.',
+  agentCreateHint: 'Revisa tu nuevo itinerario',
+  agentCreateBarTitle: 'Nuevo itinerario con IA',
+  agentCreateSave: 'Guardar en Mis Viajes',
+  agentCreateDiscard: 'Descartar',
+
   // Perfil de viajero
   profile: 'Perfil',
   profileTitle: 'Perfil de viajero',

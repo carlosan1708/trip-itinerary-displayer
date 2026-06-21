@@ -5,13 +5,14 @@ import {
 import { onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from './firebase'
-import { findTripData, saveTripData, getRegistry, saveRegistry } from './utils/registry'
+import { findTripData, saveTripData, getRegistry, saveRegistry, slugify } from './utils/registry'
 import { applyPatch, diffPatch, patchForDay, removeDayFromPatch } from './utils/itineraryPatch'
 
 import theme from './theme'
 import { I18nProvider, useT, translate } from './i18n'
 import ItineraryAgent       from './components/ItineraryAgent'
 import AgentReviewBar       from './components/AgentReviewBar'
+import NewTripPreview       from './components/NewTripPreview'
 import TripEditorModal      from './components/TripEditorModal'
 import VersionHistoryModal  from './components/VersionHistoryModal'
 import Header from './components/Header'
@@ -377,6 +378,25 @@ function AppContent({
   const t = useT()
   const [filesPanelOpen, setFilesPanelOpen] = useState(false)
 
+  // AI-generated trip awaiting Save/Discard (dashboard create-from-chat flow).
+  const [previewTrip, setPreviewTrip] = useState(null)
+
+  const handleProposeNewTrip = useCallback((generated) => {
+    if (generated) setPreviewTrip(generated)
+  }, [])
+
+  const handleDiscardPreview = useCallback(() => setPreviewTrip(null), [])
+
+  const handleSavePreview = useCallback(async () => {
+    if (!previewTrip) return
+    const base = previewTrip.label || previewTrip.title || 'trip'
+    const id = `${slugify(base) || 'trip'}-${Date.now().toString(36)}`
+    const toSave = { ...previewTrip, author: user.email, version: previewTrip.version || 1 }
+    setPreviewTrip(null)
+    await onAgentDuplicate?.(id, toSave)
+    setSelectedTripId(id)
+  }, [previewTrip, user, onAgentDuplicate, setSelectedTripId])
+
   // Pending AI patch under inline review (shown on day cards + the review bar).
   const [pendingPatch, setPendingPatch] = useState(null)
 
@@ -437,19 +457,31 @@ function AppContent({
   if (!selectedTripId) {
     return (
       <>
-        <Dashboard
-          user={user}
-          isAdmin={isAdmin}
-          isDemo={isDemo}
-          gatewayTripId={gatewayTripId}
-          onSelectTrip={id => { setEditMode(false); setSelectedTripId(id) }}
-          onBuildWithAi={onBuildWithAi}
-        />
+        {previewTrip ? (
+          <NewTripPreview
+            itinerary={previewTrip}
+            agentOpen={agentOpen}
+            onSave={handleSavePreview}
+            onDiscard={handleDiscardPreview}
+          />
+        ) : (
+          <Dashboard
+            user={user}
+            isAdmin={isAdmin}
+            isDemo={isDemo}
+            gatewayTripId={gatewayTripId}
+            onSelectTrip={id => { setEditMode(false); setSelectedTripId(id) }}
+            onBuildWithAi={onBuildWithAi}
+          />
+        )}
         <ItineraryAgent
           itinerary={null}
           user={user}
           canEdit={false}
+          onProposeNewTrip={handleProposeNewTrip}
           onDuplicateCreated={onAgentDuplicate}
+          open={agentOpen}
+          onOpenChange={setAgentOpen}
           language={language}
           initialPrompt={agentInitialPrompt}
           onInitialPromptConsumed={() => setAgentInitialPrompt('')}

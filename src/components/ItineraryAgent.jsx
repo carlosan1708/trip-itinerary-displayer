@@ -7,8 +7,9 @@ import CloseIcon from '@mui/icons-material/Close'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 
 import ItineraryAgentChat from './ItineraryAgentChat'
-import { streamChat, DEMO_LIMIT_ERROR } from '../utils/agentClient'
+import { streamChat, streamCreate, DEMO_LIMIT_ERROR } from '../utils/agentClient'
 import { applyPatch, describePatch } from '../utils/itineraryPatch'
+import { detectCreateIntent, parseCreateRequest } from '../utils/createIntent'
 import { useT } from '../i18n'
 
 const DRAWER_WIDTH = 420
@@ -19,6 +20,7 @@ export default function ItineraryAgent({
   canEdit,
   onItineraryChange,
   onProposePatch,
+  onProposeNewTrip,
   onDuplicateCreated,
   open: openProp,
   onOpenChange,
@@ -67,6 +69,36 @@ export default function ItineraryAgent({
     setLoading(true)
 
     const newMessages = [...messages.filter(m => m.content?.trim()), { role: 'user', content: userText }]
+
+    // Create flow: no itinerary loaded + the message reads as "build a trip".
+    // Run the real generator and surface a full preview the user can save or
+    // discard, instead of answering with prose.
+    if (!itinerary && onProposeNewTrip && detectCreateIntent(userText)) {
+      setMessages([...newMessages, { role: 'assistant', content: t('agentCreateBuilding'), streaming: true, creating: true }])
+      const params = parseCreateRequest(userText, language)
+      const abort = streamCreate(
+        params,
+        (text) => updateLastAssistant(() => ({ content: text })),
+        (generated) => {
+          setLoading(false)
+          updateLastAssistant(() => ({
+            content: t('agentCreateReady'),
+            streaming: false,
+            creating: false,
+            proposedNewTrip: true,
+          }))
+          onProposeNewTrip(generated, params)
+        },
+        (errMsg) => {
+          setLoading(false)
+          const content = errMsg === DEMO_LIMIT_ERROR ? t('demoAiLimit') : `Error: ${errMsg}`
+          updateLastAssistant(() => ({ content, streaming: false, creating: false }))
+        },
+      )
+      abortRef.current = abort
+      return
+    }
+
     setMessages([...newMessages, { role: 'assistant', content: '', streaming: true }])
 
     const abort = streamChat(
@@ -96,7 +128,7 @@ export default function ItineraryAgent({
       },
     )
     abortRef.current = abort
-  }, [input, loading, messages, itinerary, mode])
+  }, [input, loading, messages, itinerary, mode, language, canEdit, onProposePatch, onProposeNewTrip, t])
 
   const handleApplyPatch = useCallback((patch) => {
     if (!itinerary || !canEdit) return

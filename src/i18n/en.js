@@ -331,6 +331,14 @@ export default {
   agentReviewPartCount: '{count} section',
   agentReviewPartCountPlural: '{count} sections',
 
+  // Create-from-chat (new trip preview)
+  agentCreateBuilding: 'Building your itinerary…',
+  agentCreateReady: "Here's your itinerary — review it and save if you like it.",
+  agentCreateHint: 'Review your new itinerary',
+  agentCreateBarTitle: 'New AI itinerary',
+  agentCreateSave: 'Save to My Trips',
+  agentCreateDiscard: 'Discard',
+
   // Traveler Profile
   profile: 'Profile',
   profileTitle: 'Traveler profile',
