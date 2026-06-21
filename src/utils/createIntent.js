@@ -33,12 +33,15 @@ export function detectCreateIntent(message) {
 }
 
 const STOPWORDS = new Set([
-  'a', 'an', 'the', 'to', 'in', 'for', 'of', 'and', 'random', 'please',
+  'a', 'an', 'the', 'to', 'in', 'on', 'at', 'of', 'for', 'and', 'random', 'please',
+  'me', 'my', 'us', 'some', 'somewhere', 'anywhere', 'place',
+  'solo', 'alone', 'couple', 'honeymoon', 'family', 'friends', 'people', 'travelers', 'traveller', 'travellers',
+  'pareja', 'solos', 'familia', 'amigos', 'personas', 'viajeros',
   'create', 'plan', 'build', 'make', 'generate', 'design', 'trip', 'day', 'days',
   'itinerary', 'weekend', 'vacation', 'holiday', 'getaway', 'tour',
   'crea', 'crear', 'un', 'una', 'el', 'la', 'de', 'en', 'para', 'por', 'aleatorio',
-  'planifica', 'planea', 'arma', 'genera', 'haz', 'viaje', 'día', 'días', 'dia', 'dias',
-  'itinerario', 'escapada', 'vacaciones',
+  'planifica', 'planea', 'arma', 'genera', 'haz', 'hazme', 'viaje', 'día', 'días', 'dia', 'dias',
+  'itinerario', 'escapada', 'vacaciones', 'lugar', 'algún', 'algun',
 ])
 
 /**
@@ -78,10 +81,10 @@ export function parseCreateRequest(message, language = 'en') {
   }
 }
 
-// Pull the place name out: prefer text after "in/to/a/en", else the longest
-// run of capitalised/leftover words once stopwords and day phrases are removed.
+// Pull the place name out: prefer text after a location preposition, else the
+// leftover words once stopwords and day phrases are removed.
 function extractDestination(text) {
-  const prep = text.match(/\b(?:in|to|a|en|para)\s+([A-Za-zÀ-ÿ'’.\- ]+?)(?:\s+(?:for|with|over|during|por|con|durante)\b.*)?$/i)
+  const prep = text.match(/\b(?:in|to|on|at|of|for|into|around|across|through|en|a|al|para|por|hacia|sobre)\s+([A-Za-zÀ-ÿ'’.\- ]+?)(?:\s+(?:for|with|over|during|por|con|durante)\b.*)?$/i)
   if (prep && prep[1]) {
     const cleaned = cleanPlace(prep[1])
     if (cleaned) return cleaned

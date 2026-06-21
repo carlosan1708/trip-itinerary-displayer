@@ -83,4 +83,24 @@ describe('parseCreateRequest', () => {
   it('extracts a multi-word destination', () => {
     expect(parseCreateRequest('plan a 4 day trip to New Zealand').destination).toBe('New Zealand')
   })
+
+  it('handles the "on <place>" preposition', () => {
+    // Real user phrasing that previously leaked the preposition into the name.
+    expect(parseCreateRequest('create random itinerary on england').destination).toBe('england')
+  })
+
+  it('handles "for <place>" without leaking "me"', () => {
+    expect(parseCreateRequest('make me an itinerary for Japan').destination).toBe('Japan')
+  })
+
+  it('does not leak a traveler word into the destination', () => {
+    expect(parseCreateRequest('plan a solo trip to Iceland').destination).toBe('Iceland')
+    expect(parseCreateRequest('plan a couple getaway to Paris').destination).toBe('Paris')
+  })
+
+  it('never returns an empty destination', () => {
+    for (const m of ['create a trip', 'plan something', 'make an itinerary', 'crea un viaje']) {
+      expect(parseCreateRequest(m).destination.length).toBeGreaterThan(0)
+    }
+  })
 })
