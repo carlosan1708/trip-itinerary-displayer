@@ -48,6 +48,94 @@ The model is Gemini, called through the FastAPI proxy so keys stay server-side a
 
 ---
 
+## 🤖 Using the AI
+
+Two authenticated endpoints, both **streaming Server-Sent Events**. Every request needs a Firebase ID token (`Authorization: Bearer <token>`) and must come from the allowed origin.
+
+### `POST /agent/create` — generate an itinerary from scratch
+
+Request:
+
+```json
+{
+  "destination": "Costa Rica",
+  "dates": "Jun 1 - Jun 7",
+  "num_days": 7,
+  "travelers": 2,
+  "interests": ["hiking", "wildlife"],
+  "budget": "mid",                 // budget | mid | luxury
+  "pace": "moderate",              // relaxed | moderate | packed
+  "language": "en"                 // 2-letter code
+}
+```
+
+Internally this is a **two-call pipeline** — call 1 drafts the skeleton (parts/structure, fast), call 2 fills every day in one shot — so the user sees structure quickly while content streams.
+
+SSE events:
+
+```
+event: progress   data: { "text": "Structure planned" }
+event: progress   data: { "text": "Days generated" }
+event: done       data: { "itinerary": { ...full itinerary JSON... } }
+event: error      data: { "message": "..." }
+```
+
+### `POST /agent/chat` — in-trip assistant (edit / Q&A)
+
+Request:
+
+```json
+{
+  "messages": [{ "role": "user", "content": "make it 2 days" }],
+  "itinerary": { ...current itinerary... },   // omit when none is loaded
+  "mode": "edit",                              // edit | explore (explore never writes)
+  "language": "en"
+}
+```
+
+The turn is routed to one of three handlers **without an extra LLM call**:
+
+| Intent | When | Response |
+|--------|------|----------|
+| `edit` | `mode: "edit"` and the message isn't a clear question | `{ patch, explanation, warning? }` |
+| `qa` | a question (or `explore` mode) | streamed text + optional sources |
+| `copy` | "make a copy" / "my version" | instant, no model call |
+
+An **edit** turn returns a merge-patch, never prose:
+
+```jsonc
+// done event → data:
+{
+  "response": "Removed day 3 to shorten the trip.",
+  "patch": {
+    "parts": [
+      { "id": 1, "days": [
+        { "dayNumber": 2, "activities": ["Updated activity"] },  // modify
+        { "dayNumber": 5, "location": "Tofino", "subtitle": "Day trip" },  // add (new dayNumber)
+        { "dayNumber": 3, "_delete": true }                       // remove
+      ] }
+    ]
+  },
+  "warning": "Adding Beijing to a Rio trip needs an international flight and extra days."
+}
+```
+
+The patch is applied client-side by [`itineraryPatch.js`](src/utils/itineraryPatch.js) (`applyPatch` → `normalizeItinerary`), shown as an inline diff, and only written to Firestore once the user accepts. Match rules: parts by `id`, days by `dayNumber`; a new `dayNumber` is an add, `_delete: true` is a removal, days renumber automatically.
+
+### Calling it directly
+
+```bash
+curl -N https://<agent-url>/agent/chat \
+  -H "Authorization: Bearer $ID_TOKEN" \
+  -H "Origin: https://mi-itinerario.web.app" \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"add a coffee tour to day 2"}],"itinerary":{...},"mode":"edit","language":"en"}'
+```
+
+Rate limits: `chat` 30/min, `create` 5/min (per IP). Demo (anonymous) users also pass a per-user AI-call quota before the model is touched.
+
+---
+
 ## ✨ Features
 
 |  | Feature | Description |
