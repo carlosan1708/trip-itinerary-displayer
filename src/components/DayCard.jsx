@@ -16,11 +16,13 @@ import OpenInNewIcon         from '@mui/icons-material/OpenInNew'
 import DeleteIcon            from '@mui/icons-material/Delete'
 import AddIcon               from '@mui/icons-material/Add'
 import AttachFileIcon        from '@mui/icons-material/AttachFile'
+import AutoAwesomeIcon       from '@mui/icons-material/AutoAwesome'
 import { collection, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { parseText } from '../utils/parseText'
 import DayFiles from './DayFiles'
 import DayNotes from './DayNotes'
+import DayCardDiff from './DayCardDiff'
 import { useT } from '../i18n'
 
 
@@ -31,9 +33,25 @@ const logisticIcons = {
   train:  <TrainIcon fontSize="small" />,
 }
 
-export default function DayCard({ day, partColor, editMode, onDayChange, tripId, gatewayTripId, user, isAdmin }) {
+export default function DayCard({
+  day, partColor, editMode, onDayChange, tripId, gatewayTripId, user, isAdmin,
+  pendingDayDiff, canEdit, onAcceptDayDiff, onRejectDayDiff,
+}) {
   const t = useT()
   const [files, setFiles] = useState([])
+  const [expanded, setExpanded] = useState(editMode)
+  const hasDiff = !!pendingDayDiff
+
+  // Force the card open while it carries a pending AI change so the inline
+  // diff is visible without the user hunting for it.
+  useEffect(() => {
+    if (hasDiff) setExpanded(true)
+  }, [hasDiff])
+
+  // Keep edit-mode expansion behaviour in sync.
+  useEffect(() => {
+    if (editMode) setExpanded(true)
+  }, [editMode])
 
   useEffect(() => {
     if (!tripId || !gatewayTripId) return
@@ -91,15 +109,19 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
     <Accordion
       disableGutters
       elevation={1}
-      defaultExpanded={editMode}
+      expanded={expanded}
+      onChange={(_e, isExpanded) => setExpanded(isExpanded)}
       TransitionProps={{ unmountOnExit: true }}
       sx={{
         mb: 1.5,
-        borderLeft: `4px solid ${partColor}`,
+        borderLeft: `4px solid ${hasDiff ? '#7B1FA2' : partColor}`,
         borderRadius: '0 8px 8px 0 !important',
-        transition: 'box-shadow 0.2s',
+        transition: 'box-shadow 0.2s, border-color 0.2s',
         '&:hover': { boxShadow: 3 },
-        outline: editMode ? `1px dashed ${partColor}44` : 'none',
+        outline: hasDiff
+          ? '1px solid rgba(123,31,162,0.4)'
+          : editMode ? `1px dashed ${partColor}44` : 'none',
+        boxShadow: hasDiff ? '0 0 0 3px rgba(123,31,162,0.10)' : undefined,
       }}
     >
       {/* ── Summary ── */}
@@ -132,6 +154,20 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
                 <Typography variant="subtitle1" fontWeight={700} lineHeight={1.2}>{day.location}</Typography>
                 <Typography variant="body2" color="text.secondary" lineHeight={1.3}>{day.subtitle}</Typography>
               </Box>
+              {hasDiff && (
+                <Chip
+                  data-testid="day-proposed-badge"
+                  icon={<AutoAwesomeIcon sx={{ fontSize: '13px !important' }} />}
+                  label={t('agentInlineBadge')}
+                  size="small"
+                  sx={{
+                    ml: 'auto', height: 22, fontSize: '0.72rem', flexShrink: 0, fontWeight: 700,
+                    bgcolor: 'rgba(123,31,162,0.12)', color: '#6A1B9A',
+                    border: '1px solid rgba(123,31,162,0.35)',
+                    '& .MuiChip-icon': { color: '#7B1FA2' },
+                  }}
+                />
+              )}
               {tripId && user && files.length > 0 && (
                 <Chip
                   data-testid="file-count-badge"
@@ -139,7 +175,7 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
                   label={files.length}
                   size="small"
                   variant="outlined"
-                  sx={{ ml: 'auto', height: 22, fontSize: '0.72rem', flexShrink: 0 }}
+                  sx={{ ml: hasDiff ? 0.75 : 'auto', height: 22, fontSize: '0.72rem', flexShrink: 0 }}
                 />
               )}
             </>
@@ -149,6 +185,17 @@ export default function DayCard({ day, partColor, editMode, onDayChange, tripId,
 
       {/* ── Details ── */}
       <AccordionDetails sx={{ pt: 0, pb: 2.5, px: 2.5 }}>
+
+        {/* Pending AI change (inline review) */}
+        {hasDiff && (
+          <Box sx={{ pt: 2 }}>
+            <DayCardDiff
+              dayDiff={pendingDayDiff}
+              onAccept={canEdit ? onAcceptDayDiff : undefined}
+              onReject={onRejectDayDiff}
+            />
+          </Box>
+        )}
 
         {/* Images */}
         {editMode ? (

@@ -288,12 +288,33 @@ Each note document:
 ## AI Itinerary Agent
 
 **Component**: `src/components/ItineraryAgent.jsx` + sub-components
-  (`ItineraryAgentChat.jsx`, `ItineraryAgentDiff.jsx`, `ItineraryAgentProgress.jsx`)
+  (`ItineraryAgentChat.jsx`, `ItineraryAgentProgress.jsx`, `ItineraryAgentDiff.jsx`)
+  plus the **inline review** components `AgentReviewBar.jsx` and `DayCardDiff.jsx`.
 
-- Slide-in panel from the right side of the itinerary view.
+- Slide-in panel from the right side of the itinerary view, kept minimal — it
+  carries the conversation (ask questions / request edits) but no longer renders
+  a bulky diff card.
 - Uses the Anthropic Claude API (via the Python backend) to propose itinerary edits.
-- Diffs proposed changes against current itinerary before the user accepts.
-- Can also duplicate a trip into a new variant via `onDuplicateCreated`.
+- **Inline review (editors)**: when the agent returns a patch and the user can
+  edit (`itinerary.author === user.email`), the change is surfaced *on the
+  itinerary itself*, not in chat:
+  - `AppContent` holds the `pendingPatch`; `diffPatch(itinerary, patch)`
+    (in `utils/itineraryPatch.js`) produces a field-level before/after diff.
+  - A sticky `AgentReviewBar` at the top of the trip view summarises the change
+    set (N days / N sections) with **Accept all / Reject all / Jump to change**.
+    It insets its actions past the open assistant drawer so they stay clickable.
+  - Each affected `DayCard` auto-expands, shows a **Proposed** badge + purple
+    highlight, and renders `DayCardDiff` — real added/removed list items and
+    scalar before/after — with per-day **Accept / Reject**.
+  - Accepting one day applies `patchForDay(...)` and removes it from the pending
+    set via `removeDayFromPatch(...)`; Accept all applies the whole patch. Each
+    acceptance bumps `version` and goes through `onAgentEdit` (same save path as
+    manual edits, so it appends a version snapshot).
+  - The chat shows a small "review the changes on your itinerary" hint instead
+    of the diff card.
+- **Explore / non-editors**: patches still render as the in-chat `ItineraryAgentDiff`
+  card with a **My version** action that duplicates the trip with the patch
+  applied (`onDuplicateCreated`).
 - Accepts a `language` prop to match the current UI language.
 
 ---

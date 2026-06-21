@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   ThemeProvider, CssBaseline, Container, Box, Typography, CircularProgress,
 } from '@mui/material'
@@ -6,10 +6,12 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { findTripData, saveTripData, getRegistry, saveRegistry } from './utils/registry'
+import { applyPatch, diffPatch, patchForDay, removeDayFromPatch } from './utils/itineraryPatch'
 
 import theme from './theme'
 import { I18nProvider, useT, translate } from './i18n'
 import ItineraryAgent       from './components/ItineraryAgent'
+import AgentReviewBar       from './components/AgentReviewBar'
 import TripEditorModal      from './components/TripEditorModal'
 import VersionHistoryModal  from './components/VersionHistoryModal'
 import Header from './components/Header'
@@ -375,6 +377,59 @@ function AppContent({
   const t = useT()
   const [filesPanelOpen, setFilesPanelOpen] = useState(false)
 
+  // Pending AI patch under inline review (shown on day cards + the review bar).
+  const [pendingPatch, setPendingPatch] = useState(null)
+
+  const pendingDiff = useMemo(
+    () => (pendingPatch && itinerary ? diffPatch(itinerary, pendingPatch) : null),
+    [pendingPatch, itinerary],
+  )
+
+  // Map "partId:dayNumber" → that day's diff entry, for quick lookup per card.
+  const pendingByDay = useMemo(() => {
+    const m = new Map()
+    for (const d of pendingDiff?.days || []) m.set(`${d.partId}:${d.dayNumber}`, d)
+    return m
+  }, [pendingDiff])
+
+  // Drop the pending patch whenever the user leaves the trip.
+  useEffect(() => { setPendingPatch(null) }, [selectedTripId])
+
+  const handleProposePatch = useCallback((patch) => {
+    setPendingPatch(patch && patch.parts?.length ? patch : null)
+  }, [])
+
+  const handleAcceptAll = useCallback(() => {
+    if (!pendingPatch || !itinerary) return
+    const updated = applyPatch(itinerary, pendingPatch)
+    updated.version = (itinerary.version || 1) + 1
+    onAgentEdit?.(updated, { source: 'agent_edit' })
+    setPendingPatch(null)
+  }, [pendingPatch, itinerary, onAgentEdit])
+
+  const handleRejectAll = useCallback(() => setPendingPatch(null), [])
+
+  const handleAcceptDay = useCallback((partId, dayNumber) => {
+    if (!pendingPatch || !itinerary) return
+    const slice = patchForDay(pendingPatch, partId, dayNumber)
+    const updated = applyPatch(itinerary, slice)
+    updated.version = (itinerary.version || 1) + 1
+    onAgentEdit?.(updated, { source: 'agent_edit' })
+    setPendingPatch(prev => removeDayFromPatch(prev, partId, dayNumber))
+  }, [pendingPatch, itinerary, onAgentEdit])
+
+  const handleRejectDay = useCallback((partId, dayNumber) => {
+    setPendingPatch(prev => removeDayFromPatch(prev, partId, dayNumber))
+  }, [])
+
+  const handleJumpNext = useCallback(() => {
+    const first = pendingDiff?.days?.[0]
+    if (!first) return
+    document
+      .querySelector(`[data-day-anchor="${first.partId}:${first.dayNumber}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [pendingDiff])
+
   if (user === undefined || (user && allowed === null)) return <LoadingScreen />
   if (!user) return <LoginScreen />
   if (!allowed) return <AccessDenied email={user.email} />
@@ -454,6 +509,17 @@ function AppContent({
         />
       )}
 
+      {pendingDiff && pendingDiff.total > 0 && (
+        <AgentReviewBar
+          diff={pendingDiff}
+          canEdit={canEdit}
+          agentOpen={agentOpen}
+          onAcceptAll={canEdit ? handleAcceptAll : undefined}
+          onRejectAll={handleRejectAll}
+          onJumpNext={pendingDiff.dayCount > 0 ? handleJumpNext : undefined}
+        />
+      )}
+
       <Container maxWidth="md" sx={{
         py: 4, px: { xs: 2, sm: 3 },
         transition: 'padding-right 0.3s ease',
@@ -466,19 +532,27 @@ function AppContent({
               editMode={editMode}
               onPartChange={updated => onPartChange(part.id, updated)}
             />
-            {part.days.map(day => (
-              <DayCard
-                key={day.dayNumber}
-                day={day}
-                partColor={part.color}
-                editMode={editMode}
-                onDayChange={updated => onDayChange(part.id, day.dayNumber, updated)}
-                tripId={selectedTripId}
-                gatewayTripId={gatewayTripId}
-                user={user}
-                isAdmin={isAdmin}
-              />
-            ))}
+            {part.days.map(day => {
+              const dayDiff = pendingByDay.get(`${part.id}:${day.dayNumber}`)
+              return (
+                <Box key={day.dayNumber} data-day-anchor={`${part.id}:${day.dayNumber}`}>
+                  <DayCard
+                    day={day}
+                    partColor={part.color}
+                    editMode={editMode}
+                    onDayChange={updated => onDayChange(part.id, day.dayNumber, updated)}
+                    tripId={selectedTripId}
+                    gatewayTripId={gatewayTripId}
+                    user={user}
+                    isAdmin={isAdmin}
+                    pendingDayDiff={dayDiff}
+                    canEdit={canEdit}
+                    onAcceptDayDiff={() => handleAcceptDay(part.id, day.dayNumber)}
+                    onRejectDayDiff={() => handleRejectDay(part.id, day.dayNumber)}
+                  />
+                </Box>
+              )
+            })}
           </Box>
         ))}
       </Container>
@@ -496,6 +570,7 @@ function AppContent({
         user={user}
         canEdit={canEdit}
         onItineraryChange={onAgentEdit}
+        onProposePatch={handleProposePatch}
         onDuplicateCreated={onAgentDuplicate}
         open={agentOpen}
         onOpenChange={setAgentOpen}

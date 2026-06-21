@@ -121,15 +121,17 @@ test('demo: ai-planner', async ({ page }) => {
   await settle(page, 1800)
 })
 
-// ── 2. In-trip AI assistant (propose + apply a change) ───────────────────────
+// ── 2. In-trip AI assistant — propose changes inline, then accept ────────────
 test('demo: ai-assistant', async ({ page }) => {
-  await setupAllowedUserAuthEn(page)
+  // Admin authors the mock itinerary → canEdit is true → proposed changes are
+  // surfaced inline on the itinerary (review bar + day cards) rather than as a
+  // chat diff card.
+  await setupAdminAuthEn(page)
 
-  // Mock /agent/chat to stream a reply + a patch the user can apply.
+  // Mock /agent/chat to stream a reply + a patch the user can review inline.
   await page.route('**/agent/chat', async (route) => {
     await page.waitForTimeout(900)
     const response = 'Done — I added a coffee-plantation tour to Day 2 in Banff.'
-    // Patch shape matches itineraryPatch.describePatch: { parts: [{ id, days: [...] }] }.
     // The mock itinerary "Canada Itinerary" has part id 1 with days 1 and 2.
     const patch = {
       parts: [
@@ -150,7 +152,7 @@ test('demo: ai-assistant', async ({ page }) => {
   await page.getByText('Canada Itinerary').waitFor({ timeout: 8000 })
   await settle(page, 900)
 
-  // Open the agent drawer
+  // Open the agent drawer and ask for a change
   await page.getByTestId('agent-fab').click()
   await expect(page.getByTestId('agent-input')).toBeVisible()
   await settle(page, 700)
@@ -161,9 +163,14 @@ test('demo: ai-assistant', async ({ page }) => {
   await settle(page, 400)
   await page.getByTestId('agent-send-btn').click()
 
-  // Reply + proposed-changes card appear
-  await expect(page.getByText(/coffee/i).first()).toBeVisible({ timeout: 8000 })
+  // The review bar + inline diff on the affected day appear
+  await expect(page.getByTestId('agent-review-bar')).toBeVisible({ timeout: 8000 })
+  await expect(page.getByTestId('day-card-diff')).toBeVisible()
   await settle(page, 2200)
+
+  // Accept the proposed change → it merges into the itinerary
+  await page.getByTestId('review-accept-all').click()
+  await settle(page, 1800)
 })
 
 // ── 3. Dashboard: My Trips + All Trips (admin) ───────────────────────────────

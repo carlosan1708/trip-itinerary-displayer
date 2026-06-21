@@ -18,6 +18,7 @@ export default function ItineraryAgent({
   user,
   canEdit,
   onItineraryChange,
+  onProposePatch,
   onDuplicateCreated,
   open: openProp,
   onOpenChange,
@@ -73,11 +74,18 @@ export default function ItineraryAgent({
       (chunk) => updateLastAssistant(msg => ({ content: msg.content + chunk })),
       ({ response, patch, sources }) => {
         setLoading(false)
+        // An edit-mode patch with real changes is surfaced inline on the
+        // itinerary (review bar + day cards), not as a chat diff card. Other
+        // patches (non-editor "my version" path) still render in chat.
+        const changes = patch ? describePatch(itinerary || {}, patch) : null
+        const inlineReview = !!(patch && canEdit && onProposePatch && changes?.length)
+        if (inlineReview) onProposePatch(patch)
         updateLastAssistant(() => ({
           content: response,
           streaming: false,
-          patch: patch || null,
-          changes: patch ? describePatch(itinerary || {}, patch) : null,
+          patch: inlineReview ? null : (patch || null),
+          changes: inlineReview ? null : changes,
+          proposedInline: inlineReview,
           sources: sources || [],
         }))
       },

@@ -316,6 +316,21 @@ export default {
   agentDiffFieldLocation: 'Ubicación',
   agentDiffFieldDate: 'Fecha',
 
+  // Revisión de IA en línea (en las tarjetas de día + barra de revisión)
+  agentInlineProposed: 'Cambio propuesto por IA',
+  agentInlineBadge: 'Propuesto',
+  agentInlineAccept: 'Aceptar',
+  agentInlineReject: 'Rechazar',
+  agentReviewTitle: 'La IA propone cambios',
+  agentReviewHint: 'Revisa los cambios en tu itinerario',
+  agentReviewAcceptAll: 'Aceptar todo',
+  agentReviewRejectAll: 'Rechazar todo',
+  agentReviewJump: 'Ir al cambio',
+  agentReviewDayCount: '{count} día',
+  agentReviewDayCountPlural: '{count} días',
+  agentReviewPartCount: '{count} sección',
+  agentReviewPartCountPlural: '{count} secciones',
+
   // Perfil de viajero
   profile: 'Perfil',
   profileTitle: 'Perfil de viajero',

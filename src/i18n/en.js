@@ -316,6 +316,21 @@ export default {
   agentDiffFieldLocation: 'Location',
   agentDiffFieldDate: 'Date',
 
+  // Inline AI review (on day cards + review bar)
+  agentInlineProposed: 'AI proposed change',
+  agentInlineBadge: 'Proposed',
+  agentInlineAccept: 'Accept',
+  agentInlineReject: 'Reject',
+  agentReviewTitle: 'AI proposed changes',
+  agentReviewHint: 'Review the changes on your itinerary',
+  agentReviewAcceptAll: 'Accept all',
+  agentReviewRejectAll: 'Reject all',
+  agentReviewJump: 'Jump to change',
+  agentReviewDayCount: '{count} day',
+  agentReviewDayCountPlural: '{count} days',
+  agentReviewPartCount: '{count} section',
+  agentReviewPartCountPlural: '{count} sections',
+
   // Traveler Profile
   profile: 'Profile',
   profileTitle: 'Traveler profile',

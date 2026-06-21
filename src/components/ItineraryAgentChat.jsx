@@ -5,6 +5,7 @@ import {
 import SendIcon from '@mui/icons-material/Send'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import LanguageIcon from '@mui/icons-material/Language'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import ItineraryAgentDiff from './ItineraryAgentDiff'
 import ItineraryAgentProgress from './ItineraryAgentProgress'
 import { useT } from '../i18n'
@@ -127,7 +128,26 @@ export default function ItineraryAgentChat({
               </Box>
             )}
 
-            {/* Diff card */}
+            {/* Inline-review hint: changes were surfaced on the itinerary */}
+            {msg.proposedInline && (
+              <Box sx={{ ml: 4.5, mt: 0.75 }}>
+                <Chip
+                  data-testid="agent-inline-hint"
+                  icon={<AutoAwesomeIcon sx={{ fontSize: '13px !important' }} />}
+                  label={t('agentReviewHint')}
+                  size="small"
+                  sx={{
+                    fontSize: 11, height: 24,
+                    bgcolor: 'rgba(123,31,162,0.18)',
+                    color: '#e1bee7',
+                    border: '1px solid rgba(123,31,162,0.4)',
+                    '& .MuiChip-icon': { color: '#ce93d8' },
+                  }}
+                />
+              </Box>
+            )}
+
+            {/* Diff card (non-inline path, e.g. explore/duplicate) */}
             {msg.patch !== null && msg.patch !== undefined && msg.changes !== null && msg.changes !== undefined && (
               <Box sx={{ ml: msg.role === 'assistant' ? 4.5 : 0, mt: 1 }}>
                 <ItineraryAgentDiff
