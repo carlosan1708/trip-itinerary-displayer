@@ -254,6 +254,30 @@ test.describe('AI Agent — create from chat', () => {
     await expect(page.getByText('Great Wall')).toBeVisible()
   })
 
+  test('a non-question refinement on a pending preview goes through edit mode', async ({ page }) => {
+    // Guardrail regression: "start it from costa rica" has no edit keyword and
+    // isn't a question, so it used to be classified QA and dumped a prose
+    // itinerary. It must be sent as an edit (mode: edit) against the preview.
+    let chatPayload = null
+    await page.route('**/agent/chat', async (route) => {
+      chatPayload = route.request().postDataJSON()
+      const patch = { parts: [{ id: 1, days: [{ dayNumber: 1, subtitle: 'Departure from Costa Rica' }] }] }
+      await route.fulfill({ status: 200, contentType: 'text/event-stream',
+        body: `event: done\ndata: ${JSON.stringify({ response: 'Updated.', patch })}\n\n` })
+    })
+    await mockCreate(page)
+    await openAgentAndCreate(page)
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible({ timeout: 10000 })
+
+    await page.getByTestId('agent-input').fill('start it from costa rica')
+    await page.getByTestId('agent-send-btn').click()
+
+    await expect.poll(() => chatPayload?.mode, { timeout: 10000 }).toBe('edit')
+    expect(chatPayload.itinerary).toBeTruthy()
+    // The preview updated; no giant prose itinerary in chat.
+    await expect(page.getByText('Departure from Costa Rica')).toBeVisible({ timeout: 10000 })
+  })
+
   test('a plain question does NOT trigger the create preview', async ({ page }) => {
     let chatHit = false
     await page.route('**/agent/chat', async (route) => {

@@ -68,11 +68,31 @@ class TestDetectIntent:
     def test_qa_question(self):
         assert _detect_intent("qué tiempo hace en Vancouver en septiembre?", "edit") == "qa"
 
-    def test_qa_fallback(self):
+    def test_qa_for_question_opener(self):
+        # "tell me ..." reads as a question → stays on QA even in edit mode.
         assert _detect_intent("tell me about Banff", "edit") == "qa"
 
     def test_empty_message(self):
         assert _detect_intent("", "edit") == "qa"
+
+    # ── Guardrail: in EDIT mode, anything that isn't a clear question is an edit,
+    # even without a keyword marker. Regression: "from costa rica" / "start it
+    # from costa rica" used to fall through to QA and dump prose. ──
+    def test_non_question_in_edit_mode_defaults_to_edit(self):
+        assert _detect_intent("from costa rica", "edit") == "edit"
+        assert _detect_intent("start it from costa rica", "edit") == "edit"
+        assert _detect_intent("a beach somewhere warm", "edit") == "edit"
+
+    def test_questions_in_edit_mode_stay_qa(self):
+        assert _detect_intent("what's the weather in Tokyo?", "edit") == "qa"
+        assert _detect_intent("how much is a JR pass", "edit") == "qa"
+        assert _detect_intent("is it safe at night", "edit") == "qa"
+        assert _detect_intent("do you know what visa I need", "edit") == "qa"
+
+    def test_non_question_in_explore_mode_stays_qa(self):
+        # explore (non-author) never edits, even for a non-question.
+        assert _detect_intent("from costa rica", "explore") == "qa"
+        assert _detect_intent("change day 3", "explore") == "qa"
 
     def test_add_marker_edit_mode(self):
         assert _detect_intent("añade una visita al CN Tower", "edit") == "edit"

@@ -83,13 +83,47 @@ _COPY_MARKERS = {
     "copy", "duplicate", "my version", "my copy",
 }
 
+# Words/markers that make a message read as a standalone question — in edit
+# mode these stay on the QA path. Everything else in edit mode is treated as an
+# edit instruction (the guardrail: keyword lists can't enumerate every way a
+# user phrases "change the trip", so edit mode defaults to editing).
+_QUESTION_OPENERS = (
+    "what", "whats", "what's", "how", "when", "where", "why", "which", "who",
+    "is ", "are ", "do ", "does ", "did ", "can ", "could ", "should ", "would ",
+    "will ", "tell me", "explain", "what is", "what are",
+    "qué", "que ", "cómo", "como ", "cuándo", "cuando", "dónde", "donde",
+    "por qué", "porque", "cuál", "cual", "cuánto", "cuanto", "cuántos", "cuantos",
+)
+# Phrases that signal a question even mid-sentence ("do you know what the weather
+# is", "I was wondering how much").
+_QUESTION_SIGNALS = (
+    "?", "do you know", "i wonder", "i was wondering", "any idea", "is it safe",
+    "is it possible", "what about", "how much", "how many", "how long",
+    "me pregunto", "sabes", "es seguro", "es posible", "qué tal",
+)
+
+
+def _looks_like_question(lower: str) -> bool:
+    if lower.endswith("?"):
+        return True
+    if any(s in lower for s in _QUESTION_SIGNALS):
+        return True
+    return any(lower.startswith(q) for q in _QUESTION_OPENERS)
+
 
 def _detect_intent(last_user_msg: str, mode: str) -> str:
-    lower = last_user_msg.lower()
+    lower = last_user_msg.lower().strip()
+    if not lower:
+        return "qa"
     if any(m in lower for m in _COPY_MARKERS):
         return "copy"
-    if mode == "edit" and any(m in lower for m in _EDIT_MARKERS):
-        return "edit"
+    # Guardrail: in edit mode, default to EDIT. Only a message that clearly reads
+    # as a standalone question stays on QA. An explicit edit marker also forces
+    # edit even if the phrasing happens to look question-ish.
+    if mode == "edit":
+        if any(m in lower for m in _EDIT_MARKERS):
+            return "edit"
+        return "qa" if _looks_like_question(lower) else "edit"
     return "qa"
 
 

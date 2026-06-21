@@ -295,6 +295,14 @@ Each note document:
   carries the conversation (ask questions / request edits) but no longer renders
   a bulky diff card.
 - Uses the Anthropic Claude API (via the Python backend) to propose itinerary edits.
+- **Intent guardrail (`_detect_intent` in `backend/chat.py`)**: a keyword list
+  can't enumerate every way a user phrases an edit, so in **edit mode the intent
+  defaults to `edit`** — only a message that clearly reads as a standalone
+  question (ends with `?`, starts with a question word, or contains a question
+  signal like "how much"/"is it safe") stays on the QA path. This prevents
+  edit-context phrasings like "from costa rica" / "start it from costa rica"
+  from being answered with a prose itinerary dump instead of updating the trip.
+  Copy intent still wins first; `explore` mode never edits.
 - **Inline review (editors)**: when the agent returns a patch and the user can
   edit (`itinerary.author === user.email`), the change is surfaced *on the
   itinerary itself*, not in chat:
