@@ -6,7 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { findTripData, saveTripData, getRegistry, saveRegistry, slugify } from './utils/registry'
-import { applyPatch, diffPatch, patchForDay, removeDayFromPatch, normalizeItinerary } from './utils/itineraryPatch'
+import { applyPatch, diffPatch, patchForDay, removeDayFromPatch, normalizeItinerary, countDays } from './utils/itineraryPatch'
 
 import theme from './theme'
 import { I18nProvider, useT, translate } from './i18n'
@@ -451,10 +451,13 @@ function AppContent({
   const handleAcceptDay = useCallback((partId, dayNumber) => {
     if (!pendingPatch || !itinerary) return
     const slice = patchForDay(pendingPatch, partId, dayNumber)
-    const updated = normalizeItinerary(applyPatch(itinerary, slice))
+    const remaining = removeDayFromPatch(pendingPatch, partId, dayNumber)
+    // While other day changes are still pending, keep dayNumbers stable so their
+    // patch targets keep matching; only renumber once this is the last one.
+    const updated = normalizeItinerary(applyPatch(itinerary, slice), { renumber: !remaining })
     updated.version = (itinerary.version || 1) + 1
     onAgentEdit?.(updated, { source: 'agent_edit' })
-    setPendingPatch(prev => removeDayFromPatch(prev, partId, dayNumber))
+    setPendingPatch(remaining)
   }, [pendingPatch, itinerary, onAgentEdit])
 
   const handleRejectDay = useCallback((partId, dayNumber) => {
@@ -519,6 +522,10 @@ function AppContent({
         title={itinerary.title}
         subtitle={itinerary.subtitle}
         stats={itinerary.stats}
+        dayCountLabel={(() => {
+          const n = countDays(itinerary)
+          return n > 0 ? t(n === 1 ? 'agentDiffDayCount' : 'agentDiffDayCountPlural', { count: n }) : null
+        })()}
         user={user}
         isAdmin={isAdmin}
         author={itinerary.author}

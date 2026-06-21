@@ -355,10 +355,18 @@ Each note document:
   backend parses it via `_parse_edit_response` into the done payload; the chat
   renders it as an amber callout (`data-testid="agent-warning"`) so the change
   is applied *and* the concern is voiced rather than silently accepted.
-- **Day-count chip is derived, not model-authored**: `NewTripPreview` shows the
-  real day count via `countDays(itinerary)` (sum of days across parts) instead
-  of `stats[0]`, which drifted out of sync after add/remove-day edits. The other
+- **Day-count chip is derived, not model-authored**: both `NewTripPreview` and
+  the saved-trip `Header` show the real day count via `countDays(itinerary)`
+  (sum of days across parts) instead of `stats[0]`, which drifted out of sync
+  after add/remove-day edits (`Header` takes a `dayCountLabel` prop). The other
   stat chips (countries, cities) remain model-authored.
+- **Renumbering lives in `normalizeItinerary`, not `applyPatch`**: `applyPatch`
+  is a faithful merge that never renumbers. `normalizeItinerary` renumbers days
+  1..N across parts by default, or with `{ renumber: false }` keeps them stable.
+  Per-day Accept of a multi-day deletion uses `{ renumber: false }` until the
+  last pending change, so accepting one deletion doesn't shift the dayNumbers
+  the other still-pending deletions target (previously the 2nd/3rd accept hit
+  the wrong day or did nothing).
 - Accepts a `language` prop to match the current UI language.
 
 ---

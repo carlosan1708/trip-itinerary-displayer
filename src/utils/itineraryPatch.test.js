@@ -28,6 +28,38 @@ function baseItinerary() {
   }
 }
 
+// Models the App.jsx per-day Accept flow for a multi-day deletion. Regression:
+// accepting one deletion used to renumber the trip, which shifted the dayNumbers
+// the *other* still-pending deletions targeted, so subsequent accepts hit the
+// wrong day or silently did nothing.
+describe('incremental per-day accept of a multi-day deletion', () => {
+  function acceptDay(state, partId, dayNumber) {
+    const slice = patchForDay(state.pending, partId, dayNumber)
+    const remaining = removeDayFromPatch(state.pending, partId, dayNumber)
+    const itin = normalizeItinerary(applyPatch(state.itin, slice), { renumber: !remaining })
+    return { itin, pending: remaining }
+  }
+
+  it('accepting deletions one-by-one removes exactly the right days', () => {
+    let state = {
+      itin: { parts: [{ id: 1, title: 'P', color: '#000',
+        days: Array.from({ length: 6 }, (_, i) => ({ dayNumber: i + 1, location: `D${i + 1}` })) }] },
+      pending: { parts: [{ id: 1, days: [
+        { dayNumber: 4, _delete: true }, { dayNumber: 5, _delete: true }, { dayNumber: 6, _delete: true },
+      ] }] },
+    }
+    state = acceptDay(state, 1, 4)
+    expect(state.itin.parts[0].days.map(d => d.location)).toEqual(['D1', 'D2', 'D3', 'D5', 'D6'])
+    state = acceptDay(state, 1, 5)
+    expect(state.itin.parts[0].days.map(d => d.location)).toEqual(['D1', 'D2', 'D3', 'D6'])
+    state = acceptDay(state, 1, 6)
+    // Final accept clears pending → renumber kicks in → clean 1..3.
+    expect(state.itin.parts[0].days.map(d => d.location)).toEqual(['D1', 'D2', 'D3'])
+    expect(state.itin.parts[0].days.map(d => d.dayNumber)).toEqual([1, 2, 3])
+    expect(state.pending).toBeNull()
+  })
+})
+
 describe('countDays', () => {
   it('counts all days across all parts', () => {
     expect(countDays(baseItinerary())).toBe(3) // 2 in BC + 1 in Alberta
@@ -86,16 +118,30 @@ describe('normalizeItinerary', () => {
     expect(added.emoji).toBeTruthy()
   })
 
-  it('recomputes daysRange from the actual days', () => {
+  it('renumbers days 1..N across parts by default (closes gaps)', () => {
+    const itin = { parts: [
+      { id: 1, title: 'A', color: '#000', days: [{ dayNumber: 1, location: 'a' }, { dayNumber: 3, location: 'b' }] },
+      { id: 2, title: 'B', color: '#111', days: [{ dayNumber: 7, location: 'c' }] },
+    ] }
+    const out = normalizeItinerary(itin)
+    expect(out.parts[0].days.map(d => d.dayNumber)).toEqual([1, 2])
+    expect(out.parts[1].days.map(d => d.dayNumber)).toEqual([3])
+    expect(out.parts[0].daysRange).toBe('Days 1 – 2')
+    expect(out.parts[1].daysRange).toBe('Day 3')
+  })
+
+  it('preserves dayNumbers and derives daysRange when { renumber: false }', () => {
     const itin = { parts: [{ id: 1, title: 'P', color: '#000', daysRange: 'WRONG', days: [
       { dayNumber: 3, location: 'A' }, { dayNumber: 4, location: 'B' },
     ] }] }
-    expect(normalizeItinerary(itin).parts[0].daysRange).toBe('Days 3 – 4')
+    const out = normalizeItinerary(itin, { renumber: false })
+    expect(out.parts[0].days.map(d => d.dayNumber)).toEqual([3, 4])
+    expect(out.parts[0].daysRange).toBe('Days 3 – 4')
   })
 
-  it('uses singular "Day N" for a one-day part', () => {
+  it('uses singular "Day N" for a one-day part (no renumber)', () => {
     const itin = { parts: [{ id: 1, title: 'P', color: '#000', days: [{ dayNumber: 5, location: 'A' }] }] }
-    expect(normalizeItinerary(itin).parts[0].daysRange).toBe('Day 5')
+    expect(normalizeItinerary(itin, { renumber: false }).parts[0].daysRange).toBe('Day 5')
   })
 
   it('keeps sparse-but-real days (a bare location counts as content)', () => {
@@ -214,22 +260,25 @@ describe('applyPatch', () => {
     expect(applyPatch(original, {})).toEqual(original)
   })
 
-  it('removes a day flagged with _delete and renumbers the rest', () => {
+  it('removes a day flagged with _delete (applyPatch removes, does not renumber)', () => {
     const itin = { parts: [{ id: 1, days: [
       { dayNumber: 1, location: 'A' }, { dayNumber: 2, location: 'B' }, { dayNumber: 3, location: 'C' },
     ] }] }
     const result = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 3, _delete: true }] }] })
+    // applyPatch is a faithful merge — the surviving days keep their numbers.
     expect(result.parts[0].days.map(d => d.dayNumber)).toEqual([1, 2])
     expect(result.parts[0].days.map(d => d.location)).toEqual(['A', 'B'])
   })
 
-  it('removes a middle day and renumbers sequentially (no gaps)', () => {
+  it('removes a middle day; normalizeItinerary renumbers to close the gap', () => {
     const itin = { parts: [{ id: 1, days: [
       { dayNumber: 1, location: 'A' }, { dayNumber: 2, location: 'B' }, { dayNumber: 3, location: 'C' },
     ] }] }
-    const result = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 2, _delete: true }] }] })
-    expect(result.parts[0].days.map(d => d.dayNumber)).toEqual([1, 2])
-    expect(result.parts[0].days.map(d => d.location)).toEqual(['A', 'C'])
+    const removed = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 2, _delete: true }] }] })
+    expect(removed.parts[0].days.map(d => d.dayNumber)).toEqual([1, 3]) // gap before normalize
+    const norm = normalizeItinerary(removed)
+    expect(norm.parts[0].days.map(d => d.dayNumber)).toEqual([1, 2])
+    expect(norm.parts[0].days.map(d => d.location)).toEqual(['A', 'C'])
   })
 
   it('removes a whole part flagged with _delete', () => {
@@ -237,7 +286,7 @@ describe('applyPatch', () => {
     expect(result.parts.map(p => p.id)).toEqual([1])
   })
 
-  it('does not renumber days when nothing was removed', () => {
+  it('applyPatch never renumbers on its own (pure merge)', () => {
     const itin = { parts: [{ id: 1, days: [{ dayNumber: 5, location: 'A' }, { dayNumber: 9, location: 'B' }] }] }
     const result = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 5, location: 'X' }] }] })
     expect(result.parts[0].days.map(d => d.dayNumber)).toEqual([5, 9])

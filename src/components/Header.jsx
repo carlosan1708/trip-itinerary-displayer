@@ -21,7 +21,7 @@ import AdminPanel       from './AdminPanel'
 import UserProfileDialog from './UserProfileDialog'
 import { useT, useLang, useChangeLang } from '../i18n'
 
-export default function Header({ title, subtitle, stats, user, isAdmin, author, editMode, onToggleEdit, onUploadJson, onOpenJsonEditor, onOpenVersionHistory, onDownloadPdf, pdfLoading, onOpenFiles, onBack }) {
+export default function Header({ title, subtitle, stats, dayCountLabel, user, isAdmin, author, editMode, onToggleEdit, onUploadJson, onOpenJsonEditor, onOpenVersionHistory, onDownloadPdf, pdfLoading, onOpenFiles, onBack }) {
   const t          = useT()
   const lang       = useLang()
   const changeLang = useChangeLang()
@@ -259,7 +259,9 @@ export default function Header({ title, subtitle, stats, user, isAdmin, author, 
             <Chip
               key={i}
               icon={statIcons[i]}
-              label={stat}
+              // The first chip is the day count — use the structure-derived label
+              // when provided so it can't drift from the actual days after edits.
+              label={i === 0 && dayCountLabel ? dayCountLabel : stat}
               sx={{
                 bgcolor: 'rgba(255,255,255,0.1)',
                 color: '#fff',

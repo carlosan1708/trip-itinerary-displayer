@@ -45,11 +45,14 @@ const PART_COLORS = ['#1565C0', '#2E7D32', '#E65100', '#6A1B9A', '#00838F', '#AD
  *    part left with no days (the "PART UNDEFINED" bug)
  *  - fills a missing part id (next free), color, title, and emoji
  *  - recomputes each part's daysRange from its actual days
- * dayNumbers are preserved as-is (applyPatch already keeps them coherent).
+ * By default renumbers days sequentially 1..N across all parts (so removals
+ * leave no gaps); pass { renumber: false } to keep dayNumbers stable — used by
+ * incremental per-day accept, where renumbering would shift the numbers that
+ * other still-pending patch entries point at.
  * Pure; returns a new object. Apply at the edit/preview boundary, not inside
  * applyPatch (which must stay a faithful merge).
  */
-export function normalizeItinerary(itinerary) {
+export function normalizeItinerary(itinerary, { renumber = true } = {}) {
   if (!itinerary || !Array.isArray(itinerary.parts)) return itinerary
 
   const result = structuredClone(itinerary)
@@ -63,6 +66,7 @@ export function normalizeItinerary(itinerary) {
     return nextId
   }
 
+  let globalDay = 0
   const parts = []
   result.parts.forEach((part, idx) => {
     if (!part || typeof part !== 'object') return
@@ -70,6 +74,8 @@ export function normalizeItinerary(itinerary) {
     // Drop only truly-empty placeholder days; keep sparse-but-real ones.
     const days = (part.days || []).filter(_dayHasContent)
     if (days.length === 0) return  // drop an empty part entirely
+
+    if (renumber) days.forEach(d => { d.dayNumber = ++globalDay })
 
     const id = (part.id === undefined || part.id === null) ? freshId() : part.id
     const nums = days.map(d => d.dayNumber).filter(n => typeof n === 'number')
@@ -167,19 +173,13 @@ function _mergeDays(existingDays, patchDays) {
   }
 
   // Merge existing (minus removed, preserving order) with appended, then sort by
-  // dayNumber so an inserted day lands in the right place.
-  const merged = [
+  // dayNumber so an inserted day lands in the right place. Renumbering is left to
+  // normalizeItinerary (global, across parts) so incremental per-day accepts
+  // don't shift the dayNumbers that other still-pending patch entries target.
+  return [
     ...existingDays.filter(d => !removed.has(d.dayNumber)).map(d => dayMap.get(d.dayNumber) || d),
     ...appended,
   ].sort((a, b) => (a.dayNumber ?? 0) - (b.dayNumber ?? 0))
-
-  // Renumber sequentially after a removal so there are no gaps (3→2 days yields
-  // Days 1–2, not Days 1 & 3). Only when something was actually removed, to keep
-  // pure edits/additions untouched.
-  if (removed.size > 0) {
-    merged.forEach((d, i) => { d.dayNumber = i + 1 })
-  }
-  return merged
 }
 
 /**
