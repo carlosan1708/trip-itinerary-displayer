@@ -67,11 +67,18 @@ export function parseCreateRequest(message, language = 'en') {
   else if (/\b(solo|alone|sólo)\b/i.test(text)) travelers = 1
   else if (/\b(couple|pareja|honeymoon|luna de miel)\b/i.test(text)) travelers = 2
 
-  const destination = extractDestination(text) || (language === 'es' ? 'destino sorpresa' : 'a surprise destination')
+  const isEs = language === 'es'
+  const destination =
+    (extractDestination(text) || '').trim() ||
+    (isEs ? 'destino sorpresa' : 'a surprise destination')
+
+  // The backend requires non-empty `dates` (min_length=1). Use any dates found
+  // in the message, otherwise a "flexible" placeholder — never an empty string.
+  const dates = extractDates(text) || (isEs ? 'fechas flexibles' : 'flexible dates')
 
   return {
     destination,
-    dates: '',
+    dates,
     num_days: numDays,
     travelers,
     interests: [],
@@ -79,6 +86,23 @@ export function parseCreateRequest(message, language = 'en') {
     pace: 'moderate',
     language: /^[a-z]{2}$/.test(language) ? language : 'en',
   }
+}
+
+// Best-effort date phrase extraction: month names, ISO dates, or "<n>-<n>"
+// ranges. Returns '' when nothing date-like is found (caller supplies a default).
+function extractDates(text) {
+  const months = '(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|january|february|march|april|june|july|august|september|october|november|december|ene|abr|ago|dic|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)'
+  const patterns = [
+    new RegExp(`\\b${months}[a-z]*\\.?\\s*\\d{1,2}(?:\\s*[-–to]+\\s*(?:${months}[a-z]*\\.?\\s*)?\\d{1,2})?(?:,?\\s*\\d{4})?`, 'i'),
+    /\b\d{4}-\d{2}-\d{2}(?:\s*(?:to|-|–)\s*\d{4}-\d{2}-\d{2})?/i,
+    /\bnext\s+(?:week|month|summer|spring|winter|fall|weekend)\b/i,
+    /\b(?:la\s+)?(?:semana|mes)\s+que\s+viene\b/i,
+  ]
+  for (const re of patterns) {
+    const m = text.match(re)
+    if (m) return m[0].trim()
+  }
+  return ''
 }
 
 // Pull the place name out: prefer text after a location preposition, else the

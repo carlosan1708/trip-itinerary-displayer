@@ -102,6 +102,40 @@ test.describe('AI Agent — create from chat', () => {
     await expect(page.getByText('England — 2 days').first()).toBeVisible()
   })
 
+  test('the create payload is accepted by the live backend (no 422)', async ({ page, request }) => {
+    // Catches schema drift: the chat-create payload must satisfy the backend
+    // CreateRequest (e.g. dates min_length=1). This is the test that would have
+    // caught the "dates: ''" → 422 bug.
+    let captured = null
+    await page.route('**/agent/create', async (route) => {
+      captured = route.request().postDataJSON()
+      await route.fulfill({ status: 200, contentType: 'text/event-stream',
+        body: `event: done\ndata: ${JSON.stringify({ itinerary: GENERATED })}\n\n` })
+    })
+
+    await openAgentAndCreate(page, 'random 3 day trip costa rica')
+    await expect.poll(() => captured !== null, { timeout: 10000 }).toBe(true)
+
+    // Sanity on the payload shape before hitting the backend.
+    expect(typeof captured.dates).toBe('string')
+    expect(captured.dates.length).toBeGreaterThanOrEqual(1)
+    expect(captured.destination.length).toBeGreaterThanOrEqual(1)
+
+    let res
+    try {
+      res = await request.post('http://localhost:8000/agent/create', {
+        headers: { 'Origin': 'http://localhost:5173', 'Content-Type': 'application/json', 'Authorization': 'Bearer test' },
+        data: captured,
+      })
+    } catch { test.skip(true, 'Backend not running on localhost:8000'); return }
+
+    if (res.status() === 422) {
+      const body = await res.json()
+      throw new Error(`Backend rejected create payload with 422: ${JSON.stringify(body.detail, null, 2)}`)
+    }
+    expect(res.status()).not.toBe(422)
+  })
+
   test('a plain question does NOT trigger the create preview', async ({ page }) => {
     let chatHit = false
     await page.route('**/agent/chat', async (route) => {
