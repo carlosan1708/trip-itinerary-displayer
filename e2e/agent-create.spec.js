@@ -174,6 +174,34 @@ test.describe('AI Agent — create from chat', () => {
     expect(chatPayload.itinerary).toBeTruthy()
   })
 
+  test('"add a day" to a pending preview shows the new day in the UI', async ({ page }) => {
+    // Regression: applyPatch silently dropped days whose dayNumber was not
+    // already present, so "add 1 more day" produced an explanation but the
+    // preview kept only its original days. The new day must actually appear.
+    await page.route('**/agent/chat', async (route) => {
+      // Backend adds a brand-new Day 3 to the existing part.
+      const patch = { parts: [{ id: 1, days: [
+        { dayNumber: 3, date: 'Day 3', location: 'Bristol', subtitle: 'Day trip',
+          logistics: [], activities: ['SS Great Britain'], tips: [], warnings: [], links: [], images: [] },
+      ] }] }
+      await route.fulfill({ status: 200, contentType: 'text/event-stream',
+        body: `event: done\ndata: ${JSON.stringify({ response: 'Added a third day.', patch })}\n\n` })
+    })
+    await mockCreate(page)
+    await openAgentAndCreate(page)
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible({ timeout: 10000 })
+    // Original preview has Days 1-2 only.
+    await expect(page.getByText('Day 3')).not.toBeVisible()
+
+    await page.getByTestId('agent-input').fill('add 1 more day')
+    await page.getByTestId('agent-send-btn').click()
+
+    // The new Day 3 now renders in the preview.
+    await expect(page.getByText('Day 3')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Bristol')).toBeVisible()
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible()
+  })
+
   test('a plain question does NOT trigger the create preview', async ({ page }) => {
     let chatHit = false
     await page.route('**/agent/chat', async (route) => {

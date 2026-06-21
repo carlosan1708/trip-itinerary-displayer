@@ -275,7 +275,7 @@ export default function App() {
       const owned = reg.filter(tr => tr.author === user.email).length
       if (owned >= DEMO_MAX_TRIPS) {
         window.alert(translate(language, 'demoTripLimit', { max: DEMO_MAX_TRIPS }))
-        return
+        return null
       }
     }
 
@@ -300,6 +300,9 @@ export default function App() {
     const gatewayId = user?.isDemo ? DEMO_TRIP_ID : GATEWAY_TRIP_ID
     setDoc(doc(db, 'trips', gatewayId, 'registry', 'main'), { trips: next })
       .catch(err => console.warn('[sync] Could not save registry to Firestore:', err.message))
+    // Return the id actually used (demo users get a uid-scoped id) so callers
+    // can navigate to the trip that was really created.
+    return tripId
   }
 
   function handleBuildWithAi(_folderId, seedText) {
@@ -404,9 +407,13 @@ function AppContent({
     const base = previewTrip.label || previewTrip.title || 'trip'
     const id = `${slugify(base) || 'trip'}-${Date.now().toString(36)}`
     const toSave = { ...previewTrip, author: user.email, version: previewTrip.version || 1 }
+    // Navigate to the id actually used (demo users get a uid-scoped id);
+    // falling back to the requested id. Clear the preview only after the save
+    // resolves so the view doesn't flash back to the dashboard.
+    const savedId = await onAgentDuplicate?.(id, toSave)
+    if (savedId === null) return  // save was rejected (e.g. demo trip cap)
+    setSelectedTripId(savedId || id)
     setPreviewTrip(null)
-    await onAgentDuplicate?.(id, toSave)
-    setSelectedTripId(id)
   }, [previewTrip, user, onAgentDuplicate, setSelectedTripId])
 
   // Pending AI patch under inline review (shown on day cards + the review bar).

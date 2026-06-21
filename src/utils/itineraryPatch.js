@@ -23,10 +23,15 @@ export function applyPatch(itinerary, patch) {
 
 function _mergeParts(existingParts, patchParts) {
   const partMap = new Map(existingParts.map(p => [p.id, structuredClone(p)]))
+  const appended = []
 
   for (const patchPart of patchParts) {
     const existing = partMap.get(patchPart.id)
-    if (!existing) continue
+    if (!existing) {
+      // A part not present in the itinerary is an addition — keep it whole.
+      appended.push(structuredClone(patchPart))
+      continue
+    }
 
     for (const [key, value] of Object.entries(patchPart)) {
       if (key === 'days') {
@@ -38,15 +43,20 @@ function _mergeParts(existingParts, patchParts) {
     partMap.set(patchPart.id, existing)
   }
 
-  return existingParts.map(p => partMap.get(p.id) || p)
+  return [...existingParts.map(p => partMap.get(p.id) || p), ...appended]
 }
 
 function _mergeDays(existingDays, patchDays) {
   const dayMap = new Map(existingDays.map(d => [d.dayNumber, structuredClone(d)]))
+  const appended = []
 
   for (const patchDay of patchDays) {
     const existing = dayMap.get(patchDay.dayNumber)
-    if (!existing) continue
+    if (!existing) {
+      // A day with a new dayNumber is an addition — keep it whole.
+      appended.push(structuredClone(patchDay))
+      continue
+    }
 
     for (const [key, value] of Object.entries(patchDay)) {
       if (key !== 'dayNumber') {
@@ -56,7 +66,10 @@ function _mergeDays(existingDays, patchDays) {
     dayMap.set(patchDay.dayNumber, existing)
   }
 
-  return existingDays.map(d => dayMap.get(d.dayNumber) || d)
+  // Merge existing (preserving order) with appended, then sort by dayNumber so
+  // an inserted day lands in the right place rather than always at the end.
+  const merged = [...existingDays.map(d => dayMap.get(d.dayNumber) || d), ...appended]
+  return merged.sort((a, b) => (a.dayNumber ?? 0) - (b.dayNumber ?? 0))
 }
 
 /**
@@ -71,7 +84,25 @@ export function describePatch(itinerary, patch) {
 
   for (const patchPart of patch.parts || []) {
     const part = partMap.get(patchPart.id)
-    if (!part) continue
+
+    // A part not in the itinerary is a whole new part being added.
+    if (!part) {
+      for (const patchDay of patchPart.days || []) {
+        changes.push({
+          partTitle: patchPart.title || '',
+          dayNumber: patchDay.dayNumber,
+          date: patchDay.date || '',
+          location: patchDay.location || '',
+          changedFields: Object.keys(patchDay).filter(k => k !== 'dayNumber'),
+          added: true,
+        })
+      }
+      const newPartFields = Object.keys(patchPart).filter(k => !['id', 'days'].includes(k))
+      if (newPartFields.length) {
+        changes.push({ partTitle: patchPart.title || '', dayNumber: null, changedFields: newPartFields, added: true })
+      }
+      continue
+    }
 
     const dayMap = new Map((part.days || []).map(d => [d.dayNumber, d]))
 
@@ -81,9 +112,10 @@ export function describePatch(itinerary, patch) {
       changes.push({
         partTitle: part.title,
         dayNumber: patchDay.dayNumber,
-        date: day?.date || '',
+        date: day?.date || patchDay.date || '',
         location: patchDay.location || day?.location || '',
         changedFields,
+        added: !day,
       })
     }
 
@@ -119,13 +151,44 @@ export function diffPatch(itinerary, patch) {
 
   for (const patchPart of patch?.parts || []) {
     const part = partMap.get(patchPart.id)
-    if (!part) continue
+
+    // Whole new part being added: every day in it is an addition.
+    if (!part) {
+      for (const patchDay of patchPart.days || []) {
+        const fields = Object.entries(patchDay)
+          .filter(([field]) => field !== 'dayNumber')
+          .map(([field, after]) => ({ field, before: undefined, after }))
+        days.push({
+          partId: patchPart.id,
+          dayNumber: patchDay.dayNumber,
+          date: patchDay.date || '',
+          location: patchDay.location ?? '',
+          fields,
+          added: true,
+        })
+      }
+      continue
+    }
 
     const dayMap = new Map((part.days || []).map(d => [d.dayNumber, d]))
 
     for (const patchDay of patchPart.days || []) {
       const day = dayMap.get(patchDay.dayNumber)
-      if (!day) continue
+      // New day added to an existing part.
+      if (!day) {
+        const fields = Object.entries(patchDay)
+          .filter(([field]) => field !== 'dayNumber')
+          .map(([field, after]) => ({ field, before: undefined, after }))
+        days.push({
+          partId: part.id,
+          dayNumber: patchDay.dayNumber,
+          date: patchDay.date || '',
+          location: patchDay.location ?? '',
+          fields,
+          added: true,
+        })
+        continue
+      }
       const fields = []
       for (const [field, after] of Object.entries(patchDay)) {
         if (field === 'dayNumber') continue

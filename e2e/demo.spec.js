@@ -48,4 +48,41 @@ test.describe('Demo mode', () => {
     await expect(page.getByText(/Day files/i).first()).toBeVisible({ timeout: 5000 })
     await expect(page.getByRole('button', { name: /Upload file/i })).toBeDisabled()
   })
+
+  // Regression: demo saves rewrite the trip id to a uid-scoped id, but the
+  // caller used to navigate to the original (non-existent) id, leaving the user
+  // on a blank "Loading…" screen until a manual refresh. Saving a demo preview
+  // must open the freshly-created trip.
+  test('saving an AI-created trip opens it (no blank screen) for demo users', async ({ page }) => {
+    const GENERATED = {
+      version: 1, label: 'Salvador — 2 days', title: 'Salvador — 2 days',
+      subtitle: 'A 2-day escape', stats: ['2 days', 'Salvador'],
+      parts: [{ id: 1, emoji: '☀️', title: 'Discovering Salvador', color: '#F9A825', daysRange: 'Days 1 – 2',
+        days: [
+          { dayNumber: 1, date: 'Day 1', location: 'Salvador', subtitle: 'Pelourinho',
+            logistics: [], activities: ['Pelourinho'], tips: [], warnings: [], links: [], images: [] },
+          { dayNumber: 2, date: 'Day 2', location: 'Salvador', subtitle: 'Coast',
+            logistics: [], activities: ['Forts'], tips: [], warnings: [], links: [], images: [] },
+        ] }],
+    }
+    await page.route('**/agent/create', route =>
+      route.fulfill({ status: 200, contentType: 'text/event-stream',
+        body: `event: done\ndata: ${JSON.stringify({ itinerary: GENERATED })}\n\n` }))
+
+    await page.getByTestId('try-demo-btn').click()
+    await expect(page.getByTestId('demo-banner')).toBeVisible({ timeout: 5000 })
+
+    await page.getByTestId('agent-fab').click()
+    await page.getByTestId('agent-input').fill('create 2 day trip to el salvador')
+    await page.getByTestId('agent-send-btn').click()
+
+    await expect(page.getByTestId('new-trip-preview')).toBeVisible({ timeout: 10000 })
+    await page.getByTestId('new-trip-save').click()
+
+    // The saved trip opens in the itinerary view (back button + title), NOT a
+    // stuck loading screen.
+    await expect(page.getByRole('button', { name: 'My Trips' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Salvador — 2 days').first()).toBeVisible()
+    await expect(page.getByText('Loading...')).not.toBeVisible()
+  })
 })

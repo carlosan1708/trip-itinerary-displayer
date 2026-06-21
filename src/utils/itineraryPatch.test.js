@@ -72,17 +72,28 @@ describe('applyPatch', () => {
     expect(result.parts[0].days).toHaveLength(2)
   })
 
-  it('ignores patch parts whose id does not exist', () => {
-    const result = applyPatch(baseItinerary(), { parts: [{ id: 99, title: 'Ghost' }] })
-    expect(result.parts).toHaveLength(2)
-    expect(result.parts.map(p => p.id)).toEqual([1, 2])
+  it('appends a patch part whose id does not exist (new part)', () => {
+    const result = applyPatch(baseItinerary(), { parts: [{ id: 99, title: 'Yukon', days: [] }] })
+    expect(result.parts).toHaveLength(3)
+    expect(result.parts.map(p => p.id)).toEqual([1, 2, 99])
+    expect(result.parts[2].title).toBe('Yukon')
   })
 
-  it('ignores patch days whose dayNumber does not exist', () => {
+  it('appends a patch day whose dayNumber does not exist (new day), sorted', () => {
     const result = applyPatch(baseItinerary(), {
-      parts: [{ id: 1, days: [{ dayNumber: 42, location: 'Nowhere' }] }],
+      parts: [{ id: 1, days: [{ dayNumber: 3, location: 'Kelowna', activities: ['Wine tour'] }] }],
     })
-    expect(result.parts[0].days).toHaveLength(2)
+    const days = result.parts[0].days
+    expect(days).toHaveLength(3)
+    expect(days.map(d => d.dayNumber)).toEqual([1, 2, 3])
+    expect(days[2].location).toBe('Kelowna')
+  })
+
+  it('inserts a new day in dayNumber order, not just at the end', () => {
+    const itin = { parts: [{ id: 1, days: [{ dayNumber: 1, location: 'A' }, { dayNumber: 3, location: 'C' }] }] }
+    const result = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 2, location: 'B' }] }] })
+    expect(result.parts[0].days.map(d => d.dayNumber)).toEqual([1, 2, 3])
+    expect(result.parts[0].days.map(d => d.location)).toEqual(['A', 'B', 'C'])
   })
 
   it('never overwrites part id or day dayNumber', () => {
@@ -105,15 +116,15 @@ describe('applyPatch', () => {
     expect(result.parts[1].days[0].tips).toEqual(['Watch for elk'])
   })
 
-  it('tolerates an itinerary with no parts array', () => {
+  it('appends to an itinerary with no parts array (adds the new part)', () => {
     const result = applyPatch({ title: 'X' }, { parts: [{ id: 1, title: 'Y' }] })
-    expect(result.parts).toEqual([])
+    expect(result.parts).toEqual([{ id: 1, title: 'Y' }])
   })
 
-  it('tolerates a part with no days array', () => {
+  it('adds a day to a part that has no days array', () => {
     const itin = { parts: [{ id: 1, title: 'P' }] }
     const result = applyPatch(itin, { parts: [{ id: 1, days: [{ dayNumber: 1, location: 'X' }] }] })
-    expect(result.parts[0].days).toEqual([])
+    expect(result.parts[0].days).toEqual([{ dayNumber: 1, location: 'X' }])
   })
 
   it('applies an empty patch as a no-op clone', () => {
@@ -169,12 +180,29 @@ describe('describePatch', () => {
     expect(partChange.changedFields).toEqual(['title'])
   })
 
-  it('ignores patch parts that do not exist in the itinerary', () => {
-    expect(describePatch(baseItinerary(), { parts: [{ id: 99, title: 'Ghost' }] })).toEqual([])
+  it('describes a brand-new part as an addition (day + part-level fields)', () => {
+    const changes = describePatch(baseItinerary(), {
+      parts: [{ id: 99, title: 'Yukon', days: [{ dayNumber: 4, location: 'Whitehorse' }] }],
+    })
+    const dayChange = changes.find(c => c.dayNumber === 4)
+    const partChange = changes.find(c => c.dayNumber === null)
+    expect(dayChange).toMatchObject({ dayNumber: 4, location: 'Whitehorse', added: true })
+    expect(partChange).toMatchObject({ added: true })
+    expect(partChange.changedFields).toContain('title')
   })
 
-  it('tolerates an itinerary with no parts', () => {
-    expect(describePatch({}, { parts: [{ id: 1, days: [{ dayNumber: 1, location: 'x' }] }] })).toEqual([])
+  it('describes a new day added to an existing part as an addition', () => {
+    const changes = describePatch(baseItinerary(), {
+      parts: [{ id: 1, days: [{ dayNumber: 5, location: 'Tofino', activities: ['Surf'] }] }],
+    })
+    expect(changes).toHaveLength(1)
+    expect(changes[0]).toMatchObject({ dayNumber: 5, location: 'Tofino', added: true })
+  })
+
+  it('describes additions into an itinerary with no parts', () => {
+    const changes = describePatch({}, { parts: [{ id: 1, days: [{ dayNumber: 1, location: 'x' }] }] })
+    expect(changes).toHaveLength(1)
+    expect(changes[0]).toMatchObject({ dayNumber: 1, location: 'x', added: true })
   })
 
   it('handles a part-only patch with no days key', () => {
@@ -239,11 +267,21 @@ describe('diffPatch', () => {
     expect(d.partCount).toBe(1)
   })
 
-  it('ignores unknown parts and days', () => {
+  it('records a new part as an added day diff', () => {
     const d = diffPatch(baseItinerary(), {
       parts: [{ id: 99, days: [{ dayNumber: 1, location: 'X' }] }],
     })
-    expect(d.total).toBe(0)
+    expect(d.dayCount).toBe(1)
+    expect(d.days[0]).toMatchObject({ partId: 99, dayNumber: 1, added: true })
+  })
+
+  it('records a new day in an existing part as an added day diff', () => {
+    const d = diffPatch(baseItinerary(), {
+      parts: [{ id: 1, days: [{ dayNumber: 9, location: 'Tofino', activities: ['Surf'] }] }],
+    })
+    expect(d.dayCount).toBe(1)
+    expect(d.days[0]).toMatchObject({ partId: 1, dayNumber: 9, added: true })
+    expect(d.days[0].fields.map(f => f.field)).toEqual(expect.arrayContaining(['location', 'activities']))
   })
 
   it('tolerates a null itinerary', () => {
