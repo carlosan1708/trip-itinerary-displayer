@@ -1,5 +1,7 @@
 <div align="center">
 
+![AI trip planner](docs/media/ai-planner.gif)
+
 # ✈️ Trip Itinerary Displayer
 
 **An AI-powered travel itinerary platform — generate, edit and collaborate on trips with an LLM agent.**
@@ -152,12 +154,7 @@ Rate limits: `chat` 30/min, `create` 5/min (per IP). Demo (anonymous) users also
 
 ---
 
-## 📸 Showcase
-
-### AI trip planner — from a few answers to a full itinerary
-The wizard asks a handful of questions, then the agent drafts a day-by-day plan you can edit.
-
-![AI trip planner](docs/media/ai-planner.gif)
+## 📸 More demos
 
 ### In-trip AI assistant
 Open any trip, ask for a change, and the assistant replies with a proposed diff you can apply.
