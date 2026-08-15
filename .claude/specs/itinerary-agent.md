@@ -1,5 +1,15 @@
 # Spec: Itinerary Agent
 
+> **⚠️ Original design — diverged from the as-built implementation.** This document
+> describes the *planned* architecture (LangGraph state machines, a parallel
+> part-agent fan-out, a Wikimedia image tool, and `gemini-2.0-flash-lite`). The
+> shipped backend does **none** of that: it is **two direct `google-genai` calls**
+> (`gemini-2.5-flash`) — `backend/chat.py` (answer / propose_patch / copy) and
+> `backend/create.py` (skeleton + days). For current behavior — structured intent,
+> server-derived owner/viewer policy, patch sanitisation, grounded answers — see
+> [`specs/as-built.md`](../../specs/as-built.md), which is authoritative. Keep this
+> file only as historical design context.
+
 ## Overview
 
 An in-app conversational AI agent that helps users create, explore, and modify trip itineraries. The agent adapts its behavior based on context (no trip open vs. viewing a trip) and the user's relationship to the itinerary (author vs. viewer).
