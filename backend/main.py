@@ -95,12 +95,25 @@ def _identity(user: dict) -> str:
     return user.get("email") or f"demo:{user['uid']}"
 
 
+def _is_owner(user: dict, itinerary: dict | None) -> bool:
+    """Authorship derived from the VERIFIED identity, not the client's `mode`.
+
+    Only the authenticated caller whose identity matches the itinerary's author
+    is an owner. This decides whether the agent may offer to apply an edit in
+    place (owner) or only as a personal duplicate (viewer). It is advisory for
+    UX; the persistence gate is Firestore security rules.
+    """
+    if not itinerary:
+        return False
+    author = itinerary.get("author")
+    return bool(author) and _identity(user) == author
+
+
 async def _stream_conversation(req: ChatRequest, user: dict):
     async for chunk in run_conversation(
         messages=req.messages_as_dicts(),
         itinerary=req.itinerary,
-        mode=req.mode,
-        user_email=_identity(user),
+        is_owner=_is_owner(user, req.itinerary),
         language=req.language,
     ):
         yield _sse(chunk["event"], chunk["data"])

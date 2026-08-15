@@ -4,16 +4,17 @@ Unit tests for chat.py — pure Python logic, no external calls.
 import sys
 import os
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, AsyncMock, patch
 
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import chat as chat_module
 from chat import (
     _detect_intent, _build_contents, _extract_sources,
     _empty_response_reason, _build_systems, _COPY_RESPONSE, run_conversation,
-    _parse_edit_response,
+    _parse_edit_response, POLICY_APPLY, POLICY_DUPLICATE,
 )
 import json as _json
 
@@ -48,96 +49,79 @@ class TestParseEditResponse:
 
 
 class TestDetectIntent:
+    """Structured intent contract: answer | propose_patch | copy.
+
+    Detection is SYMMETRIC — it no longer takes a mode and no longer downgrades
+    a viewer's edit request to Q&A. Ownership is applied later as a policy on the
+    proposed patch, not by suppressing the patch. This is the P0 fix: a viewer
+    asking to modify the trip now gets a propose_patch (→ offered as a duplicate).
+    """
+
+    # ── copy wins ──
     def test_copy_spanish(self):
-        assert _detect_intent("quiero una copia del itinerario", "edit") == "copy"
+        assert _detect_intent("quiero una copia del itinerario") == "copy"
 
     def test_copy_english(self):
-        assert _detect_intent("make a copy for me", "edit") == "copy"
+        assert _detect_intent("make a copy for me") == "copy"
 
-    def test_copy_in_explore_mode(self):
-        # copy is allowed in explore mode too
-        assert _detect_intent("duplicate this", "explore") == "copy"
+    def test_duplicate_is_copy(self):
+        assert _detect_intent("duplicate this") == "copy"
 
-    def test_edit_in_edit_mode(self):
-        assert _detect_intent("cambia el día 3 a Montreal", "edit") == "edit"
-
-    def test_edit_blocked_in_explore_mode(self):
-        # non-authors cannot edit — edit intent downgrades to qa
-        assert _detect_intent("cambia el día 3 a Montreal", "explore") == "qa"
-
-    def test_qa_question(self):
-        assert _detect_intent("qué tiempo hace en Vancouver en septiembre?", "edit") == "qa"
-
-    def test_qa_for_question_opener(self):
-        # "tell me ..." reads as a question → stays on QA even in edit mode.
-        assert _detect_intent("tell me about Banff", "edit") == "qa"
-
-    def test_empty_message(self):
-        assert _detect_intent("", "edit") == "qa"
-
-    # ── Guardrail: in EDIT mode, anything that isn't a clear question is an edit,
-    # even without a keyword marker. Regression: "from costa rica" / "start it
-    # from costa rica" used to fall through to QA and dump prose. ──
-    def test_non_question_in_edit_mode_defaults_to_edit(self):
-        assert _detect_intent("from costa rica", "edit") == "edit"
-        assert _detect_intent("start it from costa rica", "edit") == "edit"
-        assert _detect_intent("a beach somewhere warm", "edit") == "edit"
-
-    def test_questions_in_edit_mode_stay_qa(self):
-        assert _detect_intent("what's the weather in Tokyo?", "edit") == "qa"
-        assert _detect_intent("how much is a JR pass", "edit") == "qa"
-        assert _detect_intent("is it safe at night", "edit") == "qa"
-        assert _detect_intent("do you know what visa I need", "edit") == "qa"
-
-    def test_non_question_in_explore_mode_stays_qa(self):
-        # explore (non-author) never edits, even for a non-question.
-        assert _detect_intent("from costa rica", "explore") == "qa"
-        assert _detect_intent("change day 3", "explore") == "qa"
-
-    def test_add_marker_edit_mode(self):
-        assert _detect_intent("añade una visita al CN Tower", "edit") == "edit"
-
-    def test_add_marker_explore_mode(self):
-        assert _detect_intent("añade una visita al CN Tower", "explore") == "qa"
-
-    # Verbless / "I want ... to include ..." phrasings must register as edits
-    # in edit mode — these previously fell through to QA and dumped prose
-    # instead of producing a patch (regression: preview refinement).
-    def test_want_include_phrasing_edit_mode(self):
-        assert _detect_intent("I want one day to include Guanacaste", "edit") == "edit"
-
-    def test_include_phrasing_edit_mode(self):
-        assert _detect_intent("include a beach day in the trip", "edit") == "edit"
-
-    def test_id_like_phrasing_edit_mode(self):
-        assert _detect_intent("I'd like to spend day 2 in Montreal", "edit") == "edit"
-
-    def test_spanish_quiero_incluya_edit_mode(self):
-        assert _detect_intent("quiero que el día 1 incluya Guanacaste", "edit") == "edit"
-
-    def test_want_include_blocked_in_explore_mode(self):
-        # still downgrades to qa for non-authors
-        assert _detect_intent("I want one day to include Guanacaste", "explore") == "qa"
-
-    # Copy detection still wins even though "quiero" is now an edit marker.
     def test_copy_beats_edit_marker(self):
-        assert _detect_intent("quiero una copia del itinerario", "edit") == "copy"
+        # "quiero" is an edit marker, but copy detection wins.
+        assert _detect_intent("quiero una copia del itinerario") == "copy"
 
-    # Reduce / shorten phrasings must register as edits (they map to day removals).
-    def test_i_asked_for_n_days_edit_mode(self):
-        assert _detect_intent("I asked for 2 day", "edit") == "edit"
+    # ── questions → answer ──
+    def test_question_is_answer(self):
+        assert _detect_intent("qué tiempo hace en Vancouver en septiembre?") == "answer"
 
-    def test_make_it_n_days_edit_mode(self):
-        assert _detect_intent("make it 2 days", "edit") == "edit"
+    def test_question_opener_is_answer(self):
+        assert _detect_intent("tell me about Banff") == "answer"
 
-    def test_drop_last_day_edit_mode(self):
-        assert _detect_intent("drop the last day", "edit") == "edit"
+    def test_empty_is_answer(self):
+        assert _detect_intent("") == "answer"
 
-    def test_only_n_days_edit_mode(self):
-        assert _detect_intent("only 2 days please", "edit") == "edit"
+    def test_various_questions_are_answers(self):
+        assert _detect_intent("what's the weather in Tokyo?") == "answer"
+        assert _detect_intent("how much is a JR pass") == "answer"
+        assert _detect_intent("is it safe at night") == "answer"
+        assert _detect_intent("do you know what visa I need") == "answer"
 
-    def test_reduce_blocked_in_explore_mode(self):
-        assert _detect_intent("make it 2 days", "explore") == "qa"
+    # ── edit requests → propose_patch (for everyone) ──
+    def test_edit_marker_is_propose_patch(self):
+        assert _detect_intent("cambia el día 3 a Montreal") == "propose_patch"
+
+    def test_add_marker_is_propose_patch(self):
+        assert _detect_intent("añade una visita al CN Tower") == "propose_patch"
+
+    def test_non_question_is_propose_patch(self):
+        # A verbless fragment reads as an edit instruction, not a question.
+        assert _detect_intent("from costa rica") == "propose_patch"
+        assert _detect_intent("start it from costa rica") == "propose_patch"
+        assert _detect_intent("a beach somewhere warm") == "propose_patch"
+
+    def test_want_include_phrasing_is_propose_patch(self):
+        assert _detect_intent("I want one day to include Guanacaste") == "propose_patch"
+        assert _detect_intent("include a beach day in the trip") == "propose_patch"
+        assert _detect_intent("I'd like to spend day 2 in Montreal") == "propose_patch"
+        assert _detect_intent("quiero que el día 1 incluya Guanacaste") == "propose_patch"
+
+    def test_reduce_phrasings_are_propose_patch(self):
+        assert _detect_intent("I asked for 2 day") == "propose_patch"
+        assert _detect_intent("make it 2 days") == "propose_patch"
+        assert _detect_intent("drop the last day") == "propose_patch"
+        assert _detect_intent("only 2 days please") == "propose_patch"
+
+    def test_explicit_edit_marker_overrides_question_shape(self):
+        # "can you add ...?" is phrased as a question but the edit marker wins.
+        assert _detect_intent("can you add a beach day?") == "propose_patch"
+
+    # ── the P0 regression guard: detection does not depend on ownership ──
+    def test_viewer_edit_request_still_proposes_patch(self):
+        # Same message, whether or not the caller owns the trip: always a patch.
+        # (Ownership becomes a policy on the patch, tested in TestProposePatchPolicy.)
+        assert _detect_intent("cambia el día 3 a Montreal") == "propose_patch"
+        assert _detect_intent("make it 2 days") == "propose_patch"
 
 
 class TestBuildContents:
@@ -271,8 +255,7 @@ class TestRunConversationCopy:
         events = await self._collect(
             messages=[{"role": "user", "content": "make a copy"}],
             itinerary={"title": "X"},
-            mode="explore",
-            user_email="u@test.com",
+            is_owner=False,
             language="en",
         )
         assert len(events) == 1
@@ -284,8 +267,60 @@ class TestRunConversationCopy:
         events = await self._collect(
             messages=[{"role": "user", "content": "quiero una copia"}],
             itinerary=None,
-            mode="explore",
-            user_email="u@test.com",
+            is_owner=False,
             language="es",
         )
         assert events[0]["data"]["response"] == _COPY_RESPONSE["es"]
+
+
+@pytest.mark.asyncio
+class TestProposePatchPolicy:
+    """The propose_patch path attaches a server-derived policy and never emits an
+    unsanitised patch. Ownership is decided by `is_owner` (from the authenticated
+    identity vs the itinerary author), not by the client."""
+
+    _ITIN = {"title": "T", "author": "owner@x.com", "parts": []}
+
+    async def _run(self, is_owner, patch_json):
+        fake = SimpleNamespace(text=patch_json)
+        with patch.object(
+            chat_module.gemini_client.aio.models,
+            "generate_content",
+            new=AsyncMock(return_value=fake),
+        ):
+            return [
+                evt async for evt in run_conversation(
+                    messages=[{"role": "user", "content": "cambia el día 3 a Montreal"}],
+                    itinerary=self._ITIN,
+                    is_owner=is_owner,
+                    language="en",
+                )
+            ]
+
+    def _done(self, events):
+        done = [e for e in events if e["event"] == "done"]
+        assert done, f"no done event in {events}"
+        return done[0]["data"]
+
+    async def test_owner_gets_apply_allowed_policy(self):
+        events = await self._run(True, '{"patch": {"label": "New"}, "explanation": "ok"}')
+        assert self._done(events)["policy"] == POLICY_APPLY
+
+    async def test_viewer_gets_duplicate_only_policy(self):
+        # The P0 fix: a viewer's modification request is honoured as a patch, but
+        # can only be applied to a personal copy.
+        events = await self._run(False, '{"patch": {"label": "New"}, "explanation": "ok"}')
+        assert self._done(events)["policy"] == POLICY_DUPLICATE
+
+    async def test_protected_field_is_stripped_before_emit(self):
+        events = await self._run(
+            True, '{"patch": {"author": "evil@x.com", "label": "New"}, "explanation": "ok"}'
+        )
+        data = self._done(events)
+        assert "author" not in data["patch"]
+        assert data["patch"] == {"label": "New"}
+        assert data["rejected"]  # the drop is reported
+
+    async def test_clean_patch_reports_no_rejections(self):
+        events = await self._run(True, '{"patch": {"label": "New"}, "explanation": "ok"}')
+        assert self._done(events)["rejected"] == []
