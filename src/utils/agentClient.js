@@ -121,6 +121,10 @@ async function _readSSE(body, handlers) {
   // lines can land in different network chunks, and the type set by an earlier
   // chunk has to survive until its `data:` line arrives.
   let event = null
+  // Every well-formed stream ends with exactly one terminal `done` or `error`
+  // event. If the connection drops before that (premature EOF), the caller must
+  // still be told, or the UI spins forever waiting for a signal that never comes.
+  let terminated = false
 
   while (true) {
     const { done, value } = await reader.read()
@@ -137,10 +141,14 @@ async function _readSSE(body, handlers) {
         const data = JSON.parse(line.slice(6))
         if (event === 'token')    handlers.onToken?.(data.text)
         if (event === 'progress') handlers.onProgress?.(data.text)
-        if (event === 'done')     handlers.onDone?.(data)
-        if (event === 'error')    handlers.onError?.(data.message)
+        if (event === 'done')   { handlers.onDone?.(data);            terminated = true }
+        if (event === 'error')  { handlers.onError?.(data.message);   terminated = true }
         event = null
       }
     }
+  }
+
+  if (!terminated) {
+    handlers.onError?.('Connection closed before the response completed.')
   }
 }

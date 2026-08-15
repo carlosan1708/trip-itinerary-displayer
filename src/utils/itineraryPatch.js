@@ -34,6 +34,115 @@ export function applyPatch(itinerary, patch) {
   return result
 }
 
+// ---------------------------------------------------------------------------
+// sanitizePatch — client-side mirror of backend schemas.sanitize_patch. The
+// backend already strips protected/unknown fields, so this is defense-in-depth:
+// it guarantees a patch is safe before applyPatch touches the itinerary even if
+// a patch reaches the client by another route. Keep the allowlists in sync with
+// backend/schemas.py.
+// ---------------------------------------------------------------------------
+const _ALLOWED_TOP = new Set(['label', 'title', 'subtitle', 'stats', 'parts'])
+const _ALLOWED_PART = new Set(['id', 'emoji', 'title', 'color', 'daysRange', 'locations', 'days', '_delete'])
+const _ALLOWED_DAY = new Set([
+  'dayNumber', 'date', 'location', 'subtitle', 'logistics',
+  'activities', 'tips', 'warnings', 'links', 'images', '_delete',
+])
+const _PROTECTED = new Set([
+  'author', 'version', 'permissions', 'access', 'allowed_users',
+  'owner', 'ownerEmail', 'roles', 'createdAt', 'updatedAt',
+])
+const _LOGISTICS_TYPES = new Set(['flight', 'drive', 'stay', 'train'])
+const _IMAGE_SENTINEL = 'NEEDS_IMAGE'
+
+function _isSafeUrl(url) {
+  if (typeof url !== 'string') return false
+  const u = url.trim()
+  return u === _IMAGE_SENTINEL || u.toLowerCase().startsWith('https://')
+}
+
+/**
+ * Returns { patch, rejected }: a cleaned patch containing only allowlisted
+ * fields (valid logistics enums, https-only links) plus a list of what was
+ * dropped. Never throws — malformed input yields an empty patch.
+ */
+export function sanitizePatch(patch) {
+  if (patch == null) return { patch: {}, rejected: [] }
+  if (typeof patch !== 'object' || Array.isArray(patch)) {
+    return { patch: {}, rejected: ['patch must be an object'] }
+  }
+  const rejected = []
+  const clean = {}
+  for (const [key, value] of Object.entries(patch)) {
+    if (key === 'parts') {
+      if (!Array.isArray(value)) { rejected.push('parts must be an array'); continue }
+      clean.parts = _sanitizeParts(value, rejected)
+      continue
+    }
+    if (_PROTECTED.has(key)) { rejected.push(`rejected protected field '${key}'`); continue }
+    if (!_ALLOWED_TOP.has(key)) { rejected.push(`rejected unknown field '${key}'`); continue }
+    clean[key] = value
+  }
+  return { patch: clean, rejected }
+}
+
+function _sanitizeParts(parts, rejected) {
+  const out = []
+  parts.forEach((part, idx) => {
+    if (!part || typeof part !== 'object') { rejected.push(`parts[${idx}] is not an object`); return }
+    const clean = {}
+    for (const [key, value] of Object.entries(part)) {
+      if (key === 'days') {
+        if (!Array.isArray(value)) { rejected.push(`parts[${idx}].days must be an array`); continue }
+        clean.days = _sanitizeDays(value, idx, rejected)
+        continue
+      }
+      if (_PROTECTED.has(key)) { rejected.push(`rejected protected field 'parts[${idx}].${key}'`); continue }
+      if (!_ALLOWED_PART.has(key)) { rejected.push(`rejected unknown field 'parts[${idx}].${key}'`); continue }
+      clean[key] = value
+    }
+    out.push(clean)
+  })
+  return out
+}
+
+function _sanitizeDays(days, partIdx, rejected) {
+  const out = []
+  days.forEach((day, jdx) => {
+    if (!day || typeof day !== 'object') { rejected.push(`parts[${partIdx}].days[${jdx}] is not an object`); return }
+    const clean = {}
+    for (const [key, value] of Object.entries(day)) {
+      if (_PROTECTED.has(key)) { rejected.push(`rejected protected field 'parts[${partIdx}].days[${jdx}].${key}'`); continue }
+      if (!_ALLOWED_DAY.has(key)) { rejected.push(`rejected unknown field 'parts[${partIdx}].days[${jdx}].${key}'`); continue }
+      if (key === 'logistics') clean[key] = _sanitizeLogistics(value, rejected)
+      else if (key === 'links') clean[key] = _sanitizeLinks(value, rejected)
+      else clean[key] = value
+    }
+    out.push(clean)
+  })
+  return out
+}
+
+function _sanitizeLogistics(value, rejected) {
+  if (!Array.isArray(value)) { rejected.push('logistics must be an array'); return [] }
+  return value.filter(entry => {
+    if (!entry || typeof entry !== 'object') return false
+    if (entry.type != null && !_LOGISTICS_TYPES.has(entry.type)) {
+      rejected.push(`dropped logistics with invalid type '${entry.type}'`)
+      return false
+    }
+    return true
+  })
+}
+
+function _sanitizeLinks(value, rejected) {
+  if (!Array.isArray(value)) { rejected.push('links must be an array'); return [] }
+  return value.filter(link => {
+    if (!link || typeof link !== 'object') return false
+    if (!_isSafeUrl(link.url)) { rejected.push('dropped link with unsafe url'); return false }
+    return true
+  })
+}
+
 // Fallback palette for parts the model added without a color (matches the
 // travel palette used by the generator: blues, greens, oranges, purples).
 const PART_COLORS = ['#1565C0', '#2E7D32', '#E65100', '#6A1B9A', '#00838F', '#AD1457', '#4527A0']
