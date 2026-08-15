@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from create import _params_text, _strip_fence, _merge, _msg, run_creation
+from create import _params_text, _strip_fence, _merge, _msg, run_creation, _creation_problems
 
 
 def _params(**overrides):
@@ -105,6 +105,27 @@ class TestMerge:
         assert result["stats"] == ["18 días"]
 
 
+class TestCreationProblems:
+    _SKELETON = {"parts": [{"id": 1}, {"id": 2}]}
+
+    def test_no_problems_when_every_part_has_days(self):
+        days = {"1": [{"dayNumber": 1}], "2": [{"dayNumber": 2}]}
+        assert _creation_problems(self._SKELETON, days) == []
+
+    def test_flags_a_missing_part(self):
+        problems = _creation_problems(self._SKELETON, {"1": [{"dayNumber": 1}]})
+        assert any("2" in p for p in problems)
+
+    def test_flags_an_empty_day_array(self):
+        assert _creation_problems({"parts": [{"id": 1}]}, {"1": []})
+
+    def test_accepts_int_keys(self):
+        assert _creation_problems({"parts": [{"id": 1}]}, {1: [{"dayNumber": 1}]}) == []
+
+    def test_no_parts_is_itself_a_problem(self):
+        assert _creation_problems({"parts": []}, {})
+
+
 class TestMsg:
     def test_english_message(self):
         assert _msg("en", "skeleton_done") == "Structure planned"
@@ -135,6 +156,36 @@ class TestRunCreation:
         itinerary = events[-1]["data"]["itinerary"]
         assert itinerary["title"] == "T"
         assert itinerary["parts"][0]["days"][0]["location"] == "Vancouver"
+
+    async def test_retries_days_call_once_when_a_part_has_no_days(self):
+        skeleton = {
+            "label": "L", "title": "T", "subtitle": "S", "stats": [],
+            "parts": [
+                {"id": 1, "emoji": "🏔️", "title": "BC", "color": "#08c", "daysRange": "1–2"},
+                {"id": 2, "emoji": "🦌", "title": "AB", "color": "#0a0", "daysRange": "3–4"},
+            ],
+        }
+        bad_days = {"1": [{"dayNumber": 1, "location": "Vancouver"}]}  # part 2 missing
+        good_days = {"1": [{"dayNumber": 1, "location": "Vancouver"}], "2": [{"dayNumber": 2, "location": "Banff"}]}
+        mock = AsyncMock(side_effect=[skeleton, bad_days, good_days])
+        with patch("create._gemini_json", mock):
+            events = [evt async for evt in run_creation(_params(), "u@test.com")]
+
+        itinerary = events[-1]["data"]["itinerary"]
+        assert itinerary["parts"][1]["days"] == [{"dayNumber": 2, "location": "Banff"}]
+        assert mock.await_count == 3  # skeleton + days + one retry
+
+    async def test_does_not_retry_when_days_are_complete(self):
+        skeleton = {
+            "label": "L", "title": "T", "subtitle": "S", "stats": [],
+            "parts": [{"id": 1, "emoji": "🏔️", "title": "BC", "color": "#08c", "daysRange": "1–2"}],
+        }
+        days = {"1": [{"dayNumber": 1, "location": "Vancouver"}]}
+        mock = AsyncMock(side_effect=[skeleton, days])
+        with patch("create._gemini_json", mock):
+            events = [evt async for evt in run_creation(_params(), "u@test.com")]
+        assert events[-1]["event"] == "done"
+        assert mock.await_count == 2  # skeleton + days, no retry
 
     async def test_failure_emits_error_event(self):
         events = await self._collect(_params(), Exception("gemini down"))

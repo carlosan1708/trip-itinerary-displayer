@@ -156,6 +156,47 @@ class TestBuildContents:
         assert "Trip" in contents[0]["parts"][0]["text"]
         assert "Trip" not in contents[1]["parts"][0]["text"]
 
+    def test_context_override_replaces_json_dump(self):
+        messages = [{"role": "user", "content": "hi"}]
+        contents = _build_contents(messages, {"title": "Full"}, context_override="SHORT SUMMARY")
+        text = contents[0]["parts"][0]["text"]
+        assert "SHORT SUMMARY" in text
+        assert "Full" not in text  # the JSON dump is not used when overridden
+
+
+class TestSummarizeItinerary:
+    def test_empty_returns_blank(self):
+        from chat import _summarize_itinerary
+        assert _summarize_itinerary(None) == ""
+        assert _summarize_itinerary({}) == ""
+
+    def test_includes_title_and_each_day(self):
+        from chat import _summarize_itinerary
+        itin = {"title": "Canada", "subtitle": "West", "parts": [
+            {"title": "BC", "days": [
+                {"dayNumber": 1, "date": "Sep 12", "location": "Vancouver"},
+                {"dayNumber": 2, "date": "Sep 13", "location": "Whistler"},
+            ]},
+        ]}
+        s = _summarize_itinerary(itin)
+        assert "Canada" in s
+        assert "Vancouver" in s and "Whistler" in s
+        assert "Day 1" in s and "Day 2" in s
+
+    def test_omits_heavy_fields_that_break_grounding(self):
+        from chat import _summarize_itinerary
+        itin = {"title": "T", "parts": [{"title": "P", "days": [
+            {"dayNumber": 1, "location": "X", "activities": ["HEAVY_ACTIVITY_TEXT"], "tips": ["TIP_TEXT"]},
+        ]}]}
+        s = _summarize_itinerary(itin)
+        assert "HEAVY_ACTIVITY_TEXT" not in s
+        assert "TIP_TEXT" not in s
+
+    def test_labels_context_as_untrusted(self):
+        from chat import _summarize_itinerary
+        s = _summarize_itinerary({"title": "T", "parts": [{"title": "P", "days": [{"dayNumber": 1, "location": "X"}]}]})
+        assert "untrusted" in s.lower() or "reference only" in s.lower()
+
     def test_extract_sources_no_grounding(self):
         response = MagicMock()
         response.candidates = []

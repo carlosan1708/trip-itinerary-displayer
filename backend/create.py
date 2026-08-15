@@ -110,6 +110,25 @@ async def _gemini_json(system_prompt: str, user_message: str) -> dict | list:
     return json.loads(_strip_fence(response.text or "{}"))
 
 
+def _creation_problems(skeleton: dict, days_by_part: dict) -> list[str]:
+    """Return a list of structural problems with a generated day set.
+
+    Flags a skeleton with no parts, and any part the model returned no days for
+    (missing key or empty array). Used to decide whether to retry the days call
+    rather than silently merging an itinerary with blank sections.
+    """
+    parts = skeleton.get("parts") or []
+    if not parts:
+        return ["skeleton has no parts"]
+    problems = []
+    for part in parts:
+        pid = part.get("id")
+        days = days_by_part.get(str(pid), days_by_part.get(pid))
+        if not days:
+            problems.append(f"part {pid} has no days")
+    return problems
+
+
 def _merge(skeleton: dict, days_by_part: dict, user_email: str) -> dict:
     parts = []
     for part in skeleton["parts"]:
@@ -178,6 +197,17 @@ async def run_creation(user_params: dict, user_email: str) -> AsyncIterator[dict
             "Generate day content for ALL parts listed above."
         )
         days_by_part = await _gemini_json(_DAYS_PROMPT, days_user_msg)
+
+        # Validate + retry once: a part with no days means the model dropped a
+        # section. Retry the days call rather than silently merging blank parts.
+        problems = _creation_problems(skeleton, days_by_part)
+        if problems:
+            logger.warning("creation: incomplete days %s — retrying once", problems)
+            days_by_part = await _gemini_json(_DAYS_PROMPT, days_user_msg)
+            still = _creation_problems(skeleton, days_by_part)
+            if still:
+                logger.warning("creation: still incomplete after retry: %s", still)
+
         yield {"event": "progress", "data": {"text": _msg(lang, "days_done")}}
 
         # Merge — pure Python, no API call
