@@ -87,11 +87,11 @@ export default function ItineraryAgent({
     // Run the real generator and surface a full preview the user can save or
     // discard, instead of answering with prose.
     if (!itinerary && onProposeNewTrip && detectCreateIntent(userText)) {
-      setMessages([...newMessages, { role: 'assistant', content: t('agentCreateBuilding'), streaming: true, creating: true }])
+      setMessages([...newMessages, { role: 'assistant', content: '', label: t('agentCreateBuilding'), streaming: true, creating: true }])
       const params = parseCreateRequest(userText, language)
       const abort = streamCreate(
         params,
-        (text) => updateLastAssistant(() => ({ content: text })),
+        (text) => updateLastAssistant(() => ({ label: text })),
         (generated) => {
           setLoading(false)
           updateLastAssistant(() => ({
