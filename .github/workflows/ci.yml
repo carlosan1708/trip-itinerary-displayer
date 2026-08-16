@@ -82,8 +82,10 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: "21"   # firebase-tools requires Java 21+
       - run: npm ci
-      - run: npm i -D @firebase/rules-unit-testing
+      # firebase-tools provides the `firebase` CLI (the `firebase` package is the
+      # SDK, with no binary) — install and invoke it explicitly.
+      - run: npm i -D @firebase/rules-unit-testing firebase-tools
       - name: Run rules tests against the Firestore emulator
-        run: npx firebase emulators:exec --only firestore "node --test firestore-tests/rules.test.mjs"
+        run: npx firebase-tools emulators:exec --only firestore --project demo-test "node --test firestore-tests/rules.test.mjs"

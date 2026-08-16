@@ -11,15 +11,16 @@ can only be validated against the emulator.
 
 ## Prerequisites
 
-- **Java 11+** (the Firestore emulator is a JVM process)
-- `firebase-tools` (already a project/dev dependency or global)
+- **Java 21+** (the Firestore emulator is a JVM process; firebase-tools requires 21+)
 
 ## Run
 
 ```bash
-npm i -D @firebase/rules-unit-testing
-firebase emulators:exec --only firestore "node --test firestore-tests/rules.test.mjs"
+npm i -D @firebase/rules-unit-testing firebase-tools
+npx firebase-tools emulators:exec --only firestore --project demo-test "node --test firestore-tests/rules.test.mjs"
 ```
+
+Verified: **8/8 pass** against the emulator (`firebase-tools` 15.x, JRE 21).
 
 `emulators:exec` starts the Firestore emulator, runs the command, and shuts it
 down. The tests load `firestore.rules` directly, so they always test the current
