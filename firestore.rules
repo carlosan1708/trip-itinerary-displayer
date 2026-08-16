@@ -7,6 +7,12 @@ service cloud.firestore {
              request.auth.token.admin == true;
     }
 
+    // A caller authenticated with a real (non-anonymous) email. Demo/anonymous
+    // users have no email and are handled via the demo-owner rules instead.
+    function isSignedInEmail() {
+      return request.auth != null && request.auth.token.email != null;
+    }
+
     function isAllowed(tripId) {
       return request.auth != null &&
              exists(/databases/$(database)/documents/trips/$(tripId)/allowed_users/$(request.auth.token.email));
@@ -61,12 +67,22 @@ service cloud.firestore {
     match /trips/{tripId} {
       // Datos del itinerario — accesible por usuarios del gateway o del propio viaje
       match /data/{docId} {
-        // Demo: anyone signed in anonymously may read demo trips; only the
-        // owning anon user may write to their own demo-{uid}-* trip.
+        // Demo: anyone signed in anonymously may read demo trips.
         allow read:  if isAdmin() || isAllowed(tripId) || isGatewayUser()
                      || (isDemoUser() && tripId.matches('^demo-.*'));
-        allow write: if isAdmin() || isAllowed(tripId) || isGatewayUser()
-                     || ownsDemoTrip(tripId);
+
+        // Create a NEW itinerary doc: any authorized app user (or the owning demo
+        // user) may — this seeds duplicates, uploads, and a trip's first sync.
+        allow create: if isAdmin() || ownsDemoTrip(tripId)
+                      || isAllowed(tripId) || isGatewayUser();
+
+        // Update/delete an EXISTING itinerary: only its author (or admin, or the
+        // owning demo user). Previously ANY gateway/allowed user could overwrite
+        // or delete another user's trip — the core authorization hole. On
+        // create/update request.resource holds the incoming doc; on delete it is
+        // null, so authorship is always checked against the stored doc.
+        allow update, delete: if isAdmin() || ownsDemoTrip(tripId)
+                      || (isSignedInEmail() && resource.data.author == request.auth.token.email);
       }
 
       // Registry del panel de viajes
@@ -84,12 +100,20 @@ service cloud.firestore {
         allow read, write: if isAdmin() || isAllowed(tripId);
       }
 
-      // Historial de versiones — lectura y escritura para usuarios con acceso al viaje
+      // Historial de versiones — lectura para usuarios con acceso al viaje.
       match /versions/{versionId} {
         allow read:  if isAdmin() || isAllowed(tripId) || isGatewayUser()
                      || (isDemoUser() && tripId.matches('^demo-.*'));
-        allow write: if isAdmin() || isAllowed(tripId) || isGatewayUser()
-                     || ownsDemoTrip(tripId);
+
+        // Snapshots are append-only history. saveSnapshot() nests the itinerary
+        // under `data`, so authorship lives at request.resource.data.data.author.
+        // Only the itinerary's author (or admin / owning demo user) may snapshot
+        // it — a viewer can no longer pollute another user's version history.
+        allow create: if isAdmin() || ownsDemoTrip(tripId)
+                      || (isSignedInEmail()
+                          && request.resource.data.data.author == request.auth.token.email);
+        // History is immutable once written; only admin may prune it.
+        allow update, delete: if isAdmin();
       }
 
       // Notas del grupo — cada usuario escribe y edita solo las suyas; admin puede borrar cualquiera

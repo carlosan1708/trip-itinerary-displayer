@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  frontend:
+    name: Frontend (vitest + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test
+      - run: npm run build
+
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pytest pytest-asyncio
+      - run: python -m pytest -q
+        env:
+          GEMINI_API_KEY: test-key
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # dev:test mocks Firebase; these values match e2e/helpers.js constants.
+      - name: Write test env
+        run: |
+          cat > .env.test <<'EOF'
+          VITE_TRIP_ID=canada-trip
+          VITE_DEMO_TRIP_ID=demo-gateway
+          VITE_DEMO_MAX_TRIPS=2
+          VITE_DEMO_MAX_AI_CALLS=100
+          VITE_FIREBASE_API_KEY=test
+          VITE_FIREBASE_AUTH_DOMAIN=test.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID=demo-test
+          VITE_FIREBASE_STORAGE_BUCKET=test.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID=0
+          VITE_FIREBASE_APP_ID=test
+          VITE_RECAPTCHA_SITE_KEY=test
+          EOF
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  firestore-rules:
+    name: Firestore rules (emulator)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"   # firebase-tools requires Java 21+
+      - run: npm ci
+      # firebase-tools provides the `firebase` CLI (the `firebase` package is the
+      # SDK, with no binary) — install and invoke it explicitly.
+      - run: npm i -D @firebase/rules-unit-testing firebase-tools
+      - name: Run rules tests against the Firestore emulator
+        run: npx firebase-tools emulators:exec --only firestore --project demo-test "node --test firestore-tests/rules.test.mjs"

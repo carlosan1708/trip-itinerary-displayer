@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { applyPatch, describePatch, diffPatch, diffList, patchForDay, removeDayFromPatch, countDays, normalizeItinerary } from './itineraryPatch'
+import { applyPatch, describePatch, diffPatch, diffList, patchForDay, removeDayFromPatch, countDays, normalizeItinerary, sanitizePatch } from './itineraryPatch'
 
 // A small but representative itinerary used across the patch tests.
 function baseItinerary() {
@@ -556,5 +556,68 @@ describe('removeDayFromPatch', () => {
   it('leaves other parts untouched', () => {
     const patch = { parts: [{ id: 1, days: [{ dayNumber: 1 }] }, { id: 2, title: 'keep' }] }
     expect(removeDayFromPatch(patch, 1, 1)).toEqual({ parts: [{ id: 2, title: 'keep' }] })
+  })
+})
+
+describe('sanitizePatch (client-side defense-in-depth)', () => {
+  it('strips protected top-level fields (author, version)', () => {
+    const { patch, rejected } = sanitizePatch({ author: 'evil@x.com', version: 9, label: 'L' })
+    expect(patch).toEqual({ label: 'L' })
+    expect(rejected.length).toBe(2)
+  })
+
+  it('strips unknown top-level fields', () => {
+    const { patch } = sanitizePatch({ label: 'L', hackme: true })
+    expect(patch).toEqual({ label: 'L' })
+  })
+
+  it('keeps allowed top-level fields', () => {
+    const p = { label: 'L', title: 'T', subtitle: 'S', stats: ['1 day'] }
+    const { patch, rejected } = sanitizePatch(p)
+    expect(patch).toEqual(p)
+    expect(rejected).toEqual([])
+  })
+
+  it('strips unknown/protected fields inside parts and days but keeps id/dayNumber/_delete', () => {
+    const { patch } = sanitizePatch({
+      parts: [
+        { id: 1, author: 'x', hacked: true, title: 'P', days: [{ dayNumber: 2, malware: 1, location: 'Paris' }] },
+        { id: 3, _delete: true },
+      ],
+    })
+    expect(patch.parts[0]).toEqual({ id: 1, title: 'P', days: [{ dayNumber: 2, location: 'Paris' }] })
+    expect(patch.parts[1]).toEqual({ id: 3, _delete: true })
+  })
+
+  it('drops logistics with an invalid type', () => {
+    const { patch } = sanitizePatch({
+      parts: [{ id: 1, days: [{ dayNumber: 1, logistics: [
+        { type: 'teleport', label: '?' }, { type: 'train', label: 'Train' },
+      ] }] }],
+    })
+    expect(patch.parts[0].days[0].logistics).toEqual([{ type: 'train', label: 'Train' }])
+  })
+
+  it('drops links whose url is not https', () => {
+    const { patch } = sanitizePatch({
+      parts: [{ id: 1, days: [{ dayNumber: 1, links: [
+        { label: 'bad', url: 'javascript:alert(1)' }, { label: 'ok', url: 'https://ex.com' },
+      ] }] }],
+    })
+    expect(patch.parts[0].days[0].links).toEqual([{ label: 'ok', url: 'https://ex.com' }])
+  })
+
+  it('never throws on malformed input', () => {
+    expect(sanitizePatch(null)).toEqual({ patch: {}, rejected: [] })
+    expect(sanitizePatch(undefined)).toEqual({ patch: {}, rejected: [] })
+    expect(sanitizePatch('nope').patch).toEqual({})
+    expect(sanitizePatch(42).patch).toEqual({})
+  })
+
+  it('keeps a realistic activity edit intact', () => {
+    const p = { parts: [{ id: 2, days: [{ dayNumber: 5, activities: ['A', 'B'] }] }] }
+    const { patch, rejected } = sanitizePatch(p)
+    expect(patch).toEqual(p)
+    expect(rejected).toEqual([])
   })
 })

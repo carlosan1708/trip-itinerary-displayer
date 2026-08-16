@@ -294,15 +294,27 @@ Each note document:
 - Slide-in panel from the right side of the itinerary view, kept minimal — it
   carries the conversation (ask questions / request edits) but no longer renders
   a bulky diff card.
-- Uses the Anthropic Claude API (via the Python backend) to propose itinerary edits.
-- **Intent guardrail (`_detect_intent` in `backend/chat.py`)**: a keyword list
-  can't enumerate every way a user phrases an edit, so in **edit mode the intent
-  defaults to `edit`** — only a message that clearly reads as a standalone
-  question (ends with `?`, starts with a question word, or contains a question
-  signal like "how much"/"is it safe") stays on the QA path. This prevents
-  edit-context phrasings like "from costa rica" / "start it from costa rica"
-  from being answered with a prose itinerary dump instead of updating the trip.
-  Copy intent still wins first; `explore` mode never edits.
+- Uses the **Google Gemini API** (`gemini-2.5-flash` via `google-genai`, two direct
+  calls — no LangGraph) through the Python backend to propose itinerary edits.
+- **Structured intent (`_detect_intent` in `backend/chat.py`)**: returns
+  `answer | propose_patch | copy`, and is **symmetric** — it does not depend on
+  mode or ownership. Copy wins first; an explicit edit marker forces
+  `propose_patch`; a clear standalone question (ends with `?`, starts with a
+  question word, or a signal like "how much"/"is it safe") is an `answer`; every
+  other message is a `propose_patch`. So a viewer asking "from costa rica" gets a
+  patch too — the previous behavior, where explore mode silently answered edit
+  requests with prose, is gone.
+- **Owner vs viewer is server-derived**: `main._is_owner` compares the verified
+  identity to `itinerary.author` (never the client's `mode`). `run_conversation`
+  attaches `policy` = `apply_allowed` (owner) or `duplicate_only` (viewer) to the
+  proposed patch, and runs it through `schemas.sanitize_patch` (allowlist; strips
+  author/version/unknown, enforces logistics enum + https links) before emitting,
+  returning any `rejected` fields. Firestore rules are the persistence enforcement
+  (only the itinerary's author may update/delete `data`/`versions`).
+- **Grounded answers**: the `answer` path always enables Google Search and sends a
+  compact `_summarize_itinerary` summary (title + one line per day) rather than the
+  full JSON, because grounding returns nothing under a large context blob. The
+  summary is treated as untrusted data (prompt-injection hardening).
 - **Inline review (editors)**: when the agent returns a patch and the user can
   edit (`itinerary.author === user.email`), the change is surfaced *on the
   itinerary itself*, not in chat:
@@ -320,9 +332,16 @@ Each note document:
     manual edits, so it appends a version snapshot).
   - The chat shows a small "review the changes on your itinerary" hint instead
     of the diff card.
-- **Explore / non-editors**: patches still render as the in-chat `ItineraryAgentDiff`
-  card with a **My version** action that duplicates the trip with the patch
-  applied (`onDuplicateCreated`).
+- **Explore / non-editors**: a `duplicate_only` patch renders as the in-chat
+  `ItineraryAgentDiff` card with only a **My version** action (no inline Apply,
+  no review bar) that duplicates the trip with the patch applied
+  (`onDuplicateCreated`). `ItineraryAgent` also refuses the inline path whenever
+  `policy === 'duplicate_only'`, regardless of client `canEdit`.
+- **Streaming lifecycle**: `agentClient._readSSE` reports a premature EOF (a
+  stream that ends without a terminal `done`/`error` event) so the UI never spins
+  forever; `ItineraryAgent` aborts the in-flight stream on clear, close, and
+  unmount. Patches are re-sanitised client-side (`sanitizePatch`) before apply or
+  duplicate.
 - **Create from chat (no itinerary loaded)**: when the message reads as "build a
   trip" (`detectCreateIntent` in `utils/createIntent.js`), the agent runs the
   real generator (`/agent/create`, params from `parseCreateRequest`) instead of

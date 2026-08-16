@@ -8,7 +8,7 @@ import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 
 import ItineraryAgentChat from './ItineraryAgentChat'
 import { streamChat, streamCreate, DEMO_LIMIT_ERROR } from '../utils/agentClient'
-import { applyPatch, describePatch, normalizeItinerary } from '../utils/itineraryPatch'
+import { applyPatch, describePatch, normalizeItinerary, sanitizePatch } from '../utils/itineraryPatch'
 import { detectCreateIntent, parseCreateRequest } from '../utils/createIntent'
 import { useT } from '../i18n'
 
@@ -50,9 +50,22 @@ export default function ItineraryAgent({
 
   const mode = canEdit ? 'edit' : 'explore'
 
+  // Cancel any in-flight stream and clear the loading state. Aborting makes the
+  // underlying fetch reject with AbortError, which agentClient swallows — so we
+  // reset `loading` here rather than waiting for a terminal event that won't come.
+  const abortActive = useCallback(() => {
+    abortRef.current?.()
+    abortRef.current = null
+    setLoading(false)
+  }, [])
+
+  // Abort on unmount so a closed/navigated-away assistant never leaves a request
+  // running or updates state after teardown.
+  useEffect(() => abortActive, [abortActive])
+
   const handleOpen = () => setOpen(true)
-  const handleClose = () => setOpen(false)
-  const handleClear = () => setMessages([])
+  const handleClose = () => { abortActive(); setOpen(false) }
+  const handleClear = () => { abortActive(); setMessages([]) }
 
   const updateLastAssistant = (updater) =>
     setMessages(prev => {
@@ -104,13 +117,16 @@ export default function ItineraryAgent({
     const abort = streamChat(
       { messages: newMessages, itinerary: itinerary || undefined, mode, language },
       (chunk) => updateLastAssistant(msg => ({ content: msg.content + chunk })),
-      ({ response, patch, sources, warning }) => {
+      ({ response, patch, sources, warning, policy }) => {
         setLoading(false)
-        // An edit-mode patch with real changes is surfaced inline on the
-        // itinerary (review bar + day cards), not as a chat diff card. Other
-        // patches (non-editor "my version" path) still render in chat.
+        // Inline apply (review bar + day cards) is only for a patch the SERVER
+        // says this user may apply in place (policy 'apply_allowed'). A viewer's
+        // patch ('duplicate_only') falls through to the chat diff card, whose
+        // action is "save as my copy" — the modified-personal-copy flow.
         const changes = patch ? describePatch(itinerary || {}, patch) : null
-        const inlineReview = !!(patch && canEdit && onProposePatch && changes?.length)
+        const inlineReview = !!(
+          patch && canEdit && onProposePatch && changes?.length && policy !== 'duplicate_only'
+        )
         if (inlineReview) onProposePatch(patch)
         updateLastAssistant(() => ({
           content: response,
@@ -133,7 +149,8 @@ export default function ItineraryAgent({
 
   const handleApplyPatch = useCallback((patch) => {
     if (!itinerary || !canEdit) return
-    const updated = normalizeItinerary(applyPatch(itinerary, patch))
+    const { patch: safe } = sanitizePatch(patch)
+    const updated = normalizeItinerary(applyPatch(itinerary, safe))
     updated.version = (itinerary.version || 1) + 1
     onItineraryChange?.(updated, { source: 'agent_edit' })
     setMessages(prev => prev.map(m => m.patch === patch ? { ...m, patch: null, changes: null } : m))
@@ -141,7 +158,8 @@ export default function ItineraryAgent({
 
   const handleDuplicateWithPatch = useCallback((patch) => {
     if (!user) return
-    const base = itinerary ? normalizeItinerary(applyPatch(itinerary, patch)) : {}
+    const { patch: safe } = sanitizePatch(patch)
+    const base = itinerary ? normalizeItinerary(applyPatch(itinerary, safe)) : {}
     const username = user.email.split('@')[0]
     const newId = `${_tripId(itinerary)}-${username}-copy`
     const fallback = t('agentDuplicateFallbackName')

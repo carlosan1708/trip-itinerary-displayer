@@ -132,6 +132,42 @@ describe('streamChat — error responses', () => {
   })
 })
 
+describe('streamChat — stream lifecycle', () => {
+  it('calls onError when the stream closes without a terminal done/error event', async () => {
+    // Premature EOF: tokens arrive, then the connection drops with no `done`.
+    // Without a terminal signal the UI would spin forever, so onError must fire.
+    let err = null
+    let done = null
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse([
+      'event: token\ndata: {"text":"partial"}\n\n',
+    ]))
+    streamChat({ messages: [] }, () => {}, d => { done = d }, e => { err = e })
+    await flush()
+    expect(done).toBeNull()
+    expect(err).toMatch(/connection|closed|interrupted/i)
+  })
+
+  it('does not call onError after a proper done event', async () => {
+    let err = null
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse([
+      'event: done\ndata: {"response":"ok","patch":null,"sources":[]}\n\n',
+    ]))
+    streamChat({ messages: [] }, () => {}, () => {}, e => { err = e })
+    await flush()
+    expect(err).toBeNull()
+  })
+
+  it('does not double-report: an error event suppresses the EOF error', async () => {
+    const errors = []
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse([
+      'event: error\ndata: {"message":"boom"}\n\n',
+    ]))
+    streamChat({ messages: [] }, () => {}, () => {}, e => errors.push(e))
+    await flush()
+    expect(errors).toEqual(['boom'])
+  })
+})
+
 describe('streamCreate', () => {
   it('emits progress events and unwraps the itinerary from done', async () => {
     const progress = []

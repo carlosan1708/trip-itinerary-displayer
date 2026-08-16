@@ -1,7 +1,7 @@
 # Trip Itinerary Displayer — Claude Guidelines
 
 ## Project Overview
-React + Vite SPA for a shared travel itinerary (Canada 2026). Firebase Auth (Google), Firestore real-time sync, Firebase Storage for files, role-based access. Python FastAPI backend (`backend/`) handles admin custom claims and proxies the Anthropic Claude API for the in-app itinerary agent. Hosted on Firebase Hosting.
+React + Vite SPA for a shared travel itinerary (Canada 2026). Firebase Auth (Google), Firestore real-time sync, Firebase Storage for files, role-based access. Python FastAPI backend (`backend/`) handles admin custom claims and proxies the **Google Gemini API** (`gemini-2.5-flash`, via `google-genai`) for the in-app itinerary agent — two direct calls, no LangGraph. Hosted on Firebase Hosting.
 
 ## Where to Look First
 Before exploring the code, read these — they save context:
@@ -13,7 +13,7 @@ Before exploring the code, read these — they save context:
 - **React 18** (JSX, no TypeScript) + **Vite 5**
 - **Material-UI v5** (`@mui/material`) + Emotion — all UI
 - **Firebase 12** — Auth, Firestore, Storage, Hosting
-- **Python FastAPI** backend (`backend/`) — admin claims + Claude API proxy
+- **Python FastAPI** backend (`backend/`) — admin claims + Gemini API proxy (`google-genai`)
 - **Playwright** for E2E
 - **npm** package manager
 
