@@ -85,4 +85,30 @@ test.describe('Demo mode', () => {
     await expect(page.getByText('Salvador — 2 days').first()).toBeVisible()
     await expect(page.getByText('Loading...')).not.toBeVisible()
   })
+
+  // Editing the read-only sample as a demo user must "just work": the backend
+  // returns a duplicate-only patch, the app auto-forks an editable copy with the
+  // change applied and opens it — no confusing "My version"-only card.
+  test('editing the read-only sample auto-forks an editable copy', async ({ page }) => {
+    await page.route('**/agent/chat', route =>
+      route.fulfill({ status: 200, contentType: 'text/event-stream',
+        body: `event: done\ndata: ${JSON.stringify({
+          response: 'Added Fukuoka.',
+          patch: { parts: [{ id: 1, days: [{ dayNumber: 2, location: 'Fukuoka', subtitle: 'Added' }] }] },
+          policy: 'duplicate_only',
+        })}\n\n` }))
+
+    await page.getByTestId('try-demo-btn').click()
+    await expect(page.getByTestId('demo-banner')).toBeVisible({ timeout: 5000 })
+    await page.getByText('Sample Trip').click()
+    await page.getByTestId('agent-fab').click()
+    await expect(page.getByTestId('agent-input')).toBeVisible()
+    await page.getByTestId('agent-input').fill('add fukuoka to day 2')
+    await page.getByTestId('agent-send-btn').click()
+
+    // Auto-forked: a copy opens (its label carries the duplicate suffix), and
+    // the passive "My version" card is NOT shown.
+    await expect(page.getByText(/my version|mi versión/i)).toHaveCount(0, { timeout: 10000 })
+    await expect(page.getByText(/copy|copia|versión|version/i).first()).toBeVisible({ timeout: 10000 })
+  })
 })

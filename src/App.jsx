@@ -25,7 +25,7 @@ import Dashboard from './components/Dashboard'
 
 const GATEWAY_TRIP_ID = import.meta.env.VITE_TRIP_ID
 const DEMO_TRIP_ID    = import.meta.env.VITE_DEMO_TRIP_ID || 'demo-gateway'
-const DEMO_MAX_TRIPS  = Number(import.meta.env.VITE_DEMO_MAX_TRIPS || 2)
+const DEMO_MAX_TRIPS  = Number(import.meta.env.VITE_DEMO_MAX_TRIPS || 5)
 
 function LoadingScreen() {
   const t = useT()
@@ -632,6 +632,7 @@ function AppContent({
         onItineraryChange={onAgentEdit}
         onProposePatch={handleProposePatch}
         onDuplicateCreated={onAgentDuplicate}
+        onOpenTrip={(id) => { setEditMode(false); setSelectedTripId(id) }}
         open={agentOpen}
         onOpenChange={setAgentOpen}
         language={language}
