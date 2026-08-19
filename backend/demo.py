@@ -29,9 +29,16 @@ _RECAPTCHA_API_KEY = os.environ.get("RECAPTCHA_API_KEY", "")
 _RECAPTCHA_SITE_KEY = os.environ.get("RECAPTCHA_SITE_KEY", "")
 _RECAPTCHA_ACTION = "demo_start"
 _RECAPTCHA_MIN_SCORE = float(os.environ.get("RECAPTCHA_MIN_SCORE", "0.5"))
-_MAX_AI_CALLS = int(os.environ.get("DEMO_MAX_AI_CALLS", "100"))
+# Per-anonymous-user cap. Kept small on purpose: each demo AI call hits a paid
+# model, so a single visitor should only ever cost a few calls.
+_MAX_AI_CALLS = int(os.environ.get("DEMO_MAX_AI_CALLS", "20"))
+# Global daily circuit-breaker across ALL demo users. reCAPTCHA slows down mass
+# anon-uid minting, but this bounds total demo spend even if it is bypassed.
+_MAX_DAILY_AI_CALLS = int(os.environ.get("DEMO_MAX_DAILY_AI_CALLS", "500"))
 
-# Firestore path for per-anon-uid quota counters.
+# Firestore path for quota counters. Per-uid docs live at demo_quota/{uid}; the
+# global daily counter at demo_quota/_global-YYYYMMDD. The whole collection is
+# closed to clients (firestore.rules) and written only by the Admin SDK here.
 _QUOTA_COLLECTION = "demo_quota"
 
 
@@ -112,6 +119,28 @@ async def _increment_ai_calls(uid: str) -> None:
     )
 
 
+def _daily_doc():
+    from datetime import datetime, timezone
+    day = datetime.now(timezone.utc).strftime("%Y%m%d")
+    return firestore.client().collection(_QUOTA_COLLECTION).document(f"_global-{day}")
+
+
+async def _read_daily_calls() -> int:
+    loop = asyncio.get_event_loop()
+    snap = await loop.run_in_executor(None, _daily_doc().get)
+    if not snap.exists:
+        return 0
+    return int(snap.to_dict().get("aiCalls", 0))
+
+
+async def _increment_daily_calls() -> None:
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(
+        None,
+        lambda: _daily_doc().set({"aiCalls": firestore.Increment(1)}, merge=True),
+    )
+
+
 async def require_user_or_demo_quota(user: dict = Depends(verify_token)) -> dict:
     """
     Dependency for AI routes. Whitelisted (non-anonymous) users pass through.
@@ -123,11 +152,22 @@ async def require_user_or_demo_quota(user: dict = Depends(verify_token)) -> dict
         return user
 
     uid = user["uid"]
+    # Personal cap first (a heavy single visitor sees their own limit).
     used = await _read_ai_calls(uid)
     if used >= _MAX_AI_CALLS:
         raise HTTPException(
             status_code=429,
             detail={"code": "demo_limit_reached", "limit": _MAX_AI_CALLS},
         )
+    # Then the global daily circuit-breaker (everyone sees "unavailable" once the
+    # whole demo has burned its daily budget).
+    daily = await _read_daily_calls()
+    if daily >= _MAX_DAILY_AI_CALLS:
+        raise HTTPException(
+            status_code=429,
+            detail={"code": "demo_globally_unavailable"},
+        )
+    # Only a call that will actually run is charged — to both counters.
     await _increment_ai_calls(uid)
+    await _increment_daily_calls()
     return user
