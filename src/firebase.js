@@ -3,7 +3,7 @@ import {
   getAuth, GoogleAuthProvider, signInAnonymously, signOut, deleteUser,
   setPersistence, browserSessionPersistence,
 } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore, doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
 
 const firebaseConfig = {
@@ -30,14 +30,50 @@ export async function signInAnonymouslyDemo() {
   return signInAnonymously(auth)
 }
 
-// Sign out, with demo cleanup. For an anonymous (demo) user we DELETE the
-// account so the next visit starts fresh with a brand-new uid — no carried-
-// over demo trips or AI quota. Their demo trips/quota are keyed on the uid,
-// so a new uid means a clean slate. Falls back to a plain signOut if delete
+const DEMO_GATEWAY_ID = import.meta.env.VITE_DEMO_TRIP_ID || 'demo-gateway'
+
+// Which registry entries belong to a demo user's own session. Demo-created trips
+// are authored `demo:{uid}` and have a `demo-{uid}-` id, so this targets exactly
+// that user's trips and nothing else (never the shared sample or others' trips).
+// Pure — unit-tested in firebase.demoCleanup.test.js.
+export function ownDemoTrips(trips, uid) {
+  if (!uid) return []
+  return (trips || []).filter(
+    t => t?.author === `demo:${uid}` || String(t?.id).startsWith(`demo-${uid}-`)
+  )
+}
+
+// Delete every trip a demo user created this session — the itinerary doc plus
+// its registry entry — so the shared demo namespace doesn't accumulate orphaned
+// trips. Best-effort: failures are swallowed so sign-out never blocks on cleanup.
+async function cleanupDemoTrips(uid) {
+  if (!uid) return
+  const registryRef = doc(db, 'trips', DEMO_GATEWAY_ID, 'registry', 'main')
+  try {
+    const snap = await getDoc(registryRef)
+    const trips = snap.exists() ? (snap.data().trips || []) : []
+    const mine = ownDemoTrips(trips, uid)
+    if (mine.length === 0) return
+
+    await Promise.allSettled(
+      mine.map(t => deleteDoc(doc(db, 'trips', t.id, 'data', 'itinerary')))
+    )
+    const remaining = trips.filter(t => !mine.includes(t))
+    await setDoc(registryRef, { trips: remaining })
+  } catch {
+    // best-effort; don't block sign-out
+  }
+}
+
+// Sign out, with demo cleanup. For an anonymous (demo) user we first delete the
+// trips they created this session (so the shared demo namespace stays clean),
+// then DELETE the account so the next visit starts fresh with a brand-new uid —
+// no carried-over identity or AI quota. Falls back to a plain signOut if delete
 // isn't possible (e.g. token already gone).
 export async function signOutWithCleanup() {
   const current = auth.currentUser
   if (current?.isAnonymous) {
+    await cleanupDemoTrips(current.uid)   // remove this session's demo trips first
     try {
       await deleteUser(current)   // also ends the session
       return

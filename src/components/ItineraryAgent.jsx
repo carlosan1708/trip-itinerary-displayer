@@ -23,6 +23,7 @@ export default function ItineraryAgent({
   onProposePatch,
   onProposeNewTrip,
   onDuplicateCreated,
+  onOpenTrip,
   open: openProp,
   onOpenChange,
   language = 'en',
@@ -40,6 +41,9 @@ export default function ItineraryAgent({
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const abortRef = useRef(null)
+  // Latest fork handler, so the async streamChat callback in handleSubmit can
+  // invoke it without a stale closure or a definition-order dependency.
+  const forkRef = useRef(null)
 
   const controlled = openProp !== undefined
   const open = controlled ? openProp : openInternal
@@ -100,11 +104,11 @@ export default function ItineraryAgent({
     // Run the real generator and surface a full preview the user can save or
     // discard, instead of answering with prose.
     if (!itinerary && onProposeNewTrip && detectCreateIntent(userText)) {
-      setMessages([...newMessages, { role: 'assistant', content: t('agentCreateBuilding'), streaming: true, creating: true }])
+      setMessages([...newMessages, { role: 'assistant', content: '', label: t('agentCreateBuilding'), streaming: true, creating: true }])
       const params = parseCreateRequest(userText, language)
       const abort = streamCreate(
         params,
-        (text) => updateLastAssistant(() => ({ content: text })),
+        (text) => updateLastAssistant(() => ({ label: text })),
         (generated) => {
           setLoading(false)
           updateLastAssistant(() => ({
@@ -132,13 +136,19 @@ export default function ItineraryAgent({
       (chunk) => updateLastAssistant(msg => ({ content: msg.content + chunk })),
       ({ response, patch, sources, warning, policy }) => {
         setLoading(false)
-        // Inline apply (review bar + day cards) is only for a patch the SERVER
-        // says this user may apply in place (policy 'apply_allowed'). A viewer's
-        // patch ('duplicate_only') falls through to the chat diff card, whose
-        // action is "save as my copy" — the modified-personal-copy flow.
         const changes = patch ? describePatch(itinerary || {}, patch) : null
+        // Inline apply (review bar + day cards) is for a patch the SERVER says
+        // this user may apply in place (policy 'apply_allowed').
         const inlineReview = !!(
           patch && canEdit && onProposePatch && changes?.length && policy !== 'duplicate_only'
+        )
+        // Demo users editing a read-only/sample trip get a seamless auto-fork:
+        // we silently create their editable copy with the change applied and
+        // open it, instead of a passive "save as my copy" card. Real (email)
+        // viewers of a shared trip keep the explicit "My version" card — for
+        // them, silently spawning copies would be surprising.
+        const autoFork = !!(
+          patch && changes?.length && policy === 'duplicate_only' && user?.isDemo && onOpenTrip
         )
         if (inlineReview) {
           onProposePatch(patch)
@@ -149,12 +159,13 @@ export default function ItineraryAgent({
         updateLastAssistant(() => ({
           content: response,
           streaming: false,
-          patch: inlineReview ? null : (patch || null),
-          changes: inlineReview ? null : changes,
+          patch: (inlineReview || autoFork) ? null : (patch || null),
+          changes: (inlineReview || autoFork) ? null : changes,
           proposedInline: inlineReview,
           warning: warning || null,
           sources: sources || [],
         }))
+        if (autoFork) forkRef.current?.(patch)
       },
       (errMsg) => {
         setLoading(false)
@@ -174,21 +185,25 @@ export default function ItineraryAgent({
     setMessages(prev => prev.map(m => m.patch === patch ? { ...m, patch: null, changes: null } : m))
   }, [itinerary, canEdit, onItineraryChange])
 
-  const handleDuplicateWithPatch = useCallback((patch) => {
+  const handleDuplicateWithPatch = useCallback(async (patch) => {
     if (!user) return
     const { patch: safe } = sanitizePatch(patch)
     const base = itinerary ? normalizeItinerary(applyPatch(itinerary, safe)) : {}
-    const username = user.email.split('@')[0]
+    const username = (user.email || 'me').split('@')[0].split(':').pop()
     const newId = `${_tripId(itinerary)}-${username}-copy`
     const fallback = t('agentDuplicateFallbackName')
     const suffix = t('agentDuplicateLabelSuffix')
     const duplicate = { ...base, version: 1, author: user.email, label: `${base.label || fallback} — ${suffix}` }
-    onDuplicateCreated?.(newId, duplicate)
+    const savedId = await onDuplicateCreated?.(newId, duplicate)
     setMessages(prev => [
       ...prev.map(m => m.patch === patch ? { ...m, patch: null, changes: null } : m),
       { role: 'assistant', content: t('agentDuplicateConfirm', { label: duplicate.label }) },
     ])
-  }, [itinerary, user, onDuplicateCreated, t])
+    // Auto-open the freshly-created editable copy so the user lands where they
+    // can keep editing (seamless fork-on-edit for viewers / demo users).
+    if (savedId) onOpenTrip?.(savedId)
+  }, [itinerary, user, onDuplicateCreated, onOpenTrip, t])
+  forkRef.current = handleDuplicateWithPatch
 
   const handleDismissPatch = useCallback((msgIndex) => {
     setMessages(prev => prev.map((m, i) => i === msgIndex ? { ...m, patch: null, changes: null } : m))

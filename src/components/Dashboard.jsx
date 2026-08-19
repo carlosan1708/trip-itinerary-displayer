@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { doc, getDoc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore'
 import { db, signOutWithCleanup } from '../firebase'
 
-const DEMO_MAX_TRIPS = Number(import.meta.env.VITE_DEMO_MAX_TRIPS || 2)
+const DEMO_MAX_TRIPS = Number(import.meta.env.VITE_DEMO_MAX_TRIPS || 5)
 import {
   Box, Typography, TextField, Collapse, Chip,
   Button, Tooltip, InputAdornment, IconButton,

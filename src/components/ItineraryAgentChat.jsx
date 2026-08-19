@@ -8,7 +8,6 @@ import LanguageIcon from '@mui/icons-material/Language'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import ItineraryAgentDiff from './ItineraryAgentDiff'
-import ItineraryAgentProgress from './ItineraryAgentProgress'
 import { useT } from '../i18n'
 
 export default function ItineraryAgentChat({
@@ -23,8 +22,6 @@ export default function ItineraryAgentChat({
   onDuplicateWithPatch,
   onDismissPatch,
   onSeeChanges,
-  progressSteps,
-  progressCurrent,
 }) {
   const t = useT()
   const bottomRef = useRef(null)
@@ -119,7 +116,7 @@ export default function ItineraryAgentChat({
                 }}
               >
                 {msg.streaming && !msg.content
-                  ? <ThinkingDots />
+                  ? <ThinkingDots label={msg.label} />
                   : (
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 13.5 }}>
                       {msg.content || '…'}
@@ -236,13 +233,6 @@ export default function ItineraryAgentChat({
           </Box>
         ))}
 
-        {/* Creation progress */}
-        {progressSteps?.length > 0 && (
-          <Box sx={{ mb: 2 }}>
-            <ItineraryAgentProgress steps={progressSteps} currentStep={progressCurrent} />
-          </Box>
-        )}
-
         <div ref={bottomRef} />
       </Box>
 
@@ -334,24 +324,34 @@ function BlinkingCursor() {
   )
 }
 
-function ThinkingDots() {
+// Unified "thinking" indicator used by every agent flow (chat, edit, create).
+// An optional label (e.g. "Building your itinerary…") sits beside the dots so
+// the create flow stays informative without a different-looking spinner.
+function ThinkingDots({ label }) {
   return (
-    <Stack direction="row" spacing={0.5} alignItems="center" sx={{ py: 0.25 }}>
-      {[0, 1, 2].map((i) => (
-        <Box
-          key={i}
-          sx={{
-            width: 7, height: 7, borderRadius: '50%',
-            bgcolor: 'rgba(255,255,255,0.5)',
-            animation: 'thinking-bounce 1.2s ease-in-out infinite',
-            animationDelay: `${i * 0.2}s`,
-            '@keyframes thinking-bounce': {
-              '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
-              '40%':           { transform: 'scale(1)',   opacity: 1 },
-            },
-          }}
-        />
-      ))}
+    <Stack direction="row" spacing={label ? 1 : 0.5} alignItems="center" sx={{ py: 0.25 }}>
+      <Stack direction="row" spacing={0.5} alignItems="center">
+        {[0, 1, 2].map((i) => (
+          <Box
+            key={i}
+            sx={{
+              width: 7, height: 7, borderRadius: '50%',
+              bgcolor: 'rgba(255,255,255,0.5)',
+              animation: 'thinking-bounce 1.2s ease-in-out infinite',
+              animationDelay: `${i * 0.2}s`,
+              '@keyframes thinking-bounce': {
+                '0%, 80%, 100%': { transform: 'scale(0.6)', opacity: 0.4 },
+                '40%':           { transform: 'scale(1)',   opacity: 1 },
+              },
+            }}
+          />
+        ))}
+      </Stack>
+      {label && (
+        <Typography variant="body2" sx={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
+          {label}
+        </Typography>
+      )}
     </Stack>
   )
 }

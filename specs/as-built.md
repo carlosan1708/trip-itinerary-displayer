@@ -51,10 +51,24 @@ an inline itinerary editor, an AI agent for itinerary generation, and a multi-tr
   (`demo-gateway`) instead of the real `VITE_TRIP_ID`. The real Canada data is
   never readable or writable by anonymous users. Seed the sample trip with
   `npm run seed:demo` (`scripts/seed-demo.mjs`).
+- **Editing the read-only sample (auto-fork)**: the seeded sample trip is
+  authored `demo-sample`, so a demo user is a viewer of it. When a demo user
+  asks the agent to change the sample, the backend returns a `duplicate_only`
+  patch and the client **auto-forks**: it silently creates the user's editable
+  copy with the change applied and opens it (`ItineraryAgent` → `onDuplicateCreated`
+  → `onOpenTrip`), instead of a passive "My version" card. Real (email) viewers
+  of a shared trip still get the explicit "My version" card — auto-fork is gated
+  on `user.isDemo`.
+- **Reset on sign-out**: `signOutWithCleanup` (in `firebase.js`) deletes the
+  demo user's own trips (itinerary docs + registry entries selected by
+  `ownDemoTrips`, matching `demo:{uid}` / `demo-{uid}-*`) before deleting the
+  anonymous account, so the shared demo namespace doesn't accumulate orphaned
+  trips. Best-effort; never blocks sign-out.
 - **Limits** (per anonymous uid):
-  - **2 trips** (`VITE_DEMO_MAX_TRIPS`) — enforced client-side in `Dashboard.jsx`
-    / `App.jsx` (create, copy, agent-duplicate paths) and bounded by Firestore
-    rules (an anon user may only write trips whose id is `demo-{uid}-*`).
+  - **5 trips** (`VITE_DEMO_MAX_TRIPS`, default raised from 2) — enforced
+    client-side in `Dashboard.jsx` / `App.jsx` (create, copy, agent-duplicate
+    paths) and bounded by Firestore rules (an anon user may only write trips
+    whose id is `demo-{uid}-*`).
   - **100 AI interactions** (`DEMO_MAX_AI_CALLS`) — enforced server-side in
     `backend/demo.py` (`require_user_or_demo_quota`), counting against
     `demo_quota/{uid}` in Firestore. Over the cap → HTTP 429
