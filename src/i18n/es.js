@@ -11,6 +11,7 @@ export default {
   demoBanner: 'Modo demo — puedes crear hasta {maxTrips} viajes y usar el asistente de IA {maxAi} veces. Nada se guarda: tus cambios se borran al cerrar sesión o cerrar la pestaña.',
   demoTripLimit: 'Límite de demo alcanzado: puedes crear hasta {max} viajes. Inicia sesión para acceso completo o ponte en contacto.',
   demoAiLimit: 'Alcanzaste el límite de demo del asistente de IA. Contacta al propietario para acceso completo.',
+  demoUnavailable: 'El asistente de demo está muy solicitado ahora — se alcanzó el límite diario. Inténtalo de nuevo mañana o contacta al propietario para acceso completo.',
 
   // Common
   cancel: 'Cancelar',

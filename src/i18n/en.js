@@ -11,6 +11,7 @@ export default {
   demoBanner: 'Demo mode — you can create up to {maxTrips} trips and use the AI assistant {maxAi} times. Nothing is saved: your changes reset when you sign out or close the tab.',
   demoTripLimit: 'Demo limit reached: you can create up to {max} trips. Sign in for full access or get in touch.',
   demoAiLimit: "You've reached the demo limit for the AI assistant. Reach out to the owner for full access.",
+  demoUnavailable: 'The demo assistant is busy right now — the daily limit was reached. Please try again tomorrow, or reach out to the owner for full access.',
 
   // Common
   cancel: 'Cancel',
