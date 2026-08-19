@@ -39,6 +39,8 @@ import AddTripDialog     from './AddTripDialog'
 import EmptyDashboard    from './EmptyDashboard'
 import TripShareDialog   from './TripShareDialog'
 import UserProfileDialog from './UserProfileDialog'
+import ConfirmDialog     from './ConfirmDialog'
+import NoticeSnackbar    from './NoticeSnackbar'
 import {
   getRegistry, saveRegistry,
   getFavorites, saveFavorites,
@@ -79,6 +81,8 @@ export default function Dashboard({ user, isAdmin, isDemo, gatewayTripId, onSele
 
   const [mobileMenu, setMobileMenu] = useState(null)
   const [shareDialog, setShareDialog] = useState(null) // { trip, folderId }
+  const [confirmDelete, setConfirmDelete] = useState(null) // { tripId, label }
+  const [notice, setNotice] = useState('')
 
   // ── Registry live sync ────────────────────────────────────────────
   useEffect(() => {
@@ -185,7 +189,14 @@ export default function Dashboard({ user, isAdmin, isDemo, gatewayTripId, onSele
 
   function deleteTrip(_folderId, tripId, e) {
     e.stopPropagation()
-    if (!window.confirm(t('confirmDeleteTrip'))) return
+    const trip = registry.find(tr => tr.id === tripId)
+    setConfirmDelete({ tripId, label: trip?.label || '' })
+  }
+
+  function confirmDeleteTrip() {
+    const tripId = confirmDelete?.tripId
+    setConfirmDelete(null)
+    if (!tripId) return
     updateRegistry(prev => prev.filter(t => t.id !== tripId))
     deleteTripData(tripId)
     // Also delete the cloud doc so the trip doesn't come back on next sync /
@@ -218,7 +229,7 @@ export default function Dashboard({ user, isAdmin, isDemo, gatewayTripId, onSele
     if (!isDemo) return false
     const owned = registry.filter(tr => tr.author === user.email).length
     if (owned >= DEMO_MAX_TRIPS) {
-      window.alert(t('demoTripLimit', { max: DEMO_MAX_TRIPS }))
+      setNotice(t('demoTripLimit', { max: DEMO_MAX_TRIPS }))
       return true
     }
     return false
@@ -769,6 +780,19 @@ export default function Dashboard({ user, isAdmin, isDemo, gatewayTripId, onSele
       )}
 
       <UserProfileDialog open={profileOpen} onClose={() => setProfileOpen(false)} userEmail={user?.email} />
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title={t('confirmDeleteTrip')}
+        message={confirmDelete?.label || ''}
+        confirmLabel={t('delete')}
+        cancelLabel={t('cancel')}
+        danger
+        onConfirm={confirmDeleteTrip}
+        onClose={() => setConfirmDelete(null)}
+      />
+
+      <NoticeSnackbar message={notice} onClose={() => setNotice('')} severity="warning" />
 
       {shareDialog && (
         <TripShareDialog
