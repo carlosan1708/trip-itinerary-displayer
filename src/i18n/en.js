@@ -328,7 +328,7 @@ export default {
   agentInlineAccept: 'Accept',
   agentInlineReject: 'Reject',
   agentReviewTitle: 'AI proposed changes',
-  agentReviewHint: 'Review the changes on your itinerary',
+  agentReviewHint: 'See changes on your itinerary →',
   agentReviewAcceptAll: 'Accept all',
   agentReviewRejectAll: 'Reject all',
   agentReviewJump: 'Jump to change',

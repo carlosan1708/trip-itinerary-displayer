@@ -328,7 +328,7 @@ export default {
   agentInlineAccept: 'Aceptar',
   agentInlineReject: 'Rechazar',
   agentReviewTitle: 'La IA propone cambios',
-  agentReviewHint: 'Revisa los cambios en tu itinerario',
+  agentReviewHint: 'Ver los cambios en tu itinerario →',
   agentReviewAcceptAll: 'Aceptar todo',
   agentReviewRejectAll: 'Rechazar todo',
   agentReviewJump: 'Ir al cambio',

@@ -22,6 +22,7 @@ export default function ItineraryAgentChat({
   onApplyPatch,
   onDuplicateWithPatch,
   onDismissPatch,
+  onSeeChanges,
   progressSteps,
   progressCurrent,
 }) {
@@ -196,7 +197,9 @@ export default function ItineraryAgentChat({
               </Box>
             )}
 
-            {/* Inline-review hint: changes were surfaced on the itinerary */}
+            {/* Inline-review hint: changes were surfaced on the itinerary.
+                Tappable — closes the drawer so the review is visible (essential
+                on mobile, where the full-width drawer covers the itinerary). */}
             {msg.proposedInline && (
               <Box sx={{ ml: 4.5, mt: 0.75 }}>
                 <Chip
@@ -204,12 +207,15 @@ export default function ItineraryAgentChat({
                   icon={<AutoAwesomeIcon sx={{ fontSize: '13px !important' }} />}
                   label={t('agentReviewHint')}
                   size="small"
+                  clickable
+                  onClick={onSeeChanges}
                   sx={{
-                    fontSize: 11, height: 24,
-                    bgcolor: 'rgba(123,31,162,0.18)',
-                    color: '#e1bee7',
-                    border: '1px solid rgba(123,31,162,0.4)',
+                    fontSize: 11, height: 26,
+                    bgcolor: 'rgba(123,31,162,0.25)',
+                    color: '#f3e5f5',
+                    border: '1px solid rgba(123,31,162,0.55)',
                     '& .MuiChip-icon': { color: '#ce93d8' },
+                    '&:hover': { bgcolor: 'rgba(123,31,162,0.4)', borderColor: 'rgba(206,147,216,0.8)' },
                   }}
                 />
               </Box>

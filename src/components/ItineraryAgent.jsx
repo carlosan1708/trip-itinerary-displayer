@@ -140,7 +140,12 @@ export default function ItineraryAgent({
         const inlineReview = !!(
           patch && canEdit && onProposePatch && changes?.length && policy !== 'duplicate_only'
         )
-        if (inlineReview) onProposePatch(patch)
+        if (inlineReview) {
+          onProposePatch(patch)
+          // On mobile the full-width drawer covers the itinerary, so close it to
+          // reveal the review bar + day-card diffs the change was surfaced on.
+          if (isNarrow) setOpen(false)
+        }
         updateLastAssistant(() => ({
           content: response,
           streaming: false,
@@ -158,7 +163,7 @@ export default function ItineraryAgent({
       },
     )
     abortRef.current = abort
-  }, [input, loading, messages, itinerary, mode, language, canEdit, onProposePatch, onProposeNewTrip, t])
+  }, [input, loading, messages, itinerary, mode, language, canEdit, onProposePatch, onProposeNewTrip, isNarrow, t])
 
   const handleApplyPatch = useCallback((patch) => {
     if (!itinerary || !canEdit) return
@@ -309,6 +314,7 @@ export default function ItineraryAgent({
             onApplyPatch={handleApplyPatch}
             onDuplicateWithPatch={handleDuplicateWithPatch}
             onDismissPatch={handleDismissPatch}
+            onSeeChanges={handleClose}
           />
         </Box>
       </Drawer>

@@ -28,9 +28,11 @@ export default function AgentReviewBar({ diff, canEdit, onAcceptAll, onRejectAll
       data-testid="agent-review-bar"
       sx={{
         position: 'sticky', top: 0,
-        // Sit above the persistent assistant drawer (its docked paper is ~1200)
-        // so the action buttons stay clickable while the drawer is open.
-        zIndex: 1300,
+        // Desktop: sit above the persistent side drawer (its docked paper is
+        // ~1200) so the action buttons stay clickable while it's open. Mobile:
+        // the drawer is a full-screen temporary overlay, so drop BELOW it — the
+        // bar should be hidden behind the drawer, not bleed over it.
+        zIndex: { xs: 1100, md: 1300 },
         background: 'linear-gradient(135deg, #4A148C 0%, #6A1B9A 55%, #1b5e20 100%)',
         color: '#fff',
         boxShadow: '0 4px 18px rgba(74,20,140,0.35)',
