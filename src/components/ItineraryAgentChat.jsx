@@ -21,6 +21,7 @@ export default function ItineraryAgentChat({
   onApplyPatch,
   onDuplicateWithPatch,
   onDismissPatch,
+  onSeeChanges,
 }) {
   const t = useT()
   const bottomRef = useRef(null)
@@ -50,6 +51,37 @@ export default function ItineraryAgentChat({
                 ? t('agentInputPlaceholderWithItinerary')
                 : t('agentInputPlaceholderEmpty')}
             </Typography>
+            {/* Tappable example prompts — guide first-time users and give big
+                touch targets on mobile. Clicking fills the input to edit/send. */}
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              flexWrap="wrap"
+              justifyContent="center"
+              sx={{ mt: 2.5, px: 1 }}
+            >
+              {(itinerary
+                ? [t('agentExTrip1'), t('agentExTrip2'), t('agentExTrip3')]
+                : [t('agentExCreate1'), t('agentExCreate2')]
+              ).map((ex) => (
+                <Chip
+                  key={ex}
+                  label={ex}
+                  onClick={() => onInputChange(ex)}
+                  data-testid="agent-example-chip"
+                  sx={{
+                    color: 'rgba(255,255,255,0.85)',
+                    bgcolor: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                    height: 'auto',
+                    py: 0.75,
+                    '& .MuiChip-label': { whiteSpace: 'normal', px: 1.25, fontSize: 12.5 },
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.3)' },
+                  }}
+                />
+              ))}
+            </Stack>
           </Box>
         )}
 
@@ -162,7 +194,9 @@ export default function ItineraryAgentChat({
               </Box>
             )}
 
-            {/* Inline-review hint: changes were surfaced on the itinerary */}
+            {/* Inline-review hint: changes were surfaced on the itinerary.
+                Tappable — closes the drawer so the review is visible (essential
+                on mobile, where the full-width drawer covers the itinerary). */}
             {msg.proposedInline && (
               <Box sx={{ ml: 4.5, mt: 0.75 }}>
                 <Chip
@@ -170,12 +204,15 @@ export default function ItineraryAgentChat({
                   icon={<AutoAwesomeIcon sx={{ fontSize: '13px !important' }} />}
                   label={t('agentReviewHint')}
                   size="small"
+                  clickable
+                  onClick={onSeeChanges}
                   sx={{
-                    fontSize: 11, height: 24,
-                    bgcolor: 'rgba(123,31,162,0.18)',
-                    color: '#e1bee7',
-                    border: '1px solid rgba(123,31,162,0.4)',
+                    fontSize: 11, height: 26,
+                    bgcolor: 'rgba(123,31,162,0.25)',
+                    color: '#f3e5f5',
+                    border: '1px solid rgba(123,31,162,0.55)',
                     '& .MuiChip-icon': { color: '#ce93d8' },
+                    '&:hover': { bgcolor: 'rgba(123,31,162,0.4)', borderColor: 'rgba(206,147,216,0.8)' },
                   }}
                 />
               </Box>

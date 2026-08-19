@@ -98,24 +98,59 @@ async def test_non_demo_user_bypasses_quota():
 
 
 @pytest.mark.asyncio
-async def test_demo_user_under_limit_increments_and_passes():
+async def test_demo_user_under_both_limits_increments_both_and_passes():
     user = _anon_token()
     with patch.object(demo, "_read_ai_calls", AsyncMock(return_value=5)), \
          patch.object(demo, "_increment_ai_calls", AsyncMock()) as inc, \
-         patch.object(demo, "_MAX_AI_CALLS", 100):
+         patch.object(demo, "_read_daily_calls", AsyncMock(return_value=10)), \
+         patch.object(demo, "_increment_daily_calls", AsyncMock()) as ginc, \
+         patch.object(demo, "_MAX_AI_CALLS", 20), \
+         patch.object(demo, "_MAX_DAILY_AI_CALLS", 500):
         result = await demo.require_user_or_demo_quota(user)
     assert result == user
     inc.assert_awaited_once()
+    ginc.assert_awaited_once()  # global counter also advances
 
 
 @pytest.mark.asyncio
-async def test_demo_user_over_limit_raises_429():
+async def test_demo_user_over_personal_limit_raises_429_limit_reached():
     user = _anon_token()
-    with patch.object(demo, "_read_ai_calls", AsyncMock(return_value=100)), \
+    with patch.object(demo, "_read_ai_calls", AsyncMock(return_value=20)), \
          patch.object(demo, "_increment_ai_calls", AsyncMock()) as inc, \
-         patch.object(demo, "_MAX_AI_CALLS", 100):
+         patch.object(demo, "_read_daily_calls", AsyncMock(return_value=0)), \
+         patch.object(demo, "_increment_daily_calls", AsyncMock()) as ginc, \
+         patch.object(demo, "_MAX_AI_CALLS", 20), \
+         patch.object(demo, "_MAX_DAILY_AI_CALLS", 500):
         with pytest.raises(HTTPException) as exc:
             await demo.require_user_or_demo_quota(user)
     assert exc.value.status_code == 429
     assert exc.value.detail["code"] == "demo_limit_reached"
     inc.assert_not_awaited()
+    ginc.assert_not_awaited()  # nothing is charged on a rejected call
+
+
+@pytest.mark.asyncio
+async def test_demo_globally_unavailable_when_daily_cap_hit():
+    # Global circuit-breaker: even a user under their personal cap is refused
+    # once the whole demo has burned its daily budget.
+    user = _anon_token()
+    with patch.object(demo, "_read_ai_calls", AsyncMock(return_value=0)), \
+         patch.object(demo, "_increment_ai_calls", AsyncMock()) as inc, \
+         patch.object(demo, "_read_daily_calls", AsyncMock(return_value=500)), \
+         patch.object(demo, "_increment_daily_calls", AsyncMock()) as ginc, \
+         patch.object(demo, "_MAX_AI_CALLS", 20), \
+         patch.object(demo, "_MAX_DAILY_AI_CALLS", 500):
+        with pytest.raises(HTTPException) as exc:
+            await demo.require_user_or_demo_quota(user)
+    assert exc.value.status_code == 429
+    assert exc.value.detail["code"] == "demo_globally_unavailable"
+    inc.assert_not_awaited()
+    ginc.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_default_caps_are_conservative():
+    # Guardrail against a careless bump: personal cap stays small and a global
+    # daily cap exists. (Env can override, but the shipped defaults are cheap.)
+    assert demo._MAX_AI_CALLS <= 25
+    assert demo._MAX_DAILY_AI_CALLS >= 1

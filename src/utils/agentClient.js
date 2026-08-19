@@ -19,13 +19,19 @@ async function getAuthHeader() {
   return { Authorization: `Bearer ${token}` }
 }
 
-// Sentinel the UI checks to show the "demo limit reached, contact me" message
-// instead of a raw server error. The backend returns 429 with a JSON body
-// { detail: { code: "demo_limit_reached" } } once a demo user is over quota.
+// Sentinels the UI maps to friendly messages instead of a raw server error.
+// The backend returns 429 with { detail: { code } }:
+//   demo_limit_reached       — this demo user hit their personal AI-call cap
+//   demo_globally_unavailable — the whole demo hit its daily budget (circuit-breaker)
 export const DEMO_LIMIT_ERROR = 'DEMO_LIMIT_REACHED'
+export const DEMO_UNAVAILABLE_ERROR = 'DEMO_UNAVAILABLE'
 
 async function handleErrorResponse(res, onError) {
   const text = await res.text()
+  if (res.status === 429 && text.includes('demo_globally_unavailable')) {
+    onError(DEMO_UNAVAILABLE_ERROR)
+    return
+  }
   if (res.status === 429 && text.includes('demo_limit_reached')) {
     onError(DEMO_LIMIT_ERROR)
     return

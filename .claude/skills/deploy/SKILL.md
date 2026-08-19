@@ -14,7 +14,9 @@ omit is wiped — and several are required:
 - `GEMINI_API_KEY`, `ADMIN_EMAIL`
 - `RECAPTCHA_PROJECT_ID`, `RECAPTCHA_API_KEY`, `RECAPTCHA_SITE_KEY`,
   `RECAPTCHA_MIN_SCORE` — demo mode fails closed (`recaptcha_failed`) without these
-- `DEMO_TRIP_ID`, `DEMO_MAX_AI_CALLS`
+- `DEMO_TRIP_ID`, `DEMO_MAX_AI_CALLS`, `DEMO_MAX_DAILY_AI_CALLS` (per-user +
+  global daily demo caps; both default in code, but set them in `backend/.env`
+  to override)
 
 Carry every key from `backend/.env` EXCEPT `GOOGLE_APPLICATION_CREDENTIALS`
 (a local file path; on Cloud Run `auth.py` falls back to ApplicationDefault).

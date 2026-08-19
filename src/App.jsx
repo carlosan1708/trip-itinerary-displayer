@@ -618,7 +618,10 @@ function AppContent({
       </Container>
 
       <Box component="footer" sx={{
-        textAlign: 'center', py: 4,
+        textAlign: 'center', pt: 4,
+        // Extra bottom room on mobile so the fixed AI-assistant FAB doesn't cover
+        // the footer text.
+        pb: { xs: 12, sm: 4 },
         background: 'linear-gradient(135deg, #0d1b2a 0%, #1a2f4a 45%, #0c2a1a 100%)',
         color: 'rgba(255,255,255,0.5)',
       }}>

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { streamChat, streamCreate, DEMO_LIMIT_ERROR } from './agentClient'
+import { streamChat, streamCreate, DEMO_LIMIT_ERROR, DEMO_UNAVAILABLE_ERROR } from './agentClient'
 
 // Build a ReadableStream that emits the given string chunks as Uint8Arrays,
 // so we can drive the SSE reader exactly the way the network would.
@@ -103,6 +103,16 @@ describe('streamChat — error responses', () => {
     streamChat({ messages: [] }, () => {}, () => {}, e => { err = e })
     await flush()
     expect(err).toBe(DEMO_LIMIT_ERROR)
+  })
+
+  it('maps a 429 demo_globally_unavailable body to the DEMO_UNAVAILABLE_ERROR sentinel', async () => {
+    let err = null
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      errorResponse(429, JSON.stringify({ detail: { code: 'demo_globally_unavailable' } })),
+    )
+    streamChat({ messages: [] }, () => {}, () => {}, e => { err = e })
+    await flush()
+    expect(err).toBe(DEMO_UNAVAILABLE_ERROR)
   })
 
   it('surfaces a generic server error with status and body', async () => {

@@ -11,6 +11,7 @@ export default {
   demoBanner: 'Modo demo — puedes crear hasta {maxTrips} viajes y usar el asistente de IA {maxAi} veces. Nada se guarda: tus cambios se borran al cerrar sesión o cerrar la pestaña.',
   demoTripLimit: 'Límite de demo alcanzado: puedes crear hasta {max} viajes. Inicia sesión para acceso completo o ponte en contacto.',
   demoAiLimit: 'Alcanzaste el límite de demo del asistente de IA. Contacta al propietario para acceso completo.',
+  demoUnavailable: 'El asistente de demo está muy solicitado ahora — se alcanzó el límite diario. Inténtalo de nuevo mañana o contacta al propietario para acceso completo.',
 
   // Common
   cancel: 'Cancelar',
@@ -293,6 +294,11 @@ export default {
   agentInputPlaceholderEmpty: 'Describe el viaje que querés planear y lo creo para vos.',
   agentInputPlaceholderWithItinerary: 'Preguntá sobre el itinerario o pedí cambios…',
   agentInputPlaceholder: 'Escribí un mensaje…',
+  agentExTrip1: '¿Qué clima hace?',
+  agentExTrip2: 'Agrega un día relajado',
+  agentExTrip3: '¿Cómo me muevo por ahí?',
+  agentExCreate1: 'Un viaje de 5 días a Japón para 2',
+  agentExCreate2: 'Fin de semana en Lisboa con poco presupuesto',
   agentSendTooltip: 'Enviar (Enter)',
   agentInputHint: 'Shift+Enter para nueva línea · los cambios siempre requieren confirmación',
   agentDiffDayLabel: 'Día {n}',
@@ -322,7 +328,7 @@ export default {
   agentInlineAccept: 'Aceptar',
   agentInlineReject: 'Rechazar',
   agentReviewTitle: 'La IA propone cambios',
-  agentReviewHint: 'Revisa los cambios en tu itinerario',
+  agentReviewHint: 'Ver los cambios en tu itinerario →',
   agentReviewAcceptAll: 'Aceptar todo',
   agentReviewRejectAll: 'Rechazar todo',
   agentReviewJump: 'Ir al cambio',

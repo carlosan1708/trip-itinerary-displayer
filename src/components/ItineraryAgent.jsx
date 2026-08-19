@@ -1,13 +1,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import {
-  Box, Drawer, Fab, IconButton, Stack, Tooltip, Typography,
+  Box, Drawer, Fab, IconButton, Stack, Tooltip, Typography, useMediaQuery,
 } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep'
 
 import ItineraryAgentChat from './ItineraryAgentChat'
-import { streamChat, streamCreate, DEMO_LIMIT_ERROR } from '../utils/agentClient'
+import { streamChat, streamCreate, DEMO_LIMIT_ERROR, DEMO_UNAVAILABLE_ERROR } from '../utils/agentClient'
 import { applyPatch, describePatch, normalizeItinerary, sanitizePatch } from '../utils/itineraryPatch'
 import { detectCreateIntent, parseCreateRequest } from '../utils/createIntent'
 import { useT } from '../i18n'
@@ -30,6 +31,11 @@ export default function ItineraryAgent({
   onInitialPromptConsumed,
 }) {
   const t = useT()
+  const theme = useTheme()
+  // Below md the drawer becomes a full-width overlay (a fixed 420px drawer is
+  // wider than a phone). At md+ it stays a persistent side panel, matching the
+  // md content inset used by AgentReviewBar / NewTripPreview.
+  const isNarrow = useMediaQuery(theme.breakpoints.down('md'))
   const [openInternal, setOpenInternal] = useState(false)
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -71,6 +77,13 @@ export default function ItineraryAgent({
   const handleClose = () => { abortActive(); setOpen(false) }
   const handleClear = () => { abortActive(); setMessages([]) }
 
+  // Map an agent error to user-facing chat content: demo caps get friendly
+  // localized copy; everything else surfaces as a plain error.
+  const errorContent = (errMsg) =>
+    errMsg === DEMO_LIMIT_ERROR ? t('demoAiLimit')
+      : errMsg === DEMO_UNAVAILABLE_ERROR ? t('demoUnavailable')
+        : `Error: ${errMsg}`
+
   const updateLastAssistant = (updater) =>
     setMessages(prev => {
       const next = [...prev]
@@ -108,7 +121,7 @@ export default function ItineraryAgent({
         },
         (errMsg) => {
           setLoading(false)
-          const content = errMsg === DEMO_LIMIT_ERROR ? t('demoAiLimit') : `Error: ${errMsg}`
+          const content = errorContent(errMsg)
           updateLastAssistant(() => ({ content, streaming: false, creating: false }))
         },
       )
@@ -137,7 +150,12 @@ export default function ItineraryAgent({
         const autoFork = !!(
           patch && changes?.length && policy === 'duplicate_only' && user?.isDemo && onOpenTrip
         )
-        if (inlineReview) onProposePatch(patch)
+        if (inlineReview) {
+          onProposePatch(patch)
+          // On mobile the full-width drawer covers the itinerary, so close it to
+          // reveal the review bar + day-card diffs the change was surfaced on.
+          if (isNarrow) setOpen(false)
+        }
         updateLastAssistant(() => ({
           content: response,
           streaming: false,
@@ -151,12 +169,12 @@ export default function ItineraryAgent({
       },
       (errMsg) => {
         setLoading(false)
-        const content = errMsg === DEMO_LIMIT_ERROR ? t('demoAiLimit') : `Error: ${errMsg}`
+        const content = errorContent(errMsg)
         updateLastAssistant(() => ({ content, streaming: false }))
       },
     )
     abortRef.current = abort
-  }, [input, loading, messages, itinerary, mode, language, canEdit, onProposePatch, onProposeNewTrip, t])
+  }, [input, loading, messages, itinerary, mode, language, canEdit, onProposePatch, onProposeNewTrip, isNarrow, t])
 
   const handleApplyPatch = useCallback((patch) => {
     if (!itinerary || !canEdit) return
@@ -234,11 +252,14 @@ export default function ItineraryAgent({
       {/* Drawer */}
       <Drawer
         anchor="right"
-        variant="persistent"
+        variant={isNarrow ? 'temporary' : 'persistent'}
         open={open}
+        onClose={handleClose}
+        ModalProps={{ keepMounted: true }}
         PaperProps={{
           sx: {
-            width: DRAWER_WIDTH,
+            width: { xs: '100vw', sm: DRAWER_WIDTH },
+            maxWidth: '100vw',
             display: 'flex',
             flexDirection: 'column',
             background: 'linear-gradient(160deg, #0d1b2a 0%, #1a2f4a 60%, #0c2a1a 100%)',
@@ -308,6 +329,7 @@ export default function ItineraryAgent({
             onApplyPatch={handleApplyPatch}
             onDuplicateWithPatch={handleDuplicateWithPatch}
             onDismissPatch={handleDismissPatch}
+            onSeeChanges={handleClose}
           />
         </Box>
       </Drawer>

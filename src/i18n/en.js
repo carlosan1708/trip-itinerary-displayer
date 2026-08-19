@@ -11,6 +11,7 @@ export default {
   demoBanner: 'Demo mode — you can create up to {maxTrips} trips and use the AI assistant {maxAi} times. Nothing is saved: your changes reset when you sign out or close the tab.',
   demoTripLimit: 'Demo limit reached: you can create up to {max} trips. Sign in for full access or get in touch.',
   demoAiLimit: "You've reached the demo limit for the AI assistant. Reach out to the owner for full access.",
+  demoUnavailable: 'The demo assistant is busy right now — the daily limit was reached. Please try again tomorrow, or reach out to the owner for full access.',
 
   // Common
   cancel: 'Cancel',
@@ -293,6 +294,11 @@ export default {
   agentInputPlaceholderEmpty: 'Describe the trip you want to plan and I\'ll create it for you.',
   agentInputPlaceholderWithItinerary: 'Ask about the itinerary or request changes…',
   agentInputPlaceholder: 'Type a message…',
+  agentExTrip1: "What's the weather like?",
+  agentExTrip2: 'Add a relaxed day',
+  agentExTrip3: 'How do I get around?',
+  agentExCreate1: 'A 5-day trip to Japan for 2',
+  agentExCreate2: 'Weekend in Lisbon on a budget',
   agentSendTooltip: 'Send (Enter)',
   agentInputHint: 'Shift+Enter for a new line · changes always require confirmation',
   agentDiffDayLabel: 'Day {n}',
@@ -322,7 +328,7 @@ export default {
   agentInlineAccept: 'Accept',
   agentInlineReject: 'Reject',
   agentReviewTitle: 'AI proposed changes',
-  agentReviewHint: 'Review the changes on your itinerary',
+  agentReviewHint: 'See changes on your itinerary →',
   agentReviewAcceptAll: 'Accept all',
   agentReviewRejectAll: 'Reject all',
   agentReviewJump: 'Jump to change',
