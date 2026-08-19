@@ -53,6 +53,37 @@ export default function ItineraryAgentChat({
                 ? t('agentInputPlaceholderWithItinerary')
                 : t('agentInputPlaceholderEmpty')}
             </Typography>
+            {/* Tappable example prompts — guide first-time users and give big
+                touch targets on mobile. Clicking fills the input to edit/send. */}
+            <Stack
+              direction="row"
+              spacing={1}
+              useFlexGap
+              flexWrap="wrap"
+              justifyContent="center"
+              sx={{ mt: 2.5, px: 1 }}
+            >
+              {(itinerary
+                ? [t('agentExTrip1'), t('agentExTrip2'), t('agentExTrip3')]
+                : [t('agentExCreate1'), t('agentExCreate2')]
+              ).map((ex) => (
+                <Chip
+                  key={ex}
+                  label={ex}
+                  onClick={() => onInputChange(ex)}
+                  data-testid="agent-example-chip"
+                  sx={{
+                    color: 'rgba(255,255,255,0.85)',
+                    bgcolor: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                    height: 'auto',
+                    py: 0.75,
+                    '& .MuiChip-label': { whiteSpace: 'normal', px: 1.25, fontSize: 12.5 },
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.3)' },
+                  }}
+                />
+              ))}
+            </Stack>
           </Box>
         )}
 
