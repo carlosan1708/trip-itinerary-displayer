@@ -308,8 +308,9 @@ Each note document:
 - Slide-in panel from the right side of the itinerary view, kept minimal — it
   carries the conversation (ask questions / request edits) but no longer renders
   a bulky diff card.
-- Uses the **Google Gemini API** (`gemini-2.5-flash` via `google-genai`, two direct
-  calls — no LangGraph) through the Python backend to propose itinerary edits.
+- Uses the **Google Gemini API** (default `gemini-3.7-flash`, override via the
+  `GEMINI_MODEL` env var; `google-genai`, two direct calls — no LangGraph) through
+  the Python backend to propose itinerary edits.
 - **Structured intent (`_detect_intent` in `backend/chat.py`)**: returns
   `answer | propose_patch | copy`, and is **symmetric** — it does not depend on
   mode or ownership. Copy wins first; an explicit edit marker forces

@@ -4,7 +4,7 @@
 > describes the *planned* architecture (LangGraph state machines, a parallel
 > part-agent fan-out, a Wikimedia image tool, and `gemini-2.0-flash-lite`). The
 > shipped backend does **none** of that: it is **two direct `google-genai` calls**
-> (`gemini-2.5-flash`) — `backend/chat.py` (answer / propose_patch / copy) and
+> (default `gemini-3.7-flash`, env-overridable via `GEMINI_MODEL`) — `backend/chat.py` (answer / propose_patch / copy) and
 > `backend/create.py` (skeleton + days). For current behavior — structured intent,
 > server-derived owner/viewer policy, patch sanitisation, grounded answers — see
 > [`specs/as-built.md`](../../specs/as-built.md), which is authoritative. Keep this
