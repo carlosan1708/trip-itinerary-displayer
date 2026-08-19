@@ -168,3 +168,36 @@ test.describe('Dashboard — copy trip', () => {
     await expect(page.getByRole('dialog')).not.toBeVisible()
   })
 })
+
+// ── Delete uses an in-app dialog, not a native window.confirm() popup ───────
+test.describe('Dashboard — delete trip (in-app confirm)', () => {
+  test.beforeEach(async ({ page }) => {
+    await setupAllowedUserAuth(page)  // owns "Ruta Este" → delete button visible
+    await page.goto('/')
+  })
+
+  async function clickDelete(page) {
+    await page.getByText('Ruta Este').hover()
+    await page.getByRole('button', { name: 'Delete' }).first().click()
+  }
+
+  test('clicking delete shows the in-app confirm dialog', async ({ page }) => {
+    await clickDelete(page)
+    await expect(page.getByTestId('confirm-dialog')).toBeVisible()
+    await expect(page.getByTestId('confirm-accept')).toBeVisible()
+    await expect(page.getByTestId('confirm-cancel')).toBeVisible()
+  })
+
+  test('cancel keeps the trip', async ({ page }) => {
+    await clickDelete(page)
+    await page.getByTestId('confirm-cancel').click()
+    await expect(page.getByTestId('confirm-dialog')).toHaveCount(0)
+    await expect(page.getByText('Ruta Este')).toBeVisible()
+  })
+
+  test('confirming removes the trip', async ({ page }) => {
+    await clickDelete(page)
+    await page.getByTestId('confirm-accept').click()
+    await expect(page.getByText('Ruta Este')).toHaveCount(0)
+  })
+})

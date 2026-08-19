@@ -22,6 +22,7 @@ import DayCard from './components/DayCard'
 import LoginScreen from './components/LoginScreen'
 import AccessDenied from './components/AccessDenied'
 import Dashboard from './components/Dashboard'
+import NoticeSnackbar from './components/NoticeSnackbar'
 
 const GATEWAY_TRIP_ID = import.meta.env.VITE_TRIP_ID
 const DEMO_TRIP_ID    = import.meta.env.VITE_DEMO_TRIP_ID || 'demo-gateway'
@@ -55,6 +56,7 @@ export default function App() {
   const [pdfLoading, setPdfLoading]         = useState(false)
   const [agentOpen, setAgentOpen]           = useState(false)
   const [agentInitialPrompt, setAgentInitialPrompt] = useState('')
+  const [notice, setNotice] = useState('')
   const [language, setLanguage]             = useState(() => {
     const stored = localStorage.getItem('lang')
     return stored === 'en' || stored === 'es' ? stored : 'en'
@@ -274,7 +276,7 @@ export default function App() {
     if (user?.isDemo) {
       const owned = reg.filter(tr => tr.author === user.email).length
       if (owned >= DEMO_MAX_TRIPS) {
-        window.alert(translate(language, 'demoTripLimit', { max: DEMO_MAX_TRIPS }))
+        setNotice(translate(language, 'demoTripLimit', { max: DEMO_MAX_TRIPS }))
         return null
       }
     }
@@ -322,6 +324,7 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <I18nProvider lang={language} onLangChange={handleLangChange}>
+        <NoticeSnackbar message={notice} onClose={() => setNotice('')} severity="warning" />
         <AppContent
           user={user}
           allowed={allowed}
